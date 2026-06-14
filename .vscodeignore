@@ -1,0 +1,17 @@
+.vscode/**
+src/**
+out/test/**
+.github/**
+tsconfig.json
+.gitignore
+.eslintrc*
+plan.md
+**/*.map
+**/*.ts
+.vscode-test/**
+ejemplo.chat
+media/icon-src.svg
+media/icon.svg
+**/*.chat
+**/*.attach
+**/*.sysprompt

@@ -1,0 +1,297 @@
+{
+  "name": "lang-chat",
+  "displayName": "Lang Chat",
+  "description": "%ext.description%",
+  "version": "0.1.0",
+  "publisher": "enavarre",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Chat",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "En un workspace no confiable se desactivan los servidores MCP (.mcp) y la escritura de archivos (fs_write); el resto funciona."
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "langChat.new",
+        "title": "%cmd.new.title%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "langChat.setApiKey",
+        "title": "%cmd.setApiKey.title%"
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "langChat.editor",
+        "displayName": "Lang Chat",
+        "selector": [
+          {
+            "filenamePattern": "*.chat"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "languages": [
+      {
+        "id": "markdown",
+        "extensions": [
+          ".sysprompt"
+        ],
+        "aliases": []
+      }
+    ],
+    "configuration": [
+      {
+        "title": "%config.title.general%",
+        "order": 1,
+        "properties": {
+          "langChat.language": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "en",
+              "es"
+            ],
+            "enumDescriptions": [
+              "%config.language.enum.auto%",
+              "English",
+              "Español"
+            ],
+            "default": "auto",
+            "description": "%config.language.desc%"
+          },
+          "langChat.provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "ollama",
+              "gemini",
+              "anthropic",
+              "openrouter"
+            ],
+            "enumDescriptions": [
+              "%config.provider.enum.openai%",
+              "%config.provider.enum.ollama%",
+              "%config.provider.enum.gemini%",
+              "%config.provider.enum.anthropic%",
+              "%config.provider.enum.openrouter%"
+            ],
+            "default": "openai",
+            "description": "%config.provider.desc%"
+          },
+          "langChat.temperature": {
+            "type": "number",
+            "default": 0.7,
+            "minimum": 0,
+            "maximum": 2,
+            "description": "%config.temperature.desc%"
+          },
+          "langChat.maxTokens": {
+            "type": "number",
+            "default": 2048,
+            "description": "%config.maxTokens.desc%"
+          }
+        }
+      },
+      {
+        "title": "LM Studio / OpenAI",
+        "order": 2,
+        "properties": {
+          "langChat.openai.baseUrl": {
+            "type": "string",
+            "default": "http://localhost:1234/v1",
+            "description": "%config.openai.baseUrl.desc%"
+          },
+          "langChat.openai.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "%config.openai.apiKey.desc%"
+          }
+        }
+      },
+      {
+        "title": "Ollama",
+        "order": 3,
+        "properties": {
+          "langChat.ollama.baseUrl": {
+            "type": "string",
+            "default": "http://localhost:11434",
+            "description": "%config.ollama.baseUrl.desc%"
+          }
+        }
+      },
+      {
+        "title": "Google Gemini",
+        "order": 4,
+        "properties": {
+          "langChat.gemini.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "%config.gemini.apiKey.desc%"
+          },
+          "langChat.gemini.baseUrl": {
+            "type": "string",
+            "default": "https://generativelanguage.googleapis.com/v1beta",
+            "description": "%config.gemini.baseUrl.desc%"
+          }
+        }
+      },
+      {
+        "title": "Anthropic",
+        "order": 5,
+        "properties": {
+          "langChat.anthropic.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "%config.anthropic.apiKey.desc%"
+          },
+          "langChat.anthropic.baseUrl": {
+            "type": "string",
+            "default": "https://api.anthropic.com/v1",
+            "description": "%config.anthropic.baseUrl.desc%"
+          }
+        }
+      },
+      {
+        "title": "OpenRouter",
+        "order": 6,
+        "properties": {
+          "langChat.openrouter.apiKey": {
+            "type": "string",
+            "default": "",
+            "description": "%config.openrouter.apiKey.desc%"
+          },
+          "langChat.openrouter.baseUrl": {
+            "type": "string",
+            "default": "https://openrouter.ai/api/v1",
+            "description": "%config.openrouter.baseUrl.desc%"
+          },
+          "langChat.openrouter.vendors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%config.openrouter.vendors.desc%"
+          },
+          "langChat.openrouter.sort": {
+            "type": "string",
+            "enum": [
+              "",
+              "throughput",
+              "latency",
+              "price"
+            ],
+            "enumDescriptions": [
+              "%config.openrouter.sort.enum.default%",
+              "%config.openrouter.sort.enum.throughput%",
+              "%config.openrouter.sort.enum.latency%",
+              "%config.openrouter.sort.enum.price%"
+            ],
+            "default": "",
+            "markdownDescription": "%config.openrouter.sort.desc%"
+          }
+        }
+      },
+      {
+        "title": "%config.title.tools%",
+        "order": 7,
+        "properties": {
+          "langChat.tools.maxReadBytes": {
+            "type": "number",
+            "default": 100000,
+            "minimum": 1000,
+            "markdownDescription": "%config.tools.maxReadBytes.desc%"
+          }
+        }
+      },
+      {
+        "title": "%config.title.tts%",
+        "order": 8,
+        "properties": {
+          "langChat.tts.piperPath": {
+            "type": "string",
+            "default": "piper",
+            "markdownDescription": "%config.tts.piperPath.desc%"
+          },
+          "langChat.tts.piperModel": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.tts.piperModel.desc%"
+          },
+          "langChat.tts.piperSpeaker": {
+            "type": "number",
+            "default": -1,
+            "markdownDescription": "%config.tts.piperSpeaker.desc%"
+          },
+          "langChat.tts.debug": {
+            "type": "boolean",
+            "default": false,
+            "description": "%config.tts.debug.desc%"
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "lint": "eslint src",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^8.61.0",
+    "@typescript-eslint/parser": "^8.61.0",
+    "eslint": "^10.5.0",
+    "typescript": "^5.4.0"
+  },
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "keywords": [
+    "chat",
+    "llm",
+    "ai",
+    "openai",
+    "anthropic",
+    "gemini",
+    "ollama",
+    "openrouter",
+    "lm studio",
+    "mcp",
+    "tools",
+    "copilot",
+    "assistant"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enavarre/lang-chat"
+  },
+  "bugs": {
+    "url": "https://github.com/enavarre/lang-chat/issues"
+  },
+  "homepage": "https://github.com/enavarre/lang-chat#readme",
+  "dependencies": {
+    "undici": "^6.26.0"
+  }
+}

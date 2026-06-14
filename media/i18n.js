@@ -1,0 +1,137 @@
+// i18n del webview. Estrategia "inglés como clave": el texto fuente (en el código
+// y el HTML) está en inglés y ES la clave; solo mantenemos el diccionario español.
+// t() devuelve el inglés tal cual cuando el idioma es 'en', o su traducción al
+// español cuando es 'es' (con fallback al inglés si falta la entrada).
+(function () {
+  const ES = {
+    // Topbar
+    'Export to PDF (print)': 'Exportar a PDF (imprimir)',
+    'Reasoning panel': 'Panel de razonamiento',
+    'Tools panel': 'Panel de herramientas',
+    "This chat's settings": 'Configuración de este chat',
+    'Connection settings (API keys / URLs)': 'Ajustes de conexión (API keys / URLs)',
+    'Tokens used in this chat': 'Tokens usados en este chat',
+    'Zoom in (Alt/Option + wheel)': 'Acercar (Alt/Option + rueda)',
+    'Zoom out (Alt/Option + wheel)': 'Alejar (Alt/Option + rueda)',
+    'Reset zoom (Alt/Option + 0)': 'Restablecer zoom (Alt/Option + 0)',
+    // Composer
+    'Context window usage': 'Uso de la ventana de contexto',
+    'Type a message…  (Enter to send · Shift+Enter for newline)': 'Escribe un mensaje…  (Enter envía · Shift+Enter salto de línea)',
+    'Attach image or file': 'Adjuntar imagen o archivo',
+    'Stop': 'Detener',
+    'Send': 'Enviar',
+    'Type and press ⏎': 'Escribe y pulsa ⏎',
+    // Paneles
+    'Settings': 'Configuración',
+    'Hide': 'Ocultar',
+    'Model': 'Modelo',
+    'Model context window': 'Ventana de contexto del modelo',
+    'Reload models': 'Recargar modelos',
+    'Reasoning': 'Razonamiento',
+    "The model's reasoning will appear here.": 'El razonamiento del modelo aparecerá aquí.',
+    'Tools': 'Herramientas',
+    'Tool calls will appear here.': 'Las llamadas a herramientas aparecerán aquí.',
+    'Language': 'Idioma',
+    'Automatic': 'Automático',
+    // System prompt
+    'System prompt (file)': 'System prompt (archivo)',
+    'System instructions…': 'Instrucciones del sistema…',
+    'Open': 'Abrir',
+    'Open the .sysprompt': 'Abrir el .sysprompt',
+    'Remove': 'Quitar',
+    'Back to inline system prompt': 'Volver al system prompt inline',
+    'Save': 'Guardar',
+    'Save the prompt to a .sysprompt (markdown) file and reference it': 'Guarda el prompt en un archivo .sysprompt (markdown) y lo referencia',
+    'Load': 'Cargar',
+    'Use an existing .sysprompt file': 'Usar un archivo .sysprompt existente',
+    // SCHEMA: grupos y parámetros
+    'General': 'Ajustes', // grupo de parámetros (distinto del panel 'Settings')
+    'Limit response length': 'Limitar longitud de respuesta',
+    'History to send: last N messages': 'Historial a enviar: últimos N mensajes',
+    'Auto-summarize when context fills up': 'Resumen automático al llenarse el contexto',
+    'Summary token budget (auto = 75% of model)': 'Presupuesto de tokens del resumen (auto = 75% del modelo)',
+    'Model window: num_ctx (tokens)': 'Ventana del modelo: num_ctx (tokens)',
+    'Reasoning / thinking': 'Razonamiento / thinking',
+    'Tools: workspace filesystem + MCP servers (.mcp)': 'Tools: filesystem del workspace + servidores MCP (.mcp)',
+    // Roles y badges
+    'You': 'Tú',
+    'Assistant': 'Asistente',
+    'reasoning': 'razonamiento',
+    'tools': 'herramientas',
+    // Acciones de mensaje
+    'Copy': 'Copiar',
+    'Edit message': 'Editar mensaje',
+    'Reprocess (regenerate as a new variant)': 'Reprocesar (regenerar como nueva variante)',
+    'Continue / keep developing this response': 'Continuar / seguir desarrollando esta respuesta',
+    'Generate a response to this message': 'Generar respuesta a este mensaje',
+    'Regenerate the response to this message': 'Regenerar la respuesta a este mensaje',
+    'Merge with previous message': 'Fusionar con el mensaje anterior',
+    'Fork: clone the conversation up to here into a new .chat': 'Bifurcar: clonar la conversación hasta aquí en un .chat nuevo',
+    'Delete': 'Borrar',
+    'Delete this variant': 'Borrar esta variante',
+    'Delete message': 'Borrar mensaje',
+    '⌥/Alt: delete this and all below': '⌥/Alt: borra este y todos los de abajo',
+    'The model put the whole response in its reasoning 🧠 — turn off «Reasoning / thinking» in ⚙ to see it here.':
+      'El modelo puso toda la respuesta en el razonamiento 🧠 — desactiva «Razonamiento / thinking» en ⚙ para verla aquí.',
+    '(empty response)': '(respuesta vacía)',
+    'Previous variant': 'Variante anterior',
+    'Next variant': 'Variante siguiente',
+    'Cancel': 'Cancelar',
+    'This message has no reasoning.': 'Este mensaje no incluye razonamiento.',
+    'No tool activity.': 'Sin actividad de herramientas.',
+    // Estado y modelos
+    'No connection': 'Sin conexión',
+    'No models': 'Sin modelos',
+    'Loading…': 'Cargando…',
+    'model context tokens': 'tokens de contexto del modelo',
+    'Vision (images)': 'Visión (imágenes)',
+    'Audio': 'Audio',
+    'Files / documents': 'Archivos / documentos',
+    'Tools / function calling': 'Tools / function calling',
+    'Context': 'Contexto',
+    'messages': 'mensajes',
+    'Tokens (current messages)': 'Tokens (mensajes actuales)',
+    'input': 'entrada',
+    'output': 'salida',
+    'total': 'total',
+    'Cost': 'Coste',
+    // Lectura en voz alta (TTS)
+    'Read aloud': 'Leer en voz alta',
+    'Engine': 'Motor',
+    'System (Web Speech)': 'Sistema (Web Speech)',
+    'Piper (neural, better quality)': 'Piper (neural, mejor calidad)',
+    'Custom (path in Settings)': 'Personalizada (ruta en Ajustes)',
+    'Set the .onnx model path in Settings (langChat.tts.piperModel).': 'Configura la ruta del modelo .onnx en Ajustes (langChat.tts.piperModel).',
+    'The engine and voice download automatically the first time, then work offline.': 'El motor y la voz se descargan solos la primera vez y luego funcionan sin conexión.',
+    'Update': 'Actualizar',
+    'Re-download the Piper engine and voice (e.g. if updated upstream).': 'Vuelve a descargar el motor y la voz de Piper (p. ej. si se actualizaron en origen).',
+    'Voice': 'Voz',
+    'Speed': 'Velocidad',
+    'Test voice': 'Probar voz',
+    'Hello, this is a voice test.': 'Hola, esto es una prueba de voz.',
+    'Loading system voices…': 'Cargando voces del sistema…',
+    "Couldn't load system voices.": 'No se pudieron cargar las voces del sistema.',
+    'Retry': 'Reintentar',
+    'Dismiss': 'Descartar',
+    'Speech synthesis is not available in this environment.': 'La síntesis de voz no está disponible en este entorno.',
+    'Audio playback is not available in this environment.': 'La reproducción de audio no está disponible en este entorno.',
+    'Could not decode the audio.': 'No se pudo decodificar el audio.',
+    'Could not read the file: ': 'No se pudo leer el archivo: ',
+    // Adjuntos
+    'Attachment too large (max 20 MB): ': 'Adjunto demasiado grande (máx 20 MB): ',
+  };
+
+  let _lang = 'en';
+  window.LangI18n = {
+    set(l) { _lang = l === 'es' ? 'es' : 'en'; },
+    get() { return _lang; },
+    t(s) { return _lang === 'es' ? (ES[s] || s) : s; },
+    applyStatic(root) {
+      root = root || document;
+      const self = this;
+      root.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = self.t(el.getAttribute('data-i18n')); });
+      root.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = self.t(el.getAttribute('data-i18n-title')); });
+      root.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = self.t(el.getAttribute('data-i18n-ph')); });
+    },
+  };
+})();

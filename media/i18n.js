@@ -14,6 +14,11 @@
     'Zoom in (Alt/Option + wheel)': 'Acercar (Alt/Option + rueda)',
     'Zoom out (Alt/Option + wheel)': 'Alejar (Alt/Option + rueda)',
     'Reset zoom (Alt/Option + 0)': 'Restablecer zoom (Alt/Option + 0)',
+    // Buscador
+    'Search in chat…': 'Buscar en el chat…',
+    'Previous match (Shift+Enter)': 'Anterior (Shift+Enter)',
+    'Next match (Enter)': 'Siguiente (Enter)',
+    'Close (Esc)': 'Cerrar (Esc)',
     // Composer
     'Context window usage': 'Uso de la ventana de contexto',
     'Type a message…  (Enter to send · Shift+Enter for newline)': 'Escribe un mensaje…  (Enter envía · Shift+Enter salto de línea)',

@@ -827,6 +827,8 @@
     suppressScroll = false;
     if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
     else messagesEl.scrollTop = prevTop;
+    // Si el buscador está abierto, re-resalta sobre el DOM recién reconstruido.
+    if (typeof refreshFind === 'function') refreshFind();
     // Muestra el razonamiento del último mensaje en el panel.
     showThinking(lastThinking);
   }
@@ -1720,7 +1722,10 @@
   // ---- Zoom propio del chat (independiente del zoom global de VS Code) ----
   let zoom = LangZoom.clampZoom((vscode.getState() && vscode.getState().zoom) || 1);
   function applyZoom() {
-    document.body.style.zoom = String(zoom);
+    // Zoom SOLO al historial (que tiene su propio scroll), no a todo el body: zoomear el body
+    // escalaba el layout 100vh y desbordaba/recortaba el composer (la barra de escribir).
+    document.body.style.zoom = '';                // limpia un zoom previo en body (estado antiguo)
+    if (messagesEl) messagesEl.style.zoom = String(zoom);
     const lbl = $('zoomResetBtn');
     if (lbl) lbl.textContent = Math.round(zoom * 100) + '%';
     const s = vscode.getState() || {};
@@ -1739,6 +1744,8 @@
   // Alt/Option + 0 → resetear.
   window.addEventListener('keydown', (e) => {
     if (e.altKey && (e.key === '0')) { e.preventDefault(); setZoom(1); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); }
+    if (e.key === 'Escape' && findBar && !findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
   });
   // Controles de la barra: −, %, + (el % reestablece a 100%).
   $('zoomInBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, -1)));
@@ -1765,6 +1772,122 @@
   $('thinkClose').addEventListener('click', () => { thinkPanel.classList.add('hidden'); updateSide(); });
   $('toolsBtn').addEventListener('click', () => { if (toolsPanel.classList.contains('hidden')) showTools(toolsLive); toolsPanel.classList.toggle('hidden'); updateSide(); });
   $('toolsClose').addEventListener('click', () => { toolsPanel.classList.add('hidden'); updateSide(); });
+
+  // ---- Buscador dentro del chat (Ctrl/Cmd+F) ----
+  const findBar = $('findBar');
+  const findInput = $('findInput');
+  const findCount = $('findCount');
+  let findHits = [];   // <mark> resaltados, en orden de documento
+  let findIdx = -1;    // índice del hit "actual"
+
+  // Quita todos los <mark> y reconstruye los nodos de texto originales.
+  function clearFindMarks() {
+    const marks = messagesEl.querySelectorAll('mark.find-hit');
+    marks.forEach((mk) => {
+      const p = mk.parentNode;
+      if (!p) return;
+      p.replaceChild(document.createTextNode(mk.textContent), mk);
+      p.normalize(); // fusiona nodos de texto adyacentes
+    });
+    findHits = [];
+    findIdx = -1;
+  }
+
+  // Envuelve cada coincidencia de `ql` (minúsculas) dentro de un nodo de texto en <mark>.
+  function highlightInNode(node, ql) {
+    const text = node.nodeValue;
+    const lower = text.toLowerCase();
+    if (!lower.includes(ql)) return;
+    const frag = document.createDocumentFragment();
+    let i = 0, idx;
+    while ((idx = lower.indexOf(ql, i)) !== -1) {
+      if (idx > i) frag.appendChild(document.createTextNode(text.slice(i, idx)));
+      const mk = document.createElement('mark');
+      mk.className = 'find-hit';
+      mk.textContent = text.slice(idx, idx + ql.length);
+      frag.appendChild(mk);
+      i = idx + ql.length;
+    }
+    if (i < text.length) frag.appendChild(document.createTextNode(text.slice(i)));
+    node.parentNode.replaceChild(frag, node);
+  }
+
+  function updateFindCount() {
+    if (!findInput.value.trim()) { findCount.textContent = ''; return; }
+    findCount.textContent = findHits.length ? (findIdx + 1) + '/' + findHits.length : '0/0';
+  }
+
+  function setCurrentHit(scroll) {
+    findHits.forEach((h, k) => h.classList.toggle('current', k === findIdx));
+    if (scroll && findIdx >= 0 && findHits[findIdx]) {
+      findHits[findIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  }
+
+  // Busca `query` en las burbujas. opts.keepPos preserva el hit actual y no hace scroll
+  // (se usa al re-renderizar mientras la barra está abierta, p. ej. tras un mensaje nuevo).
+  function runFind(query, opts) {
+    opts = opts || {};
+    const prevIdx = findIdx;
+    clearFindMarks();
+    const q = (query || '').trim();
+    if (!q) { updateFindCount(); return; }
+    const ql = q.toLowerCase();
+    const walker = document.createTreeWalker(messagesEl, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        const p = node.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (p.tagName === 'SCRIPT' || p.tagName === 'STYLE') return NodeFilter.FILTER_REJECT;
+        return node.nodeValue.toLowerCase().includes(ql) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    const targets = [];
+    let n;
+    while ((n = walker.nextNode())) targets.push(n);
+    for (const node of targets) highlightInNode(node, ql);
+    findHits = Array.prototype.slice.call(messagesEl.querySelectorAll('mark.find-hit'));
+    if (opts.keepPos) findIdx = findHits.length ? Math.min(Math.max(prevIdx, 0), findHits.length - 1) : -1;
+    else findIdx = findHits.length ? 0 : -1;
+    setCurrentHit(!opts.keepPos);
+    updateFindCount();
+  }
+
+  function findNav(dir) {
+    if (!findHits.length) return;
+    findIdx = (findIdx + dir + findHits.length) % findHits.length;
+    setCurrentHit(true);
+    updateFindCount();
+  }
+
+  function openFind() {
+    findBar.classList.remove('hidden');
+    findInput.focus();
+    findInput.select();
+    if (findInput.value.trim()) runFind(findInput.value);
+  }
+
+  function closeFind() {
+    findBar.classList.add('hidden');
+    clearFindMarks();
+    updateFindCount();
+  }
+
+  // Re-aplica el resaltado tras un re-render si la barra sigue abierta (el innerHTML se rehace).
+  function refreshFind() {
+    if (findBar && !findBar.classList.contains('hidden') && findInput.value.trim()) {
+      runFind(findInput.value, { keepPos: true });
+    }
+  }
+
+  findInput.addEventListener('input', () => runFind(findInput.value));
+  findInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); findNav(e.shiftKey ? -1 : 1); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeFind(); }
+  });
+  $('findPrev').addEventListener('click', () => findNav(-1));
+  $('findNext').addEventListener('click', () => findNav(1));
+  $('findClose').addEventListener('click', () => closeFind());
 
   // Aplica un idioma: traduce el HTML estático y re-renderiza lo dinámico.
   function applyLanguage(lang, pref) {

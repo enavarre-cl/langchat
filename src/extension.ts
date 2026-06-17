@@ -1612,6 +1612,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
 
     <div id="workspace">
       <div id="chat">
+        <div id="findBar" class="hidden">
+          <span class="find-ico">🔎</span>
+          <input id="findInput" type="text" spellcheck="false" data-i18n-ph="Search in chat…" placeholder="Search in chat…" />
+          <span id="findCount"></span>
+          <button id="findPrev" class="icon-btn" data-i18n-title="Previous match (Shift+Enter)" title="Previous match (Shift+Enter)">▲</button>
+          <button id="findNext" class="icon-btn" data-i18n-title="Next match (Enter)" title="Next match (Enter)">▼</button>
+          <button id="findClose" class="icon-btn" data-i18n-title="Close (Esc)" title="Close (Esc)">×</button>
+        </div>
         <main id="messages"></main>
         <footer id="composer">
           <div id="notices"></div>

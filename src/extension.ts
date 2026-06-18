@@ -1531,8 +1531,12 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         case 'openSysPrompt': {
           const doc = getDoc();
           if (!doc || !doc.systemPromptFile) break;
-          const file = vscode.Uri.joinPath(document.uri, '..', doc.systemPromptFile);
-          await vscode.commands.executeCommand('vscode.open', file);
+          // Confina al directorio del .chat (mismo guard que resolveSystemPrompt): un
+          // systemPromptFile editado a mano no puede abrir archivos fuera (../../etc/passwd).
+          const dir = path.dirname(document.uri.fsPath);
+          const resolved = path.resolve(dir, doc.systemPromptFile);
+          if (resolved !== dir && !resolved.startsWith(dir + path.sep)) break;
+          await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(resolved));
           break;
         }
         case 'clearSysPrompt': {
@@ -1835,8 +1839,6 @@ const UI = {
 };
 
 function makeNonce(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let s = '';
-  for (let i = 0; i < 32; i++) s += chars.charAt(Math.floor(Math.random() * chars.length));
-  return s;
+  // Aleatoriedad criptográfica (no Math.random) para el nonce del CSP.
+  return crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '');
 }

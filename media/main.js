@@ -872,7 +872,9 @@
       const who = m.role === 'user' ? t('You') : t('Assistant');
       let imgs = '';
       for (const a of (m.attachments || [])) {
-        if (a.kind === 'image') imgs += `<img src="data:${a.mime};base64,${a.data}"/>`;
+        // Escapa mime y data: un sidecar .attach manipulado a mano podría inyectar markup
+        // en el HTML exportado (se abre en el navegador externo).
+        if (a.kind === 'image') imgs += `<img src="data:${escapeHtml(a.mime)};base64,${escapeHtml(a.data)}"/>`;
       }
       const inner = (m.content ? renderMarkdown(m.content) : '') + imgs;
       body += `<div class="m ${m.role}"><div class="who">${who}</div><div class="bubble">${inner}</div></div>`;

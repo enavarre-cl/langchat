@@ -115,6 +115,7 @@
     'Regenerate the response to this message': 'Regenerar la respuesta a este mensaje',
     'Merge with previous message': 'Fusionar con el mensaje anterior',
     'Fork: clone the conversation up to here into a new .chat': 'Bifurcar: clonar la conversación hasta aquí en un .chat nuevo',
+    '⌥/Alt: fork from here to the end': '⌥/Alt: bifurca desde aquí hasta el final',
     'Delete': 'Borrar',
     'Delete this variant': 'Borrar esta variante',
     'Delete message': 'Borrar mensaje',

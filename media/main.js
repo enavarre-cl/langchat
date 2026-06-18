@@ -536,8 +536,9 @@
         actions.appendChild(iconButton(ICONS.mergeUp, t('Merge with previous message'),
           () => vscode.postMessage({ type: 'mergeMessage', index: opts.index })));
       }
-      actions.appendChild(iconButton(ICONS.branch, t('Fork: clone the conversation up to here into a new .chat'),
-        () => vscode.postMessage({ type: 'fork', index: opts.index })));
+      actions.appendChild(iconButton(ICONS.branch,
+        t('Fork: clone the conversation up to here into a new .chat') + ` · ${t('⌥/Alt: fork from here to the end')}`,
+        (e) => vscode.postMessage({ type: 'fork', index: opts.index, fromHere: !!(e && e.altKey) })));
       const hasVariants = opts.variantCount > 1;
       const delTitle = (hasVariants
         ? `${t('Delete this variant')} (${(opts.variantActive || 0) + 1}/${opts.variantCount})`

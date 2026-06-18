@@ -1123,17 +1123,20 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     };
 
     // Bifurca: clona la conversación hasta `index` (incluido) en un nuevo .chat y lo abre.
-    const handleFork = async (index: number): Promise<void> => {
+    const handleFork = async (index: number, fromHere = false): Promise<void> => {
       const doc = getDoc();
       if (!doc) return;
       if (!Number.isInteger(index) || index < 0 || index >= doc.messages.length) return;
 
-      const sliced = doc.messages.slice(0, index + 1);
+      // Normal: clona hasta aquí (incluido). ⌥/Alt: clona DESDE aquí hasta el final.
+      const sliced = fromHere ? doc.messages.slice(index) : doc.messages.slice(0, index + 1);
       const forked: ChatDoc = {
         ...doc,
         title: doc.title + ' (' + tr('fork') + ')',
         messages: sliced,
-        summary: doc.summary && doc.summary.upTo <= sliced.length ? doc.summary : undefined,
+        // El resumen referencia índices viejos; solo sigue válido en el fork "hasta aquí"
+        // si cubre dentro del recorte. En "desde aquí" se descarta (cambia el origen).
+        summary: !fromHere && doc.summary && doc.summary.upTo <= sliced.length ? doc.summary : undefined,
         usage: undefined, // el uso se deriva de los mensajes presentes
       };
 
@@ -1436,7 +1439,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (busy) break;
           if (Number.isInteger(msg.index)) {
             busy = true;
-            try { await handleFork(msg.index); } finally { busy = false; }
+            try { await handleFork(msg.index, msg.fromHere === true); } finally { busy = false; }
           }
           break;
         case 'generate':

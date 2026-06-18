@@ -24,6 +24,7 @@ import { ToolHub } from './tools';
 import { wavData, concatWavs, splitForTTS } from './audio';
 import { initProxy } from './http';
 import { tr, resolvedLang } from './i18n';
+import { registerCompare } from './compareView';
 
 // Hub de tools (filesystem nativo + servidores MCP), compartido por todos los chats.
 const toolHub = new ToolHub();
@@ -166,6 +167,8 @@ function localModelHfId(name?: string): string | undefined {
 
 export function activate(context: vscode.ExtensionContext) {
   const provider = new ChatEditorProvider(context);
+
+  registerCompare(context); // comando de comparación de versiones (Timeline / paleta)
 
   initProxy(); // configura el proxy (http.proxy / env) para todas las peticiones
   context.subscriptions.push(
@@ -1281,6 +1284,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (doc) webview.postMessage({ type: 'history', messages: resolveDocForView(doc).messages, usage: doc.usage });
     };
 
+    // Pide confirmación modal antes de borrar, salvo que el webview indique saltarla (Shift).
+    const confirmDelete = async (msg: any, text: string): Promise<boolean> => {
+      if (msg && msg.confirm === false) return true; // Shift: borra directo
+      const yes = tr('Delete');
+      const pick = await vscode.window.showWarningMessage(text, { modal: true }, yes);
+      return pick === yes;
+    };
+
     const onMsg = webview.onDidReceiveMessage(async (msg: any) => {
       switch (msg?.type) {
         case 'ready':
@@ -1336,6 +1347,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (!doc) break;
           const i = msg.index;
           if (Number.isInteger(i) && i >= 0 && i < doc.messages.length) {
+            if (!(await confirmDelete(msg, tr('Delete this message?')))) break;
             // Arrastra la cadena de tools OCULTA adyacente (assistant con toolCalls + resultados
             // 'tool') en AMBOS lados: antes (turno completo) y después (turno roto sin respuesta
             // final). Si no, quedarían huérfanas en el JSON.
@@ -1359,6 +1371,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (!doc) break;
           const i = msg.index;
           if (Number.isInteger(i) && i >= 0 && i < doc.messages.length) {
+            if (!(await confirmDelete(msg, tr('Delete this message and all below?')))) break;
             // Incluye la cadena de tools oculta que precede al punto de corte.
             let start = i;
             while (start > 0 && isHiddenToolMsg(doc.messages[start - 1])) start--;
@@ -1458,6 +1471,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case 'deleteVariant':
           if (!busy && Number.isInteger(msg.index) && Number.isInteger(msg.variant)) {
+            if (!(await confirmDelete(msg, tr('Delete this variant?')))) break;
             await deleteVariant(msg.index, msg.variant);
           }
           break;

@@ -2,6 +2,7 @@
   "ext.description": "Chat with local LLMs (LM Studio / OpenAI-compatible or Ollama) inside VS Code, LM Studio style.",
   "cmd.new.title": "Lang Chat: New chat",
   "cmd.setApiKey.title": "Lang Chat: Set API Key (secure)",
+  "cmd.compareVersion.title": "Compare versions (rendered chat)",
   "cmd.models.add.title": "Add model (browse Hugging Face)",
   "cmd.models.refresh.title": "Refresh models",
   "cmd.models.startServer.title": "Start Ollama server",

@@ -119,6 +119,7 @@
     'Delete this variant': 'Borrar esta variante',
     'Delete message': 'Borrar mensaje',
     '⌥/Alt: delete this and all below': '⌥/Alt: borra este y todos los de abajo',
+    '⇧/Shift: skip confirmation': '⇧/Shift: borra sin confirmar',
     'The model put the whole response in its reasoning 🧠 — turn off «Reasoning / thinking» in ⚙ to see it here.':
       'El modelo puso toda la respuesta en el razonamiento 🧠 — desactiva «Razonamiento / thinking» en ⚙ para verla aquí.',
     '(empty response)': '(respuesta vacía)',

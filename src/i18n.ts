@@ -9,6 +9,18 @@ export function resolvedLang(): 'en' | 'es' {
 }
 
 const BACKEND_ES: Record<string, string> = {
+  // Comparación de versiones
+  'Compare': 'Comparar',
+  'Compare: ': 'Comparar: ',
+  'Past version': 'Versión anterior',
+  'Current version': 'Versión actual',
+  'Pick a .chat version to compare': 'Elige una versión .chat para comparar',
+  'Open the .chat first to compare it.': 'Abre primero el .chat para compararlo.',
+  'Could not read one of the .chat versions.': 'No se pudo leer una de las versiones del .chat.',
+  // Confirmación de borrado
+  'Delete this message?': '¿Borrar este mensaje?',
+  'Delete this message and all below?': '¿Borrar este mensaje y todos los siguientes?',
+  'Delete this variant?': '¿Borrar esta variante?',
   // Chat / TTS
   'Create chat': 'Crear chat',
   'The .chat file has invalid JSON: ': 'El archivo .chat tiene JSON inválido: ',

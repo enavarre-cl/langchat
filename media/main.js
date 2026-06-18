@@ -541,14 +541,15 @@
       const hasVariants = opts.variantCount > 1;
       const delTitle = (hasVariants
         ? `${t('Delete this variant')} (${(opts.variantActive || 0) + 1}/${opts.variantCount})`
-        : t('Delete message')) + ` · ${t('⌥/Alt: delete this and all below')}`;
+        : t('Delete message')) + ` · ${t('⌥/Alt: delete this and all below')} · ${t('⇧/Shift: skip confirmation')}`;
       actions.appendChild(iconButton(ICONS.trash, delTitle, (e) => {
+        const confirm = !(e && e.shiftKey); // Shift salta la confirmación
         if (e && e.altKey && Number.isInteger(opts.index)) {
-          vscode.postMessage({ type: 'deleteFrom', index: opts.index }); // borra este y todos los de abajo
+          vscode.postMessage({ type: 'deleteFrom', index: opts.index, confirm }); // borra este y todos los de abajo
         } else if (hasVariants) {
-          vscode.postMessage({ type: 'deleteVariant', index: opts.index, variant: opts.variantActive || 0 });
+          vscode.postMessage({ type: 'deleteVariant', index: opts.index, variant: opts.variantActive || 0, confirm });
         } else {
-          vscode.postMessage({ type: 'deleteMessage', index: opts.index });
+          vscode.postMessage({ type: 'deleteMessage', index: opts.index, confirm });
         }
       }));
       roleEl.appendChild(actions);
@@ -605,8 +606,8 @@
     el.className = 'tool-result';
     const sum = document.createElement('summary');
     sum.innerHTML = ICONS.tool + '<span>' + escapeHtml(m.toolName || 'tool') + '</span>';
-    const del = iconButton(ICONS.trash, t('Delete'), () =>
-      vscode.postMessage({ type: 'deleteMessage', index }));
+    const del = iconButton(ICONS.trash, t('Delete') + ` · ${t('⇧/Shift: skip confirmation')}`, (e) =>
+      vscode.postMessage({ type: 'deleteMessage', index, confirm: !(e && e.shiftKey) }));
     del.classList.add('tool-del');
     sum.appendChild(del);
     el.appendChild(sum);
@@ -1746,6 +1747,19 @@
     if (e.altKey && (e.key === '0')) { e.preventDefault(); setZoom(1); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); }
     if (e.key === 'Escape' && findBar && !findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
+    // Ctrl/Cmd+Z (y redo): el .chat es un editor de texto, así que el undo del documento
+    // revierte/borra mensajes sin querer. Lo bloqueamos SIEMPRE; dentro de un campo editable
+    // mantenemos su propio undo con execCommand (no toca el documento).
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = e.target;
+      const editable = el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable);
+      if (editable) {
+        const redo = (e.key === 'y' || e.key === 'Y') || e.shiftKey;
+        try { document.execCommand(redo ? 'redo' : 'undo'); } catch (_) { /* sin undo nativo */ }
+      }
+    }
   });
   // Controles de la barra: −, %, + (el % reestablece a 100%).
   $('zoomInBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, -1)));

@@ -96,6 +96,12 @@
         "command": "langChat.models.openLocalModel",
         "title": "%cmd.models.openLocalModel.title%",
         "category": "Lang Chat"
+      },
+      {
+        "command": "langChat.compareVersion",
+        "title": "%cmd.compareVersion.title%",
+        "category": "Lang Chat",
+        "icon": "$(git-compare)"
       }
     ],
     "viewsContainers": {
@@ -173,6 +179,26 @@
           "command": "langChat.models.openModelFromDownload",
           "when": "view == langChat.models && viewItem =~ /ollamaDownload\\./",
           "group": "navigation"
+        }
+      ],
+      "timeline/item/context": [
+        {
+          "command": "langChat.compareVersion",
+          "when": "timelineItem =~ /localHistory/ && resourceExtname == .chat",
+          "group": "1_actions"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "langChat.compareVersion",
+          "when": "activeCustomEditorId == langChat.editor",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "langChat.compareVersion",
+          "when": "resourceExtname == .chat"
         }
       ]
     },

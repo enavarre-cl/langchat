@@ -88,6 +88,9 @@ export class PiperManager {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private httpDepsOk = false; // flask verificado/instalado en este venv
   private static readonly SERVER_IDLE_MS = 5 * 60 * 1000;
+  // Notifica cambios de estado del daemon (arranque/parada) para refrescar el árbol.
+  private readonly _onChange = new vscode.EventEmitter<void>();
+  readonly onDidChange = this._onChange.event;
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -323,7 +326,7 @@ export class PiperManager {
     let stderr = '';
     proc.stderr?.on('data', (d: any) => { stderr += d.toString(); });
     proc.on('exit', () => {
-      if (this.serverProc === proc) { this.serverProc = null; this.serverPort = 0; }
+      if (this.serverProc === proc) { this.serverProc = null; this.serverPort = 0; this._onChange.fire(); }
       if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
     });
     try {
@@ -335,6 +338,7 @@ export class PiperManager {
     this.serverProc = proc;
     this.serverPort = port;
     this.touchIdle();
+    this._onChange.fire();
     return `http://127.0.0.1:${port}`;
   }
 
@@ -405,8 +409,10 @@ export class PiperManager {
   /** Detiene el daemon (si corre). */
   stopServer(): void {
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
+    const was = !!this.serverProc;
     if (this.serverProc) { try { this.serverProc.kill(); } catch { /* nada */ } this.serverProc = null; }
     this.serverPort = 0;
+    if (was) this._onChange.fire();
   }
 
   /** Actualiza el motor: venv pip → upgrade; standalone → re-descarga. */
@@ -433,5 +439,14 @@ export class PiperManager {
   }
 
   /** Apaga el daemon al desactivar la extensión (no dejar el proceso huérfano). */
-  dispose(): void { this.stopServer(); }
+  dispose(): void { this.stopServer(); this._onChange.dispose(); }
+
+  /** Ruta .onnx de la 1ª voz descargada (para arrancar el daemon manualmente). */
+  firstVoiceModel(): string | undefined {
+    const dir = this.dir('piper-voices');
+    let files: string[];
+    try { files = fs.readdirSync(dir); } catch { return undefined; }
+    const onnx = files.filter((f) => f.endsWith('.onnx')).sort()[0];
+    return onnx ? path.join(dir, onnx) : undefined;
+  }
 }

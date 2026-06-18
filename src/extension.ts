@@ -143,21 +143,15 @@ export function activate(context: vscode.ExtensionContext) {
   };
 
   // Instala/actualiza un motor mostrando progreso. (Ollama "update" = reinstala la versión pineada.)
-  const runEngineTask = async (which: any, action: 'install' | 'update'): Promise<void> => {
+  const runEngineTask = async (which: any): Promise<void> => {
     if (which !== 'ollama' && which !== 'piper') return;
     const name = which === 'ollama' ? 'Ollama' : 'Piper';
-    const title = (action === 'install' ? tr('Installing engine…') : tr('Updating engine…')) + ` (${name})`;
+    const title = tr('Installing engine…') + ` (${name})`;
     try {
       await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title }, async (p) => {
         const notify = (m: string) => p.report({ message: m });
-        if (which === 'ollama') {
-          if (action === 'update') ollama.deleteBinary();
-          await ollama.ensureBinary();
-        } else if (action === 'update') {
-          await piper.update(notify);
-        } else {
-          await piper.install(notify);
-        }
+        if (which === 'ollama') await ollama.ensureBinary();
+        else await piper.install(notify);
       });
     } catch (e: any) {
       vscode.window.showErrorMessage(`${name}: ${e?.message ?? e}`);
@@ -191,6 +185,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('langChat.tts.openVoices', () => {
       openVoicesPanel(context, piper, piperVoicesDir, () => { modelsTree.refresh(); voicesChanged.fire(); });
     }),
+    vscode.commands.registerCommand('langChat.tts.startServer', async () => {
+      const model = piper.firstVoiceModel();
+      if (!model) { vscode.window.showInformationMessage(tr('Download a voice first from the Voices section.')); return; }
+      try {
+        await vscode.window.withProgress(
+          { location: vscode.ProgressLocation.Notification, title: tr('Starting the Piper server…') },
+          (p) => piper.ensureServer(model, (m) => p.report({ message: m }))
+        );
+      } catch (e: any) { vscode.window.showErrorMessage(`Piper: ${e?.message ?? e}`); }
+    }),
+    vscode.commands.registerCommand('langChat.tts.stopServer', () => piper.stopServer()),
     vscode.commands.registerCommand('langChat.tts.removeVoice', async (item: any) => {
       const id = item?.word; // el nodo de voz lleva el id en `word`
       if (typeof id !== 'string') return;
@@ -201,8 +206,7 @@ export function activate(context: vscode.ExtensionContext) {
       modelsTree.refresh();
       voicesChanged.fire();
     }),
-    vscode.commands.registerCommand('langChat.engine.install', (item: any) => runEngineTask(item?.word, 'install')),
-    vscode.commands.registerCommand('langChat.engine.update', (item: any) => runEngineTask(item?.word, 'update')),
+    vscode.commands.registerCommand('langChat.engine.install', (item: any) => runEngineTask(item?.word)),
     vscode.commands.registerCommand('langChat.engine.delete', async (item: any) => {
       const which = item?.word;
       if (which !== 'ollama' && which !== 'piper') return;
@@ -671,13 +675,19 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const startFrom = prev ? prev.upTo : 0;
       const block = history.slice(startFrom, targetUpTo);
       if (!block.length) return prev?.text ?? '';
-      webview.postMessage({ type: 'notice', message: tr('🗜️ Summarizing previous context…') });
-      const text = await summarizeMessages(doc, prev?.text ?? '', block);
-      if (text) {
-        doc.summary = { text, upTo: targetUpTo };
-        await writeDoc(doc);
+      // Indicador PERSISTENTE (con spinner) durante toda la llamada al modelo; se quita al terminar
+      // o fallar. (Antes era un aviso que se autocerraba a los 6s y dejaba un hueco sin feedback.)
+      webview.postMessage({ type: 'summarizing', active: true, message: tr('🗜️ Summarizing previous context…') });
+      try {
+        const text = await summarizeMessages(doc, prev?.text ?? '', block);
+        if (text) {
+          doc.summary = { text, upTo: targetUpTo };
+          await writeDoc(doc);
+        }
+        return doc.summary?.text ?? '';
+      } finally {
+        webview.postMessage({ type: 'summarizing', active: false });
       }
-      return doc.summary?.text ?? '';
     };
 
     // Ejecuta una inferencia en streaming sobre `context`. Devuelve lo acumulado.
@@ -690,12 +700,28 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       let history = context;
       let summaryText = '';
 
-      if (doc.params.autoSummary) {
-        // Compactación por TOKENS contra la ventana real del modelo.
+      const cmCfg = doc.params.contextMessages;
+      const lastNActive = cmCfg.enabled && cmCfg.value > 0;
+      if (lastNActive) {
+        // PRIORIDAD: "últimos N mensajes" gana sobre el resumen (que queda obsoleto al avanzar).
+        // El budget de tokens (auto = 75% de la ventana del modelo) también acota: gana el corte
+        // más cercano (no reventar la ventana).
         const modelCtx = modelContexts[doc.model];
-        const budget = doc.params.contextBudget.enabled && doc.params.contextBudget.value > 0
-          ? doc.params.contextBudget.value
-          : (modelCtx ? Math.floor(modelCtx * 0.75) : 16000);
+        const budget = modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
+        let acc = estTokens(doc.systemPrompt);
+        let start = history.length;
+        for (let i = history.length - 1; i >= 0; i--) {
+          if (history.length - i > cmCfg.value) break;            // tope: N mensajes
+          const tk = msgTokens(history[i]);
+          if (acc + tk > budget && start < history.length) break; // tope: token budget
+          acc += tk;
+          start = i;
+        }
+        history = history.slice(start);
+      } else if (doc.params.autoSummary) {
+        // Compactación por TOKENS contra la ventana real del modelo (auto = 75% de la ventana).
+        const modelCtx = modelContexts[doc.model];
+        const budget = modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
 
         // Parte del resumen ya existente: nunca reenviamos lo ya resumido.
         let upTo = doc.summary ? doc.summary.upTo : 0;
@@ -728,12 +754,6 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           }
         }
         history = history.slice(upTo);
-      } else {
-        // Sin resumen: ventana simple por nº de mensajes (si está activada).
-        const cm = doc.params.contextMessages;
-        if (cm.enabled && cm.value > 0 && history.length > cm.value) {
-          history = history.slice(history.length - cm.value);
-        }
       }
 
       // Tras recortar, no empieces por assistant/tool (rompería function calling y Anthropic/Gemini).
@@ -1072,7 +1092,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
 
     const sendHistory = (): void => {
       const doc = getDoc();
-      if (doc) webview.postMessage({ type: 'history', messages: resolveDocForView(doc).messages, usage: doc.usage });
+      // Incluir `summary`: el resumen se crea durante la inferencia y, sin esto, el webview se
+      // quedaba con un summary viejo (barra de contexto contando todo el historial + sin marcas).
+      if (doc) webview.postMessage({ type: 'history', messages: resolveDocForView(doc).messages, usage: doc.usage, summary: doc.summary ?? null });
     };
 
     // Pide confirmación modal antes de borrar, salvo que el webview indique saltarla (Shift).
@@ -1099,6 +1121,50 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
             await this.spellWords.add(msg.lang as SpellLang, msg.word);
           }
           break;
+        case 'summarizeUpTo': {
+          // Resume el contexto hasta el mensaje `index` (exclusivo), igual que el fork "up to here".
+          if (busy) break;
+          const doc = getDoc();
+          if (!doc) break;
+          if (!doc.params.autoSummary) {
+            webview.postMessage({ type: 'notice', message: tr('Enable "Auto-summarize when context fills up" to use the summary.') });
+            break;
+          }
+          const idx = msg.index;
+          const currentUpTo = doc.summary ? doc.summary.upTo : 0;
+          if (!Number.isInteger(idx) || idx <= currentUpTo || idx > doc.messages.length) {
+            webview.postMessage({ type: 'notice', message: tr('Nothing new to summarize.') });
+            break;
+          }
+          busy = true;
+          try {
+            await ensureSummary(doc, doc.messages, idx);
+            pushDoc();
+          } catch (err: any) {
+            webview.postMessage({ type: 'notice', message: tr('⚠️ Could not summarize context: ') + errMsg(err) });
+          } finally { busy = false; }
+          break;
+        }
+        case 'setSummary': {
+          // Edición manual del texto del resumen (no cambia su `upTo`).
+          if (busy) break;
+          const doc = getDoc();
+          if (!doc || !doc.summary || typeof msg.text !== 'string') break;
+          doc.summary = { text: msg.text, upTo: doc.summary.upTo };
+          await writeDoc(doc);
+          pushDoc();
+          break;
+        }
+        case 'clearSummary': {
+          // Borra el resumen: el historial vuelve a enviarse completo (se recalcula si hace falta).
+          if (busy) break;
+          const doc = getDoc();
+          if (!doc || !doc.summary) break;
+          doc.summary = undefined;
+          await writeDoc(doc);
+          pushDoc();
+          break;
+        }
         case 'send':
           if (busy) break;
           busy = true;
@@ -1584,7 +1650,7 @@ function sanitizeAttachments(input: any): { kind: 'image' | 'text' | 'document';
 }
 
 const TOGGLE_KEYS: (keyof ChatParams)[] = [
-  'maxTokens', 'contextMessages', 'contextBudget', 'contextLength', 'numThreads', 'topK', 'topP', 'minP', 'topA',
+  'maxTokens', 'contextMessages', 'contextLength', 'numThreads', 'topK', 'topP', 'minP', 'topA',
   'repeatPenalty', 'presencePenalty', 'frequencyPenalty', 'seed',
 ];
 

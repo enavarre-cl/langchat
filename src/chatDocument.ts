@@ -11,7 +11,6 @@ export interface ChatParams {
   temperature: number; // siempre activo
   maxTokens: Toggle; // límite de longitud de respuesta
   contextMessages: Toggle; // ventana de contexto: nº de últimos mensajes a enviar
-  contextBudget: Toggle; // presupuesto manual de tokens para el resumen (auto si desactivado)
   contextLength: Toggle; // num_ctx, tamaño de contexto del modelo (Ollama)
   numThreads: Toggle; // CPU threads (Ollama)
   topK: Toggle;
@@ -61,7 +60,6 @@ export function defaultParams(defaults: ChatDefaults): ChatParams {
     temperature: defaults.temperature,
     maxTokens: t(false, defaults.maxTokens > 0 ? defaults.maxTokens : 2048),
     contextMessages: t(false, 20),
-    contextBudget: t(false, 16000),
     contextLength: t(false, 4096),
     numThreads: t(false, 4),
     topK: t(false, 40),
@@ -118,7 +116,6 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
     temperature: num(rp.temperature, dp.temperature),
     maxTokens: toggle(rp.maxTokens, dp.maxTokens),
     contextMessages: toggle(rp.contextMessages, dp.contextMessages),
-    contextBudget: toggle(rp.contextBudget, dp.contextBudget),
     contextLength: toggle(rp.contextLength, dp.contextLength),
     numThreads: toggle(rp.numThreads, dp.numThreads),
     topK: toggle(rp.topK, dp.topK),
@@ -243,7 +240,6 @@ export function serializeDoc(doc: ChatDoc): string {
       temperature: doc.params.temperature,
       maxTokens: doc.params.maxTokens,
       contextMessages: doc.params.contextMessages,
-      contextBudget: doc.params.contextBudget,
       contextLength: doc.params.contextLength,
       numThreads: doc.params.numThreads,
       topK: doc.params.topK,

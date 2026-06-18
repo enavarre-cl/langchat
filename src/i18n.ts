@@ -22,7 +22,6 @@ const BACKEND_ES: Record<string, string> = {
   'Voices': 'Voces',
   'No voices downloaded': 'Sin voces descargadas',
   'Delete this voice?': '¿Borrar esta voz?',
-  'Add voice': 'Agregar voz',
   'Delete voice': 'Borrar voz',
   'Download': 'Descargar',
   'Downloaded': 'Descargada',
@@ -53,6 +52,9 @@ const BACKEND_ES: Record<string, string> = {
   'models': 'modelos',
   '🗜️ Summarizing previous context…': '🗜️ Resumiendo contexto previo…',
   '⚠️ Could not summarize context: ': '⚠️ No se pudo resumir el contexto: ',
+  'Nothing new to summarize.': 'No hay nada nuevo que resumir.',
+  'Enable "Auto-summarize when context fills up" to use the summary.':
+    'Activa "Auto-resumir cuando se llene el contexto" para usar el resumen.',
   '⚠️ Some MCP servers failed to start: ': '⚠️ Algunos servidores MCP no arrancaron: ',
   'The model returned no content. Try another model; on OpenRouter, check the key\'s credits/limits.':
     'El modelo no devolvió contenido. Prueba con otro modelo; en OpenRouter, revisa créditos/límites de la key.',
@@ -79,10 +81,10 @@ const BACKEND_ES: Record<string, string> = {
   'stopped': 'detenido',
   'starting…': 'arrancando…',
   'not installed': 'no instalado',
-  'installed': 'instalado',
   'Installing engine…': 'Instalando motor…',
-  'Updating engine…': 'Actualizando motor…',
   'Delete this engine?': '¿Borrar este motor?',
+  'Starting the Piper server…': 'Arrancando el servidor de Piper…',
+  'Download a voice first from the Voices section.': 'Descarga una voz primero en la sección Voices.',
   // Modelos locales — árbol
   'Local models': 'Modelos locales',
   'Start the server to see the models': 'Arranca el servidor para ver los modelos',

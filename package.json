@@ -115,6 +115,18 @@
         "icon": "$(add)"
       },
       {
+        "command": "langChat.tts.startServer",
+        "title": "%cmd.tts.startServer.title%",
+        "category": "Lang Chat",
+        "icon": "$(play)"
+      },
+      {
+        "command": "langChat.tts.stopServer",
+        "title": "%cmd.tts.stopServer.title%",
+        "category": "Lang Chat",
+        "icon": "$(debug-stop)"
+      },
+      {
         "command": "langChat.tts.removeVoice",
         "title": "%cmd.tts.removeVoice.title%",
         "category": "Lang Chat",
@@ -125,12 +137,6 @@
         "title": "%cmd.engine.install.title%",
         "category": "Lang Chat",
         "icon": "$(cloud-download)"
-      },
-      {
-        "command": "langChat.engine.update",
-        "title": "%cmd.engine.update.title%",
-        "category": "Lang Chat",
-        "icon": "$(sync)"
       },
       {
         "command": "langChat.engine.delete",
@@ -186,13 +192,18 @@
           "group": "inline@1"
         },
         {
-          "command": "langChat.engine.update",
-          "when": "view == langChat.models && viewItem =~ /engine\\.(ollama\\.(stopped|running)|piper\\.installed)/",
-          "group": "inline@2"
+          "command": "langChat.tts.startServer",
+          "when": "view == langChat.models && viewItem == engine.piper.stopped",
+          "group": "inline@1"
+        },
+        {
+          "command": "langChat.tts.stopServer",
+          "when": "view == langChat.models && viewItem == engine.piper.running",
+          "group": "inline@1"
         },
         {
           "command": "langChat.engine.delete",
-          "when": "view == langChat.models && viewItem =~ /engine\\.(ollama\\.(stopped|running)|piper\\.installed)/",
+          "when": "view == langChat.models && viewItem =~ /engine\\.(ollama|piper)\\.(stopped|running)/",
           "group": "inline@3"
         },
         {
@@ -274,15 +285,19 @@
           "when": "false"
         },
         {
+          "command": "langChat.tts.startServer",
+          "when": "false"
+        },
+        {
+          "command": "langChat.tts.stopServer",
+          "when": "false"
+        },
+        {
           "command": "langChat.tts.removeVoice",
           "when": "false"
         },
         {
           "command": "langChat.engine.install",
-          "when": "false"
-        },
-        {
-          "command": "langChat.engine.update",
           "when": "false"
         },
         {

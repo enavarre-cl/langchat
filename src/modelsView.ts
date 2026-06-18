@@ -40,6 +40,7 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
     // los botones inline (cancelar/reintentar) nunca se pierden. El % en vivo va en el panel.
     downloads.onDidChangeState(() => this.refresh());
     spell.onDidChange(() => this.refresh());
+    piper.onDidChange(() => this.refresh()); // daemon Piper arrancó/se detuvo
   }
 
   refresh(): void { this._onDidChange.fire(); }
@@ -69,13 +70,16 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
     return it;
   }
 
-  // Nodo del motor Piper (TTS): instalado o no.
+  // Nodo del motor Piper (TTS): no instalado / detenido / corriendo (daemon HTTP).
   private piperEngine(): ModelsTreeItem {
-    const installed = this.piper.isInstalled();
     const it = new ModelsTreeItem('engine', 'Piper (TTS)', undefined, undefined, 'piper');
-    it.description = installed ? tr('installed') : tr('not installed');
-    it.contextValue = installed ? 'engine.piper.installed' : 'engine.piper.notinstalled';
-    it.iconPath = new vscode.ThemeIcon(installed ? 'pass-filled' : 'cloud-download');
+    let state: string;
+    let icon: string;
+    if (!this.piper.isInstalled()) { state = 'notinstalled'; it.description = tr('not installed'); icon = 'cloud-download'; }
+    else if (this.piper.isServerRunning()) { state = 'running'; it.description = tr('running'); icon = 'pass-filled'; }
+    else { state = 'stopped'; it.description = tr('stopped'); icon = 'circle-outline'; }
+    it.contextValue = `engine.piper.${state}`;
+    it.iconPath = new vscode.ThemeIcon(icon);
     return it;
   }
 

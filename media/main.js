@@ -76,7 +76,6 @@
       { key: 'maxTokens', label: 'Limit response length', kind: 'int', min: 1, max: 131072, step: 1, toggle: true },
       { key: 'contextMessages', label: 'History to send: last N messages', kind: 'int', min: 1, max: 500, step: 1, toggle: true },
       { key: 'autoSummary', label: 'Auto-summarize when context fills up', kind: 'bool' },
-      { key: 'contextBudget', label: 'Summary token budget (auto = 75% of model)', kind: 'int', min: 1000, max: 1000000, step: 1000, toggle: true },
       { key: 'contextLength', label: 'Model window: num_ctx (tokens)', kind: 'int', min: 256, max: 131072, step: 256, toggle: true, only: ['ollama'] },
       { key: 'numThreads', label: 'CPU Threads', kind: 'slider', min: 1, max: 32, step: 1, toggle: true, only: ['ollama'] },
       { key: 'thinking', label: 'Reasoning / thinking', kind: 'bool', only: ['gemini', 'anthropic', 'openrouter', 'ollama'] },
@@ -256,6 +255,7 @@
     audio: SVG('<path d="M3 10v4h4l5 5V5L7 10z"/><path d="M16 8a4 4 0 0 1 0 8"/>'),
     speaker: SVG('<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/>'),
     stopsq: SVG('<rect x="6" y="6" width="12" height="12" rx="2"/>'),
+    summarize: SVG('<polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>'),
   };
   function iconButton(svg, title, onClick) {
     const b = document.createElement('button');
@@ -452,13 +452,27 @@
   function addMessage(role, content, opts) {
     opts = opts || {};
     const el = document.createElement('div');
-    el.className = 'msg ' + role;
+    el.className = 'msg ' + role + (opts.preSummary ? ' pre-summary' : '') + (opts.dropped ? ' dropped' : '');
 
     const roleEl = document.createElement('div');
     roleEl.className = 'role';
     const name = document.createElement('span');
     name.textContent = role === 'user' ? t('You') : t('Assistant');
     roleEl.appendChild(name);
+    if (opts.preSummary) {
+      const mark = document.createElement('span');
+      mark.className = 'pre-summary-mark';
+      mark.textContent = '🗜️';
+      mark.title = t('This message is compacted into the context summary.');
+      roleEl.appendChild(mark);
+    }
+    if (opts.dropped) {
+      const mark = document.createElement('span');
+      mark.className = 'pre-summary-mark';
+      mark.textContent = '✂️';
+      mark.title = t('This message is outside the «last N» window — not sent.');
+      roleEl.appendChild(mark);
+    }
 
     if (role === 'assistant') {
       const badge = document.createElement('button');
@@ -541,6 +555,11 @@
       if (opts.canMerge) {
         actions.appendChild(iconButton(ICONS.mergeUp, t('Merge with previous message'),
           () => vscode.postMessage({ type: 'mergeMessage', index: opts.index })));
+      }
+      // Resumir el contexto hasta aquí (mismo límite que el fork "up to here"). Solo con auto-resumen.
+      if (doc && doc.params && doc.params.autoSummary && !opts.preSummary && opts.index > 0) {
+        actions.appendChild(iconButton(ICONS.summarize, t('Summarize the conversation up to here'),
+          () => { clearNotices(); vscode.postMessage({ type: 'summarizeUpTo', index: opts.index }); }));
       }
       actions.appendChild(iconButton(ICONS.branch,
         t('Fork: clone the conversation up to here into a new .chat') + ` · ${t('⌥/Alt: fork from here to the end')}`,
@@ -750,8 +769,27 @@
     if (!isError) setTimeout(() => el.remove(), 6000); // los avisos informativos se autocierran
     return el;
   }
-  function clearNotices() { noticesEl.innerHTML = ''; toolsLive = []; }
+  function clearNotices() { noticesEl.innerHTML = ''; toolsLive = []; summarizingEl = null; }
 
+  // Indicador persistente de "resumiendo…" (con spinner); dura toda la operación, sin auto-cierre.
+  let summarizingEl = null;
+  function showSummarizing(text) {
+    if (summarizingEl && summarizingEl.isConnected) return;
+    const el = document.createElement('div');
+    el.className = 'banner summarizing';
+    const spin = document.createElement('span');
+    spin.className = 'banner-spin';
+    const span = document.createElement('span');
+    span.className = 'banner-text';
+    span.textContent = text || ('🗜️ ' + t('Context summarized up to here'));
+    el.appendChild(spin);
+    el.appendChild(span);
+    noticesEl.appendChild(el);
+    summarizingEl = el;
+  }
+  function hideSummarizing() { if (summarizingEl) { summarizingEl.remove(); summarizingEl = null; } }
+
+  let summaryOpen = false; // ¿está expandida la burbuja del resumen?
   function renderConversation() {
     // Si se está leyendo un mensaje que ya no existe (lo borraron), detén el audio.
     if (tts.busy() && tts.msgId && doc && !(doc.messages || []).some((m) => m.id === tts.msgId)) {
@@ -774,6 +812,115 @@
     for (let k = visible.length - 1; k >= 0; k--) { if (displayable(visible[k])) { lastDisplayable = k; break; } }
     let lastThinking = '';
     let pendingTools = []; // actividad de tools acumulada hasta el mensaje final del turno
+    // Resumen: mensajes [0..upTo) están compactados (no se reenvían). Marcamos el límite con un
+    // divisor (globo = texto del resumen) y atenuamos los mensajes previos.
+    const upTo = doc.summary ? doc.summary.upTo : 0;
+    const summaryText = doc.summary ? doc.summary.text : '';
+    let summaryShown = false;
+    // "Últimos N mensajes": si está activo, GANA sobre el resumen (el resumen viejo no se envía).
+    const cmP = (doc.params && doc.params.contextMessages) || {};
+    const lastN = (cmP.enabled && cmP.value > 0) ? cmP.value : 0; // 0 = inactivo
+    const cut = lastN ? lastNStart(visible, lastN) : 0;   // inicio efectivo (gana el corte más cercano)
+    let lastNShown = false;
+    // Editor inline del resumen (mismo patrón que startEditInline pero guarda en doc.summary).
+    const startEditSummary = (el) => {
+      if (el.querySelector('.edit-wrap')) return;
+      el.classList.add('editing');
+      const body = el.querySelector('.body');
+      body.style.display = 'none';
+      const wrap = document.createElement('div');
+      wrap.className = 'edit-wrap';
+      const ta = document.createElement('textarea');
+      ta.className = 'edit-area';
+      ta.spellcheck = true; ta.lang = 'es';
+      ta.value = summaryText;
+      const bar = document.createElement('div');
+      bar.className = 'edit-bar';
+      const cancel = document.createElement('button');
+      cancel.textContent = t('Cancel'); cancel.className = 'btn-secondary';
+      const save = document.createElement('button');
+      save.textContent = t('Save'); save.className = 'btn-primary';
+      bar.appendChild(cancel); bar.appendChild(save);
+      wrap.appendChild(ta); wrap.appendChild(bar);
+      body.after(wrap);
+      const commit = () => vscode.postMessage({ type: 'setSummary', text: ta.value });
+      const close = () => { body.style.display = ''; wrap.remove(); el.classList.remove('editing'); };
+      save.addEventListener('click', commit);
+      cancel.addEventListener('click', close);
+      ta.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
+        else if (e.key === 'Escape') { e.preventDefault(); close(); }
+      });
+      const autosize = () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, window.innerHeight * 0.5) + 'px'; };
+      ta.addEventListener('input', autosize);
+      ta.focus({ preventScroll: true }); autosize();
+    };
+    // Burbuja centrada con el resumen renderizado (markdown) + acciones.
+    const summaryBubble = () => {
+      const el = document.createElement('div');
+      el.className = 'msg summary-msg';
+      const roleEl = document.createElement('div');
+      roleEl.className = 'role';
+      const nm = document.createElement('span');
+      nm.textContent = '🗜️ ' + t('Context summary');
+      roleEl.appendChild(nm);
+      const actions = document.createElement('span');
+      actions.className = 'msg-actions';
+      const copyBtn = iconButton(ICONS.copy, t('Copy'), () => {
+        vscode.postMessage({ type: 'copy', text: summaryText });
+        copyBtn.innerHTML = ICONS.check; setTimeout(() => { copyBtn.innerHTML = ICONS.copy; }, 1200);
+      });
+      actions.appendChild(copyBtn);
+      const readBtn = iconButton(ICONS.speaker, t('Read aloud'), () => tts.speak(summaryText, readBtn)); // sin msgId: no es un mensaje del historial
+      actions.appendChild(readBtn);
+      actions.appendChild(iconButton(ICONS.edit, t('Edit summary'), () => startEditSummary(el)));
+      actions.appendChild(iconButton(ICONS.branch,
+        t('Fork: clone the conversation up to here into a new .chat') + ` · ${t('⌥/Alt: fork from here to the end')}`,
+        (e) => vscode.postMessage({ type: 'fork', index: upTo, fromHere: !!(e && e.altKey) })));
+      actions.appendChild(iconButton(ICONS.trash, t('Delete summary (uncompact the history)'),
+        () => vscode.postMessage({ type: 'clearSummary' })));
+      roleEl.appendChild(actions);
+      el.appendChild(roleEl);
+      const body = document.createElement('div');
+      body.className = 'body';
+      body.innerHTML = renderMarkdown(summaryText);
+      el.appendChild(body);
+      return el;
+    };
+    const summaryDivider = () => {
+      const d = document.createElement('div');
+      d.className = 'summary-divider' + (summaryOpen ? ' open' : '');
+      const s = document.createElement('button');
+      s.type = 'button';
+      s.className = 'summary-divider-label';
+      s.textContent = '🗜️ ' + t('Context summarized up to here') + (summaryOpen ? ' ▾' : ' ▸');
+      s.title = t('Click to view the summary');
+      s.addEventListener('click', () => { summaryOpen = !summaryOpen; renderConversation(); });
+      d.appendChild(s);
+      messagesEl.appendChild(d);
+      if (summaryOpen) messagesEl.appendChild(summaryBubble());
+    };
+    // Divisor de "últimos N": desde aquí en adelante es lo único que se envía.
+    const lastNDivider = () => {
+      const d = document.createElement('div');
+      d.className = 'lastn-divider';
+      const s = document.createElement('span');
+      s.className = 'lastn-divider-label';
+      s.textContent = '✂️ ' + t('From here: only the last {n} messages are sent').replace('{n}', String(lastN));
+      d.appendChild(s);
+      messagesEl.appendChild(d);
+    };
+    // Con "últimos N" activo, el resumen guardado NO se envía (queda obsoleto): se indica, atenuado.
+    if (lastN && summaryText) {
+      const d = document.createElement('div');
+      d.className = 'summary-divider excluded';
+      const s = document.createElement('span');
+      s.className = 'summary-divider-label';
+      s.textContent = '🗜️ ' + t('Saved summary — not sent while «last N» is active');
+      s.title = summaryText;
+      d.appendChild(s);
+      messagesEl.appendChild(d);
+    }
     for (let i = 0; i < visible.length; i++) {
       const m = visible[i];
       // Mensajes internos de tools: NO se muestran como burbuja; van al panel.
@@ -797,6 +944,12 @@
       // permite re-rollar desde el prompt sin tener que borrar el asistente.
       const canRegenFromPrompt = m.role === 'user' && visible[i + 1] && visible[i + 1].role === 'assistant' && (i + 1) === lastDisplayable;
       const activity = (m.role === 'assistant' && pendingTools.length) ? pendingTools.slice() : null;
+      // Divisor antes del primer mensaje en/after el límite (last-N gana sobre el resumen).
+      if (lastN) {
+        if (!lastNShown && i >= cut) { if (cut > 0) lastNDivider(); lastNShown = true; }
+      } else if (upTo > 0 && !summaryShown && i >= upTo) {
+        summaryDivider(); summaryShown = true;
+      }
       addMessage(m.role, m.content, {
         thinking: m.thinking,
         attachments: m.attachments,
@@ -807,12 +960,16 @@
         canRegenerate,
         canGenerate,
         canRegenFromPrompt,
+        preSummary: !lastN && upTo > 0 && i < upTo, // compactado en el resumen
+        dropped: lastN > 0 && i < cut,              // fuera de la ventana "últimos N"
         variantCount: Array.isArray(m.variants) ? m.variants.length : 1,
         variantActive: m.active || 0,
       });
       if (m.role === 'assistant') lastThinking = m.thinking || '';
       pendingTools = [];
     }
+    // Todo el historial quedó resumido (sin mensajes recientes): divisor al final.
+    if (!lastN && upTo > 0 && !summaryShown) summaryDivider();
     // Restaura el scroll: al final si ya estabas abajo; si no, donde estabas.
     suppressScroll = false;
     if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -887,6 +1044,11 @@
     }
     vscode.postMessage({ type: 'setConfig', patch });
     updateContextBar();
+    // Si cambió algo que mueve los divisores de contexto (últimos N / resumen / budget),
+    // re-renderiza la conversación para que el ✂️/🗜️ y el atenuado reflejen el estado nuevo.
+    if (patch.params && ('contextMessages' in patch.params || 'autoSummary' in patch.params)) {
+      renderConversation();
+    }
   }
   const patchParam = (key, value) => patchConfig({ params: { [key]: value } });
 
@@ -1346,6 +1508,15 @@
     stopBtn.classList.toggle('hidden', !on);
   }
 
+  // Mientras se resume el contexto: bloquea el envío y deshabilita el compositor.
+  let isSummarizing = false;
+  function setSummarizing(on) {
+    isSummarizing = on;
+    if (inputEl) inputEl.disabled = on;
+    if (sendBtn) sendBtn.disabled = on;
+    if (inputBox) inputBox.classList.toggle('busy', on);
+  }
+
   // ---- Adjuntos ----
   const IMG_RE = /^image\//;
   const TEXT_EXT = /\.(txt|md|json|csv|js|ts|tsx|jsx|py|java|c|cpp|h|go|rs|rb|php|html|css|scss|xml|yaml|yml|toml|ini|sh|sql|log|env)$/i;
@@ -1420,6 +1591,26 @@
     for (const a of (m.attachments || [])) t += a.kind === 'image' ? 1200 : estTokens(a.data);
     return t;
   }
+  // Token budget efectivo: auto = 75% de la ventana del modelo.
+  function ctxBudget() {
+    const modelCtx = modelContext[modelSelect.value];
+    return modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
+  }
+  // Índice de inicio efectivo de "últimos N": gana el corte MÁS CERCANO (N mensajes vs token budget).
+  // Réplica exacta del recorte del backend para que el divisor coincida con lo que se envía.
+  function lastNStart(msgs, n) {
+    const budget = ctxBudget();
+    let acc = estTokens(doc ? doc.systemPrompt : '');
+    let start = msgs.length;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs.length - i > n) break;                       // tope: N mensajes
+      const tk = msgTokens(msgs[i]);
+      if (acc + tk > budget && start < msgs.length) break;  // tope: token budget
+      acc += tk;
+      start = i;
+    }
+    return start;
+  }
   function updateUsage() {
     // Se calcula sumando el uso de los mensajes presentes (no un acumulador fijo).
     let pt = 0, ct = 0, tt = 0, cost = 0, has = false;
@@ -1439,15 +1630,22 @@
   }
 
   function updateContextBar() {
-    // Solo aplica con resumen automático (compactación por tokens).
-    if (!doc || !doc.params || !doc.params.autoSummary) { ctxBar.classList.add('hidden'); return; }
-    const modelCtx = modelContext[modelSelect.value];
-    const cb = doc.params.contextBudget;
-    const budget = (cb && cb.enabled && cb.value > 0) ? cb.value : (modelCtx ? Math.floor(modelCtx * 0.75) : 16000);
-    const upTo = doc.summary ? doc.summary.upTo : 0;
-    let total = estTokens(doc.systemPrompt) + estTokens(doc.summary ? doc.summary.text : '');
+    // Aplica con resumen automático O con "últimos N" (ambos recortan lo que se envía).
+    if (!doc || !doc.params) { ctxBar.classList.add('hidden'); return; }
+    const cm = doc.params.contextMessages;
+    const lastN = (cm && cm.enabled && cm.value > 0) ? cm.value : 0; // gana sobre el resumen
+    if (!lastN && !doc.params.autoSummary) { ctxBar.classList.add('hidden'); return; }
+    const budget = ctxBudget();
     const msgs = doc.messages || [];
-    for (let i = upTo; i < msgs.length; i++) total += msgTokens(msgs[i]);
+    let total = estTokens(doc.systemPrompt);
+    if (lastN) {
+      // Solo la ventana efectiva de "últimos N" (acotada por el budget; sin resumen).
+      for (let i = lastNStart(msgs, lastN); i < msgs.length; i++) total += msgTokens(msgs[i]);
+    } else {
+      const upTo = doc.summary ? doc.summary.upTo : 0;
+      total += estTokens(doc.summary ? doc.summary.text : '');
+      for (let i = upTo; i < msgs.length; i++) total += msgTokens(msgs[i]);
+    }
     const pct = Math.min(100, Math.round((total / budget) * 100));
     ctxBar.classList.remove('hidden');
     ctxFill.style.width = pct + '%';
@@ -1457,7 +1655,7 @@
 
   // ---- Enviar ----
   function send() {
-    if (isStreaming) return; // ignora Enter/click mientras se genera una respuesta
+    if (isStreaming || isSummarizing) return; // ignora envíos mientras se genera o se resume
     const text = inputEl.value.trim();
     if (!text && pending.length === 0) return;
     clearNotices();
@@ -2113,10 +2311,17 @@
         break;
       case 'history':
         // Historial autoritativo tras enviar/borrar/fusionar: re-renderiza con índices y acciones.
-        if (doc) doc.messages = msg.messages; // doc.usage no se usa: updateUsage() recalcula de los mensajes
+        if (doc) {
+          doc.messages = msg.messages; // doc.usage no se usa: updateUsage() recalcula de los mensajes
+          if ('summary' in msg) doc.summary = msg.summary || undefined; // mantener el resumen sincronizado
+        }
         renderConversation();
         updateContextBar();
         updateUsage();
+        break;
+      case 'summarizing':
+        setSummarizing(!!msg.active); // bloquea el envío mientras dura
+        if (msg.active) showSummarizing(msg.message); else hideSummarizing();
         break;
       case 'notice':
         notice(msg.message, false);

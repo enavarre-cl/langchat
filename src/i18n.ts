@@ -102,6 +102,7 @@ const BACKEND_ES: Record<string, string> = {
   // Modelos locales — explorador (panel host) y descargas
   'Explore models': 'Explorar modelos',
   'Search GGUF models on Hugging Face…': 'Buscar modelos GGUF en Hugging Face…',
+  'Search and select a model.': 'Busca y selecciona un modelo.',
   'downloading model': 'descargando modelo',
   'downloading projector (vision)': 'descargando proyector (visión)',
   'registering in Ollama': 'registrando en Ollama',

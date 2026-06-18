@@ -6,7 +6,7 @@ import { searchHF, modelFiles, readme, modelInfo, fetchModel, hfFileUrl, project
 import { hfPullRef, formatBytes } from './ollama/parse';
 import { DownloadManager } from './ollama/downloads';
 import { ModelCardCache } from './ollama/cards';
-import { tr } from './i18n';
+import { tr, resolvedLang } from './i18n';
 
 export interface ModelsPanelHooks {
   /** Refresca la vista lateral tras una descarga. */
@@ -194,7 +194,7 @@ export class ModelsPanel {
       `img-src ${webview.cspSource} data: blob: https:`,
     ].join('; ');
     return `<!DOCTYPE html>
-<html lang="es">
+<html lang="${resolvedLang()}">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
@@ -210,7 +210,7 @@ export class ModelsPanel {
       <div id="mb-list"></div>
     </div>
     <div id="mb-right">
-      <div id="mb-detail" class="empty">Busca y selecciona un modelo.</div>
+      <div id="mb-detail" class="empty">${tr('Search and select a model.')}</div>
     </div>
   </div>
   <script nonce="${n}" src="${uri('i18n.js')}"></script>

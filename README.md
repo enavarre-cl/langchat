@@ -25,7 +25,7 @@ management and neural text‑to‑speech without leaving the editor.
 
 ## Features
 
-<!-- TODO: una captura por feature clave (chat, explorador de modelos, TTS, vistas laterales). -->
+<!-- TODO: one screenshot per key feature (chat, model explorer, TTS, sidebar views). -->
 
 - 💬 **Streaming** responses, token by token, with a **Stop** button and auto‑save after each turn.
 - 🧠 **Reasoning / thinking** panel for models that expose it.

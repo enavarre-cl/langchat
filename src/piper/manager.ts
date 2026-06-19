@@ -205,13 +205,15 @@ export class PiperManager {
       if (!sys) throw e;
       py = sys;
     }
-    const pip = path.join(venvDir, process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'pip.exe' : 'pip');
+    const venvPy = this.venvPython();
     notify?.(tr('Setting up the Piper engine (one-time, ~1–2 min)…'));
     fs.mkdirSync(this.context.globalStorageUri.fsPath, { recursive: true });
     await this.runCmd(py, ['-m', 'venv', venvDir]);
-    await this.runCmd(pip, ['install', '--upgrade', 'pip']);
+    // `python -m pip` (not the `pip` script): on Windows upgrading pip.exe while it runs fails
+    // with WinError 5, and the standalone/venv pip can be too old to install the wheels below.
+    await this.runCmd(venvPy, ['-m', 'pip', 'install', '--upgrade', 'pip']);
     // [http] includes flask for the HTTP daemon (synthesis without reloading the model each time).
-    await this.runCmd(pip, ['install', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
+    await this.runCmd(venvPy, ['-m', 'pip', 'install', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
     if (!fs.existsSync(piperBin)) throw new Error('piper not found after install');
     return piperBin;
   }
@@ -348,8 +350,7 @@ export class PiperManager {
     const check = cp.spawnSync(python, ['-c', 'import flask']);
     if (check.status === 0) { this.httpDepsOk = true; return; }
     notify?.(tr('Setting up the Piper engine (one-time, ~1–2 min)…'));
-    const pip = path.join(path.dirname(python), process.platform === 'win32' ? 'pip.exe' : 'pip');
-    await this.runCmd(pip, ['install', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
+    await this.runCmd(python, ['-m', 'pip', 'install', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
     this.httpDepsOk = true;
   }
 
@@ -419,9 +420,9 @@ export class PiperManager {
   async update(notify?: Notify): Promise<void> {
     this.stopServer(); // releases the venv before reinstalling
     this.httpDepsOk = false;
-    const pip = path.join(this.dir('piper-venv'), process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'pip.exe' : 'pip');
-    if (fs.existsSync(pip)) {
-      await this.runCmd(pip, ['install', '--upgrade', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
+    const venvPy = this.venvPython();
+    if (fs.existsSync(venvPy)) {
+      await this.runCmd(venvPy, ['-m', 'pip', 'install', '--upgrade', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
     } else {
       try { fs.rmSync(this.dir('piper-bin'), { recursive: true, force: true }); } catch { /* noop */ }
     }

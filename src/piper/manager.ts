@@ -61,9 +61,9 @@ const PIPER_VOICE_SHA256: Record<string, string> = {
  *  coincidir con las claves de PIPER_VOICE_SHA256 (fail-closed) y con media/main.js. */
 export interface PiperVoiceInfo { id: string; label: string; lang: 'es' | 'en'; }
 export const PIPER_VOICE_CATALOG: PiperVoiceInfo[] = [
-  { id: 'es_MX-claude-high', label: 'Claude — Español 🇲🇽 (femenina)', lang: 'es' },
-  { id: 'es_AR-daniela-high', label: 'Daniela — Español 🇦🇷 (femenina)', lang: 'es' },
-  { id: 'es_ES-sharvard-medium', label: 'Sharvard — Español 🇪🇸', lang: 'es' },
+  { id: 'es_MX-claude-high', label: 'Claude — Spanish 🇲🇽 (female)', lang: 'es' },
+  { id: 'es_AR-daniela-high', label: 'Daniela — Spanish 🇦🇷 (female)', lang: 'es' },
+  { id: 'es_ES-sharvard-medium', label: 'Sharvard — Spanish 🇪🇸', lang: 'es' },
   { id: 'en_US-amy-medium', label: 'Amy — English 🇺🇸 (female)', lang: 'en' },
   { id: 'en_US-hfc_female-medium', label: 'HFC — English 🇺🇸 (female)', lang: 'en' },
   { id: 'en_GB-jenny_dioco-medium', label: 'Jenny — English 🇬🇧 (female)', lang: 'en' },
@@ -333,7 +333,7 @@ export class PiperManager {
       await this.waitForServer(port, 20000);
     } catch (e: any) {
       try { proc.kill(); } catch { /* nada */ }
-      throw new Error((stderr.trim().split('\n').slice(-3).join(' ') || e?.message) ?? 'piper http_server no respondió');
+      throw new Error((stderr.trim().split('\n').slice(-3).join(' ') || e?.message) ?? 'piper http_server did not respond');
     }
     this.serverProc = proc;
     this.serverPort = port;

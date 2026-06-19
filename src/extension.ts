@@ -640,16 +640,16 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       msgs: ChatMessage[]
     ): Promise<string> => {
       const convo = msgs
-        .map((m) => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.content}`)
+        .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
         .join('\n\n');
       const instruction =
         (prevText
-          ? `Resumen previo de la conversación:\n${prevText}\n\nIntegra los siguientes mensajes nuevos en un único resumen actualizado.`
-          : 'Resume la siguiente conversación.') +
-        '\nConserva hechos, decisiones, datos, nombres y tareas pendientes. Sé conciso. Devuelve solo el resumen, en español.\n\n--- Conversación ---\n' +
+          ? `Previous summary of the conversation:\n${prevText}\n\nIntegrate the following new messages into a single updated summary.`
+          : 'Summarize the following conversation.') +
+        '\nKeep facts, decisions, data, names and pending tasks. Be concise. Reply with only the summary, in the same language as the conversation.\n\n--- Conversation ---\n' +
         convo;
       const wire: ChatMessage[] = [
-        { role: 'system', content: 'Eres un asistente que resume conversaciones para preservar el contexto.' },
+        { role: 'system', content: 'You are an assistant that summarizes conversations to preserve context.' },
         { role: 'user', content: instruction },
       ];
       abort = new AbortController();
@@ -774,7 +774,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const sysPrompt = resolveSystemPrompt(doc);
       if (sysPrompt.trim()) wire.push({ role: 'system', content: sysPrompt });
       if (summaryText) {
-        wire.push({ role: 'system', content: `Resumen de la conversación previa (contexto compactado):\n${summaryText}` });
+        wire.push({ role: 'system', content: `Summary of the previous conversation (compacted context):\n${summaryText}` });
       }
       // Se envían rol/contenido/imágenes y, si los hay, los campos de tools. El thinking se OMITE.
       wire.push(...history.map((m) => {
@@ -964,7 +964,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const stem = file.replace(/\.chat$/i, '');
       let target = cur;
       for (let n = 1; ; n++) {
-        const name = `${stem} (bifurcación${n > 1 ? ' ' + n : ''}).chat`;
+        const name = `${stem} (fork${n > 1 ? ' ' + n : ''}).chat`;
         target = vscode.Uri.joinPath(dir, name);
         try {
           await vscode.workspace.fs.stat(target); // existe → probar siguiente
@@ -1000,7 +1000,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       // Contexto = historial completo + una instrucción efímera de continuar (no se guarda).
       const ctx: ChatMessage[] = [
         ...doc.messages,
-        { role: 'user', content: 'Continúa exactamente desde donde lo dejaste, ampliando tu respuesta anterior. No repitas lo ya escrito, no saludes ni hagas resúmenes; sigue redactando.' },
+        { role: 'user', content: 'Continue exactly from where you left off, expanding your previous response. Do not repeat what you already wrote, do not greet or summarize; keep writing.' },
       ];
 
       const { answer, thinking, failed, usage } = await runInference(doc, ctx);
@@ -1476,7 +1476,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     ].join('; ');
 
     return /* html */ `<!DOCTYPE html>
-<html lang="es">
+<html lang="${resolvedLang()}">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />

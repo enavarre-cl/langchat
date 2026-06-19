@@ -269,9 +269,9 @@
   // ---- Lectura en voz alta (Web Speech API; local, sin censura) ----
   // Voces Piper curadas (femeninas EN/ES). Se descargan solas la 1ª vez y quedan cacheadas.
   const PIPER_VOICES = [
-    { id: 'es_MX-claude-high', label: 'Claude — Español 🇲🇽 (femenina)' },
-    { id: 'es_AR-daniela-high', label: 'Daniela — Español 🇦🇷 (femenina)' },
-    { id: 'es_ES-sharvard-medium', label: 'Sharvard — Español 🇪🇸' },
+    { id: 'es_MX-claude-high', label: 'Claude — Spanish 🇲🇽 (female)' },
+    { id: 'es_AR-daniela-high', label: 'Daniela — Spanish 🇦🇷 (female)' },
+    { id: 'es_ES-sharvard-medium', label: 'Sharvard — Spanish 🇪🇸' },
     { id: 'en_US-amy-medium', label: 'Amy — English 🇺🇸 (female)' },
     { id: 'en_US-hfc_female-medium', label: 'HFC — English 🇺🇸 (female)' },
     { id: 'en_GB-jenny_dioco-medium', label: 'Jenny — English 🇬🇧 (female)' },
@@ -803,7 +803,7 @@
     suppressScroll = true;
     const visible = doc.messages.filter((m) => m.role !== 'system');
     if (visible.length === 0) {
-      banner('Chat vacío. Escribe abajo para empezar. Modelo: ' + (doc.model || '—'));
+      banner(t('Empty chat. Type below to start.') + '  ·  ' + t('Model:') + ' ' + (doc.model || '—'));
     }
     // Mensajes ocultos (assistant intermedio con tool_calls, y los 'tool') no cuentan como
     // "último": el último mostrable es el que recibe los botones de regenerar/generar.

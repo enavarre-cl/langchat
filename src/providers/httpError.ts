@@ -20,12 +20,12 @@ export function formatHttpError(
 
   let hint = '';
   if (status === 429) {
-    hint = 'Cuota o límite de tasa superado. Espera unos segundos o prueba con otro modelo ' +
-      '(p. ej. en el free tier de Gemini, los modelos *-pro no están disponibles; usa gemini-2.5-flash).';
+    hint = 'Quota or rate limit exceeded. Wait a few seconds or try another model ' +
+      "(e.g. on Gemini's free tier the *-pro models aren't available; use gemini-2.5-flash).";
   } else if (status === 401 || status === 403) {
-    hint = 'Autenticación rechazada. Revisa la API key en los ajustes (🔧).';
+    hint = 'Authentication rejected. Check the API key in the settings (🔧).';
   } else if (status === 404) {
-    hint = 'No encontrado. Revisa el modelo seleccionado y la URL del endpoint.';
+    hint = 'Not found. Check the selected model and the endpoint URL.';
   }
 
   let out = `${label} (${status}): ${msg}`;

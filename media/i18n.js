@@ -106,6 +106,8 @@
     // Roles y badges
     'You': 'Tú',
     'Assistant': 'Asistente',
+    'Empty chat. Type below to start.': 'Chat vacío. Escribe abajo para empezar.',
+    'Model:': 'Modelo:',
     'reasoning': 'razonamiento',
     'tools': 'herramientas',
     // Acciones de mensaje

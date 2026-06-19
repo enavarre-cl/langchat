@@ -39,7 +39,7 @@ class McpClient {
     this.proc.stdout!.on('data', (d) => this.onData(d));
     this.proc.stderr!.on('data', () => {});
     this.proc.on('exit', () => {
-      for (const p of this.pending.values()) p.reject(new Error('El servidor MCP terminó'));
+      for (const p of this.pending.values()) p.reject(new Error('The MCP server exited'));
       this.pending.clear();
     });
     this.proc.on('error', (e) => {

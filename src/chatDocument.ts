@@ -83,7 +83,7 @@ export function defaultDoc(defaults: ChatDefaults): ChatDoc {
     title: 'Nuevo chat',
     provider: defaults.provider,
     model: '',
-    systemPrompt: 'Eres un asistente útil.',
+    systemPrompt: 'You are a helpful assistant.',
     params: defaultParams(defaults),
     messages: [],
   };

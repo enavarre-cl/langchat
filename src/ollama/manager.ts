@@ -101,7 +101,7 @@ export class OllamaManager {
       await extract(archive, this.binDir, assetFormat(asset));
       try { fs.unlinkSync(archive); } catch { /* nada */ }
       const bin = this.findBinary(this.binDir, binName);
-      if (!bin) throw new Error('no se encontró el binario ollama tras extraer');
+      if (!bin) throw new Error('ollama binary not found after extracting');
       if (process.platform !== 'win32') { try { fs.chmodSync(bin, 0o755); } catch { /* nada */ } }
       return bin;
     } finally {
@@ -121,7 +121,7 @@ export class OllamaManager {
       } catch { /* aún no arranca */ }
       await new Promise((r) => setTimeout(r, 400));
     }
-    throw new Error('el servidor Ollama no respondió a tiempo');
+    throw new Error('the Ollama server did not respond in time');
   }
 
   /** Arranca el servidor gestionado (idempotente, con guard de concurrencia). Devuelve el baseUrl. */
@@ -142,7 +142,7 @@ export class OllamaManager {
         this.proc = cp.spawn(bin, ['serve'], { env, stdio: 'ignore', shell: process.platform === 'win32' });
         this.proc.on('exit', (code) => {
           this.proc = null; this._baseUrl = undefined;
-          if (this._status !== 'stopped') this.set('error', `ollama serve salió (código ${code})`);
+          if (this._status !== 'stopped') this.set('error', `ollama serve exited (code ${code})`);
         });
         this.proc.on('error', (e) => this.set('error', String(e)));
         const baseUrl = `http://${host}`;

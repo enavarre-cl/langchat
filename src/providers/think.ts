@@ -1,7 +1,7 @@
 /**
- * Separa, sobre un stream de texto, el razonamiento delimitado por <think>…</think>
- * del contenido de la respuesta. Tolera que las etiquetas lleguen partidas entre
- * varios deltas del stream.
+ * Splits, over a text stream, the reasoning delimited by <think>…</think>
+ * from the response content. Tolerates tags arriving split across
+ * multiple stream deltas.
  */
 export function createThinkSplitter(
   onAnswer: (s: string) => void,
@@ -12,7 +12,7 @@ export function createThinkSplitter(
   let inThink = false;
   let buf = '';
 
-  // Mayor sufijo de `s` que es prefijo de `tag` (posible etiqueta partida).
+  // Longest suffix of `s` that is a prefix of `tag` (possible split tag).
   function partialTail(s: string, tag: string): number {
     const max = Math.min(s.length, tag.length - 1);
     for (let k = max; k > 0; k--) {

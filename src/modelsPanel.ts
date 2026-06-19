@@ -1,4 +1,4 @@
-/** Explorador de modelos (WebviewPanel) tipo LM Studio: buscar en HF y descargar a Ollama. */
+/** Model browser (WebviewPanel) in the style of LM Studio: search on HF and download to Ollama. */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { OllamaManager } from './ollama/manager';
@@ -9,9 +9,9 @@ import { ModelCardCache } from './ollama/cards';
 import { tr, resolvedLang } from './i18n';
 
 export interface ModelsPanelHooks {
-  /** Refresca la vista lateral tras una descarga. */
+  /** Refreshes the sidebar after a download. */
   onChanged: () => void;
-  /** Aplica el modelo al chat enfocado; devuelve true si se aplicó. */
+  /** Applies the model to the focused chat; returns true if it was applied. */
   useModel: (name: string) => Promise<boolean>;
 }
 
@@ -22,12 +22,12 @@ function nonce(): string {
   return s;
 }
 
-/** Espacio libre (bytes) del volumen que contiene `p`, o 0 si no se puede determinar. */
+/** Free space (bytes) on the volume containing `p`, or 0 if it cannot be determined. */
 function freeSpace(p: string): number {
   try {
     const st: any = (fs as any).statfsSync?.(p);
     if (st && typeof st.bavail === 'number' && typeof st.bsize === 'number') return st.bavail * st.bsize;
-  } catch { /* no disponible */ }
+  } catch { /* not available */ }
   return 0;
 }
 
@@ -46,7 +46,7 @@ export class ModelsPanel {
     ModelsPanel.current = new ModelsPanel(panel, context, manager, downloads, cards, hooks);
   }
 
-  /** Abre el explorador en un modelo concreto (lo llama el clic en una descarga de la barra lateral). */
+  /** Opens the browser on a specific model (called by clicking a download in the sidebar). */
   static revealModel(modelId: string): void {
     ModelsPanel.current?.revealModelImpl(modelId);
   }
@@ -62,14 +62,14 @@ export class ModelsPanel {
     this.panel = panel;
     panel.webview.html = this.html(panel.webview);
     this.disposables.push(panel.webview.onDidReceiveMessage((m) => this.onMessage(m)));
-    // Difunde el estado de TODAS las descargas; el webview lo mapea a cada modelo.
+    // Broadcasts the state of ALL downloads; the webview maps it to each model.
     this.disposables.push(downloads.onDidChange(() => this.postDownloads()));
     panel.onDidDispose(() => this.dispose(), null, this.disposables);
   }
 
   private post(msg: any): void { void this.panel.webview.postMessage(msg); }
 
-  /** Abre un modelo en su ficha SIN alterar la búsqueda: usa el sidecar si está, si no lo arma de HF. */
+  /** Opens a model card WITHOUT changing the search: uses the sidecar if present, otherwise fetches from HF. */
   revealModelImpl(modelId: string): void {
     const card = this.cards.load(modelId);
     if (card?.model) { this.post({ type: 'showCachedModel', card }); return; }
@@ -89,7 +89,7 @@ export class ModelsPanel {
       this.cards.save(modelId, card);
       this.post({ type: 'showCachedModel', card });
     } catch (e: any) {
-      this.post({ type: 'error', message: `No se pudo cargar la ficha: ${e?.message || e}` });
+      this.post({ type: 'error', message: `Could not load model card: ${e?.message || e}` });
     }
   }
 
@@ -123,11 +123,11 @@ export class ModelsPanel {
           ]);
           let payload: any = { files, readme: md, info };
           if (!files.length && !md && !info.arch) {
-            // HF no respondió → usa la ficha cacheada localmente (sidecar offline), si existe.
+            // HF did not respond → use the locally cached card (offline sidecar), if present.
             const cached = this.cards.load(msg.id);
             if (cached) payload = cached;
           } else {
-            // Guarda la ficha COMPLETA (con la cabecera del modelo) para no re-consultar HF.
+            // Save the FULL card (with the model header) to avoid re-querying HF.
             this.cards.save(msg.id, { model: msg.model, files, readme: md, info });
           }
           this.post({ type: 'detail', id: msg.id, ...payload });
@@ -144,7 +144,7 @@ export class ModelsPanel {
   }
 
   private async doPull(id: string, quant: string, size: number, pullable: boolean, filePath: string): Promise<void> {
-    // D4: solo modal si el espacio libre es claramente insuficiente (el tamaño ya se ve en la UI).
+    // D4: show modal only when free space is clearly insufficient (the size is already visible in the UI).
     const free = freeSpace(this.context.globalStorageUri.fsPath);
     if (free && size && free < size * 1.1) {
       const go = await vscode.window.showWarningMessage(
@@ -154,8 +154,8 @@ export class ModelsPanel {
       if (go !== tr('Download anyway')) return;
     }
     if (!pullable && filePath) {
-      // Repo no estándar: Ollama no resuelve el tag → descargar el .gguf e importar con `ollama create`.
-      // Va por el MISMO gestor de Descargas (misma barra/cancelar/reintentar que el pull).
+      // Non-standard repo: Ollama cannot resolve the tag → download the .gguf and import with `ollama create`.
+      // Goes through the SAME Download manager (same sidebar/cancel/retry as a pull).
       const name = `${(id.split('/').pop() || id)}:${quant}`.toLowerCase().replace(/[^a-z0-9._:-]/g, '-');
       const projPath = await projectorFile(id).catch(() => undefined);
       this.downloads.start({
@@ -165,7 +165,7 @@ export class ModelsPanel {
       });
       return;
     }
-    // Repo estándar: pull nativo de Ollama (cola serializada; arranca el servidor si hace falta).
+    // Standard repo: native Ollama pull (serialised queue; starts the server if needed).
     this.downloads.start({ ref: hfPullRef(id, quant), label: `${id}:${quant}`, size, modelId: id, quant });
   }
 
@@ -180,7 +180,7 @@ export class ModelsPanel {
   private dispose(): void {
     ModelsPanel.current = undefined;
     this.searchAbort?.abort();
-    while (this.disposables.length) { try { this.disposables.pop()?.dispose(); } catch { /* nada */ } }
+    while (this.disposables.length) { try { this.disposables.pop()?.dispose(); } catch { /* nothing */ } }
   }
 
   private html(webview: vscode.Webview): string {

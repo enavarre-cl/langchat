@@ -6,14 +6,14 @@ import { chatDefaults } from './providers';
 import { tr } from './i18n';
 
 /**
- * Comparación de versiones de un .chat como DOS columnas de chat renderizado (pasado | actual).
- * Se dispara desde el menú contextual de un ítem del Timeline (Local History) o desde la paleta.
+ * Compares versions of a .chat as TWO columns of rendered chat (past | current).
+ * Triggered from the context menu of a Timeline item (Local History) or from the command palette.
  *
- * Nota: el argumento que pasa `timeline/item/context` para Local History está poco documentado;
- * la extracción de URIs es defensiva (prueba varias formas) y cae a un selector de archivo.
+ * Note: the argument passed by `timeline/item/context` for Local History is poorly documented;
+ * URI extraction is defensive (tries several forms) and falls back to a file picker.
  */
 
-/** Lee y parsea un .chat desde una URI (tolera esquemas de content-provider como Local History). */
+/** Reads and parses a .chat from a URI (tolerates content-provider schemes such as Local History). */
 async function readChat(uri: vscode.Uri): Promise<{ title: string; messages: any[] } | null> {
   try {
     const docu = await vscode.workspace.openTextDocument(uri);
@@ -24,14 +24,14 @@ async function readChat(uri: vscode.Uri): Promise<{ title: string; messages: any
   }
 }
 
-/** Reúne URIs candidatas escondidas en el argumento del ítem del Timeline. */
+/** Collects candidate URIs hidden inside the Timeline item argument. */
 function collectUris(arg: any): vscode.Uri[] {
   const out: vscode.Uri[] = [];
   const add = (v: any) => {
     if (!v) return;
     if (v instanceof vscode.Uri) { out.push(v); return; }
     if (typeof v === 'object' && typeof v.scheme === 'string' && typeof v.path === 'string') {
-      try { out.push(vscode.Uri.from(v)); } catch { /* no era una URI */ }
+      try { out.push(vscode.Uri.from(v)); } catch { /* not a valid URI */ }
     }
   };
   if (arg?.command?.arguments && Array.isArray(arg.command.arguments)) arg.command.arguments.forEach(add);
@@ -42,7 +42,7 @@ function collectUris(arg: any): vscode.Uri[] {
 
 export function registerCompare(context: vscode.ExtensionContext): void {
   const cmd = vscode.commands.registerCommand('langChat.compareVersion', async (arg: any) => {
-    // 1) Resolver versión "pasada" y "actual".
+    // 1) Resolve the "past" and "current" versions.
     let pastUri: vscode.Uri | undefined;
     let currentUri: vscode.Uri | undefined;
 
@@ -52,7 +52,7 @@ export function registerCompare(context: vscode.ExtensionContext): void {
     const activeUri = active instanceof vscode.Uri ? active : (active as any)?.uri;
 
     if (uris.length >= 2) {
-      // El comando de diff del Timeline suele ser vscode.diff(original, modificado).
+      // The Timeline diff command is typically vscode.diff(original, modified).
       pastUri = uris[0];
       currentUri = uris[1];
     } else if (uris.length === 1) {
@@ -60,7 +60,7 @@ export function registerCompare(context: vscode.ExtensionContext): void {
       currentUri = activeUri;
     }
 
-    // 2) Si no hay versión pasada, ofrecer un selector de archivo (camino garantizado).
+    // 2) If there is no past version, offer a file picker (guaranteed path).
     if (!pastUri) {
       const picked = await vscode.window.showOpenDialog({
         title: tr('Pick a .chat version to compare'),
@@ -84,7 +84,7 @@ export function registerCompare(context: vscode.ExtensionContext): void {
       return;
     }
 
-    // 3) Abrir el webview de dos columnas.
+    // 3) Open the two-column webview.
     const name = path.basename(currentUri.fsPath);
     const panel = vscode.window.createWebviewPanel(
       'langChat.compare',

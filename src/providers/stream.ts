@@ -1,27 +1,27 @@
-/** Tope defensivo: si el backend manda una "línea" sin `\n` que crece sin fin, evita agotar memoria. */
+/** Defensive cap: if the backend sends a "line" without `\n` that grows indefinitely, avoids exhausting memory. */
 const MAX_LINE_BUFFER = 4 * 1024 * 1024;
 
 /**
- * Garantiza que los argumentos de una tool-call sean JSON VÁLIDO. Los modelos a veces los entregan
- * truncados (p. ej. `{"path": "ctx/x.md`), y reenviar eso al provider en el siguiente turno provoca
- * un 400. Intenta reparar (cerrar cadenas/objetos abiertos); si no se puede, devuelve '{}'.
+ * Guarantees that a tool-call's arguments are VALID JSON. Models sometimes deliver them
+ * truncated (e.g. `{"path": "ctx/x.md`), and forwarding that to the provider on the next turn
+ * triggers a 400. Tries to repair (close open strings/objects); if not possible, returns '{}'.
  */
 export function safeToolArgs(s: string | undefined): string {
   const raw = (s || '').trim();
   if (!raw) return '{}';
-  try { JSON.parse(raw); return raw; } catch { /* intento de reparación */ }
+  try { JSON.parse(raw); return raw; } catch { /* repair attempt */ }
   let r = raw;
-  if ((r.match(/(?<!\\)"/g) || []).length % 2) r += '"';   // cierra una cadena abierta
+  if ((r.match(/(?<!\\)"/g) || []).length % 2) r += '"';   // close an open string
   const open = (r.match(/\{/g) || []).length;
   const close = (r.match(/\}/g) || []).length;
-  if (open > close) r += '}'.repeat(open - close);         // cierra objetos abiertos
+  if (open > close) r += '}'.repeat(open - close);         // close open objects
   try { JSON.parse(r); return r; } catch { return '{}'; }
 }
 
 /**
- * Lee un stream línea a línea (SSE/NDJSON) y llama `onLine` con cada línea ya recortada (trim).
- * Centraliza el manejo de buffer/decoder que antes estaba duplicado en cada provider.
- * Si `onLine` lanza, el error se propaga (los providers lo usan para errores embebidos en el stream).
+ * Reads a stream line by line (SSE/NDJSON) and calls `onLine` with each trimmed line.
+ * Centralizes the buffer/decoder handling that was previously duplicated across each provider.
+ * If `onLine` throws, the error propagates (providers use this for errors embedded in the stream).
  */
 export async function readLines(
   reader: ReadableStreamDefaultReader<Uint8Array>,
@@ -33,7 +33,7 @@ export async function readLines(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    if (buffer.length > MAX_LINE_BUFFER) buffer = buffer.slice(-MAX_LINE_BUFFER); // cap defensivo
+    if (buffer.length > MAX_LINE_BUFFER) buffer = buffer.slice(-MAX_LINE_BUFFER); // defensive cap
     let idx: number;
     while ((idx = buffer.indexOf('\n')) !== -1) {
       const line = buffer.slice(0, idx).trim();

@@ -8,15 +8,15 @@ function cleanList(v: any): string[] {
 }
 
 /**
- * Palabras propias del corrector, GLOBALES y POR IDIOMA (es/en). Las del diccionario base
- * (hunspell) NO viven aquí. Persistido en globalStorage/spell-words.json. Fuente única de verdad:
- * la vista lateral, los paneles de diccionario y los webviews leen/escriben aquí y se sincronizan
- * vía `onDidChange`.
+ * User-defined spell-checker words, GLOBAL and PER LANGUAGE (es/en). Base dictionary words
+ * (hunspell) do NOT live here. Persisted in globalStorage/spell-words.json. Single source of truth:
+ * the sidebar view, dictionary panels and webviews all read/write here and stay in sync
+ * via `onDidChange`.
  */
 export class SpellWordsStore {
   private readonly _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
-  private data: SpellWordsMap | null = null; // null = aún no cargado
+  private data: SpellWordsMap | null = null; // null = not yet loaded
 
   constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -38,7 +38,7 @@ export class SpellWordsStore {
   async all(): Promise<SpellWordsMap> { const d = await this.load(); return { es: d.es.slice(), en: d.en.slice() }; }
 
   private async persist(): Promise<void> {
-    try { await vscode.workspace.fs.createDirectory(this.context.globalStorageUri); } catch { /* ya existe */ }
+    try { await vscode.workspace.fs.createDirectory(this.context.globalStorageUri); } catch { /* already exists */ }
     await vscode.workspace.fs.writeFile(this.uri(), Buffer.from(JSON.stringify(this.data) + '\n', 'utf8'));
     this._onDidChange.fire();
   }

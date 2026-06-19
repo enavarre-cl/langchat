@@ -6,7 +6,7 @@ import { readLines, safeToolArgs } from './stream';
 import { imageAttachments } from './multimodal';
 
 /**
- * Provider para el servidor Ollama (API nativa /api/chat, NDJSON streaming).
+ * Provider for the Ollama server (native /api/chat API, NDJSON streaming).
  */
 export class OllamaProvider implements LLMProvider {
   readonly id = 'ollama';
@@ -20,7 +20,7 @@ export class OllamaProvider implements LLMProvider {
   async listModels(): Promise<ModelInfo[]> {
     const res = await httpFetch(this.url('/api/tags'));
     if (!res.ok) {
-      throw new Error(`No se pudieron listar los modelos de Ollama (${res.status} ${res.statusText})`);
+      throw new Error(`Could not list Ollama models (${res.status} ${res.statusText})`);
     }
     const json: any = await res.json();
     const models = Array.isArray(json?.models) ? json.models : [];
@@ -61,7 +61,7 @@ export class OllamaProvider implements LLMProvider {
         if (m.toolCalls?.length) {
           out.tool_calls = m.toolCalls.map((tc) => {
             let args: any = {};
-            try { args = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* vacío */ }
+            try { args = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* empty */ }
             return { function: { name: tc.name, arguments: args } };
           });
         }
@@ -106,9 +106,9 @@ export class OllamaProvider implements LLMProvider {
       try {
         obj = JSON.parse(line);
       } catch {
-        return; // Línea parcial: se ignora.
+        return; // Partial line: ignored.
       }
-      // Error embebido en el stream (Ollama lo manda como string).
+      // Error embedded in the stream (Ollama sends it as a string).
       if (obj?.error) {
         throw new Error(`Ollama (stream): ${typeof obj.error === 'string' ? obj.error : JSON.stringify(obj.error)}`);
       }
@@ -118,14 +118,14 @@ export class OllamaProvider implements LLMProvider {
         usage = { promptTokens: p0, completionTokens: c0, totalTokens: p0 + c0 };
       }
       const message = obj?.message ?? {};
-      // Campo de razonamiento nativo de Ollama (con think: true).
+      // Ollama's native reasoning field (with think: true).
       if (message.thinking) {
         thinking += message.thinking;
         cb.onReasoning?.(message.thinking);
       }
-      // Contenido: puede traer <think>…</think> embebido.
+      // Content: may carry embedded <think>…</think>.
       if (message.content) splitter.push(message.content);
-      // tool_calls (Ollama los entrega completos, arguments como objeto).
+      // tool_calls (Ollama delivers them complete, arguments as an object).
       if (Array.isArray(message.tool_calls)) {
         for (const tc of message.tool_calls) {
           const fn = tc.function ?? {};

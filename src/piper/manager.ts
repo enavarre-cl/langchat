@@ -1,5 +1,5 @@
-/** Motor Piper (TTS): bootstrap autocontenido (Python + venv + binario) + voces. Reutilizable
- *  por el chat (síntesis) y por el gestor de engines (instalar/actualizar/borrar). */
+/** Piper engine (TTS): self-contained bootstrap (Python + venv + binary) + voices. Reusable
+ *  by the chat (synthesis) and by the engine manager (install/update/delete). */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -9,7 +9,7 @@ import * as net from 'net';
 import { downloadFile, sha256File } from '../download';
 import { tr } from '../i18n';
 
-// Release del binario Piper standalone y nombre del asset por plataforma/arquitectura.
+// Release of the standalone Piper binary and asset name per platform/architecture.
 const PIPER_RELEASE = '2023.11.14-2';
 const PIPER_ASSET_SHA256: Record<string, string> = {
   'piper_macos_aarch64.tar.gz': '6b1eb03b3735946cb35216e063e7eebcc33a6bbf5dd96ec0217959bf1cdcb0cc',
@@ -17,10 +17,10 @@ const PIPER_ASSET_SHA256: Record<string, string> = {
   'piper_linux_x86_64.tar.gz': 'a50cb45f355b7af1f6d758c1b360717877ba0a398cc8cbe6d2a7a3a26e225992',
   'piper_linux_aarch64.tar.gz': 'fea0fd2d87c54dbc7078d0f878289f404bd4d6eea6e7444a77835d1537ab88eb',
 };
-// Versión pineada de piper-tts (PyPI). Súbela a conciencia al revisar releases.
+// Pinned version of piper-tts (PyPI). Bump it deliberately when reviewing releases.
 export const PIPER_TTS_VERSION = '1.4.2';
 
-// Python autocontenido (astral-sh/python-build-standalone). Checksums pineados.
+// Self-contained Python (astral-sh/python-build-standalone). Pinned checksums.
 const PYTHON_STANDALONE_TAG = '20260610';
 const PYTHON_STANDALONE_VERSION = '3.12.13';
 const PYTHON_STANDALONE_SHA256: Record<string, string> = {
@@ -48,7 +48,7 @@ function piperAsset(platform: string, arch: string): string | null {
   return null;
 }
 
-// SHA256 pineado del .onnx de cada voz curada (de huggingface.co/rhasspy/piper-voices vía lfs.oid).
+// Pinned SHA256 of the .onnx for each curated voice (from huggingface.co/rhasspy/piper-voices via lfs.oid).
 const PIPER_VOICE_SHA256: Record<string, string> = {
   'es_MX-claude-high': '3ef40a71ea63852cd8ab7e6fa7d2ecdcfa67a0b47c9c48e3f10e02ee02083ea0',
   'es_AR-daniela-high': '7ceb1fc0dab349418c5b54a639ae9ee595212d7c9ea422220d8419163d5cc985',
@@ -57,8 +57,8 @@ const PIPER_VOICE_SHA256: Record<string, string> = {
   'en_US-hfc_female-medium': '914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7',
   'en_GB-jenny_dioco-medium': '469c630d209e139dd392a66bf4abde4ab86390a0269c1e47b4e5d7ce81526b01',
 };
-/** Catálogo de voces curadas para descargar (id + etiqueta + idioma). Los ids DEBEN
- *  coincidir con las claves de PIPER_VOICE_SHA256 (fail-closed) y con media/main.js. */
+/** Catalog of curated voices available for download (id + label + language). The ids MUST
+ *  match the keys in PIPER_VOICE_SHA256 (fail-closed) and media/main.js. */
 export interface PiperVoiceInfo { id: string; label: string; lang: 'es' | 'en'; }
 export const PIPER_VOICE_CATALOG: PiperVoiceInfo[] = [
   { id: 'es_MX-claude-high', label: 'Claude — Spanish 🇲🇽 (female)', lang: 'es' },
@@ -69,7 +69,7 @@ export const PIPER_VOICE_CATALOG: PiperVoiceInfo[] = [
   { id: 'en_GB-jenny_dioco-medium', label: 'Jenny — English 🇬🇧 (female)', lang: 'en' },
 ];
 
-/** URLs de HuggingFace de una voz Piper a partir de su id (lang_REGION-name-quality). */
+/** HuggingFace URLs for a Piper voice given its id (lang_REGION-name-quality). */
 function piperVoiceUrls(id: string): { onnx: string; json: string } {
   const [region, name, quality] = id.split('-');
   const lang = region.split('_')[0];
@@ -80,15 +80,15 @@ function piperVoiceUrls(id: string): { onnx: string; json: string } {
 export type Notify = (msg: string) => void;
 
 export class PiperManager {
-  private setupPromise: Promise<string> | null = null; // guard de concurrencia del setup
-  // Daemon HTTP (modelo residente): se arranca al primer TTS y se auto-apaga por inactividad.
+  private setupPromise: Promise<string> | null = null; // concurrency guard for setup
+  // HTTP daemon (resident model): started on first TTS and auto-shuts down on idle.
   private serverProc: cp.ChildProcess | null = null;
   private serverPort = 0;
   private serverStarting: Promise<string> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
-  private httpDepsOk = false; // flask verificado/instalado en este venv
+  private httpDepsOk = false; // flask verified/installed in this venv
   private static readonly SERVER_IDLE_MS = 5 * 60 * 1000;
-  // Notifica cambios de estado del daemon (arranque/parada) para refrescar el árbol.
+  // Notifies daemon state changes (start/stop) to refresh the tree.
   private readonly _onChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onChange.event;
 
@@ -97,7 +97,7 @@ export class PiperManager {
   private dir(sub: string): string {
     return vscode.Uri.joinPath(this.context.globalStorageUri, sub).fsPath;
   }
-  /** Ruta del `piper` del venv pip. */
+  /** Path to the `piper` binary in the pip venv. */
   venvBinPath(): string {
     return path.join(this.dir('piper-venv'), process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'piper.exe' : 'piper');
   }
@@ -105,12 +105,12 @@ export class PiperManager {
     return path.join(this.dir('piper-bin'), 'piper', process.platform === 'win32' ? 'piper.exe' : 'piper');
   }
 
-  /** ¿El motor está instalado (venv pip o binario standalone presente)? */
+  /** Is the engine installed (pip venv or standalone binary present)? */
   isInstalled(): boolean {
     return fs.existsSync(this.venvBinPath()) || fs.existsSync(this.standaloneBinPath());
   }
 
-  /** Asegura un modelo de voz descargado (a globalStorage); devuelve la ruta .onnx. */
+  /** Ensures a voice model is downloaded (to globalStorage); returns the .onnx path. */
   async ensureVoice(id: string, notify?: Notify): Promise<string> {
     const dir = this.dir('piper-voices');
     fs.mkdirSync(dir, { recursive: true });
@@ -121,13 +121,13 @@ export class PiperManager {
     notify?.(tr('Downloading voice: ') + id + ' …');
     if (!fs.existsSync(json)) await downloadFile(urls.json, json);
     if (!fs.existsSync(onnx)) await downloadFile(urls.onnx, onnx);
-    // Verifica integridad contra el SHA256 pineado. Falla cerrado: sin hash, no se usa.
+    // Verify integrity against the pinned SHA256. Fail-closed: no hash, not used.
     const expected = PIPER_VOICE_SHA256[id];
-    if (!expected) { try { fs.unlinkSync(onnx); } catch { /* nada */ } throw new Error(`voz sin SHA256 pineado: ${id}`); }
+    if (!expected) { try { fs.unlinkSync(onnx); } catch { /* noop */ } throw new Error(`voice has no pinned SHA256: ${id}`); }
     const got = sha256File(onnx);
     if (got !== expected) {
-      try { fs.unlinkSync(onnx); } catch { /* nada */ }
-      throw new Error(`integridad del modelo fallida (sha256 ${got.slice(0, 12)}… ≠ esperado)`);
+      try { fs.unlinkSync(onnx); } catch { /* noop */ }
+      throw new Error(`model integrity check failed (sha256 ${got.slice(0, 12)}… ≠ expected)`);
     }
     return onnx;
   }
@@ -142,7 +142,7 @@ export class PiperManager {
     });
   }
 
-  // Busca un Python compatible con piper-tts (3.9–3.13).
+  // Looks for a Python compatible with piper-tts (3.9–3.13).
   private findCompatiblePython(): string | null {
     const cands = [
       'python3.13', 'python3.12', 'python3.11', 'python3.10', 'python3.9',
@@ -157,12 +157,12 @@ export class PiperManager {
           const minor = parseInt((r.stdout || '').trim(), 10);
           if (minor >= 9 && minor <= 13) return c;
         }
-      } catch { /* siguiente */ }
+      } catch { /* next */ }
     }
     return null;
   }
 
-  // Descarga (si falta) un Python autocontenido; devuelve su ejecutable.
+  // Downloads (if missing) a self-contained Python; returns its executable.
   private async ensureStandalonePython(notify?: Notify): Promise<string> {
     const dir = this.dir('python');
     const exe = process.platform === 'win32'
@@ -170,16 +170,16 @@ export class PiperManager {
       : path.join(dir, 'python', 'bin', 'python3');
     if (fs.existsSync(exe)) return exe;
     const asset = pythonStandaloneAsset(process.platform, process.arch);
-    if (!asset) throw new Error(`no hay Python autocontenido para ${process.platform}/${process.arch}`);
+    if (!asset) throw new Error(`no self-contained Python for ${process.platform}/${process.arch}`);
     fs.mkdirSync(dir, { recursive: true });
     const archive = path.join(dir, asset);
     const url = `https://github.com/astral-sh/python-build-standalone/releases/download/${PYTHON_STANDALONE_TAG}/${asset}`;
     notify?.(tr('Downloading a self-contained Python (one-time)…'));
     await downloadFile(url, archive);
     const expected = PYTHON_STANDALONE_SHA256[asset];
-    if (!expected) { try { fs.unlinkSync(archive); } catch { /* nada */ } throw new Error(`Python autocontenido sin SHA256 pineado: ${asset}`); }
+    if (!expected) { try { fs.unlinkSync(archive); } catch { /* noop */ } throw new Error(`self-contained Python has no pinned SHA256: ${asset}`); }
     const got = sha256File(archive);
-    if (got !== expected) { try { fs.unlinkSync(archive); } catch { /* nada */ } throw new Error('integridad de Python fallida'); }
+    if (got !== expected) { try { fs.unlinkSync(archive); } catch { /* noop */ } throw new Error('Python integrity check failed'); }
     await new Promise<void>((resolve, reject) => {
       const p = cp.spawn('tar', ['-xzf', archive, '-C', dir]);
       let err = '';
@@ -187,12 +187,12 @@ export class PiperManager {
       p.on('error', reject);
       p.on('close', (c: number) => (c === 0 ? resolve() : reject(new Error('tar: ' + (err.trim() || c)))));
     });
-    try { fs.unlinkSync(archive); } catch { /* nada */ }
-    if (!fs.existsSync(exe)) throw new Error('python no encontrado tras extraer');
+    try { fs.unlinkSync(archive); } catch { /* noop */ }
+    if (!fs.existsSync(exe)) throw new Error('python not found after extracting');
     return exe;
   }
 
-  // Crea (si falta) un venv con piper-tts y devuelve la ruta a su ejecutable `piper`.
+  // Creates (if missing) a venv with piper-tts and returns the path to its `piper` executable.
   private async ensurePiperVenv(notify?: Notify): Promise<string> {
     const venvDir = this.dir('piper-venv');
     const piperBin = this.venvBinPath();
@@ -210,13 +210,13 @@ export class PiperManager {
     fs.mkdirSync(this.context.globalStorageUri.fsPath, { recursive: true });
     await this.runCmd(py, ['-m', 'venv', venvDir]);
     await this.runCmd(pip, ['install', '--upgrade', 'pip']);
-    // [http] incluye flask para el daemon HTTP (síntesis sin recargar el modelo cada vez).
+    // [http] includes flask for the HTTP daemon (synthesis without reloading the model each time).
     await this.runCmd(pip, ['install', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
     if (!fs.existsSync(piperBin)) throw new Error('piper not found after install');
     return piperBin;
   }
 
-  // Asegura el binario `piper` standalone (solo Linux es fiable); devuelve su ruta.
+  // Ensures the standalone `piper` binary (reliable only on Linux); returns its path.
   private async ensurePiperBinary(notify?: Notify): Promise<string> {
     const dir = this.dir('piper-bin');
     const exe = process.platform === 'win32' ? 'piper.exe' : 'piper';
@@ -230,11 +230,11 @@ export class PiperManager {
     notify?.(tr('Downloading the Piper engine (first time only)…'));
     await downloadFile(url, archive);
     const expected = PIPER_ASSET_SHA256[asset];
-    if (!expected) { try { fs.unlinkSync(archive); } catch { /* nada */ } throw new Error(`binario Piper sin SHA256 pineado: ${asset}`); }
+    if (!expected) { try { fs.unlinkSync(archive); } catch { /* noop */ } throw new Error(`Piper binary has no pinned SHA256: ${asset}`); }
     const got = sha256File(archive);
     if (got !== expected) {
-      try { fs.unlinkSync(archive); } catch { /* nada */ }
-      throw new Error(`integridad del binario Piper fallida (sha256 ${got.slice(0, 12)}… ≠ esperado)`);
+      try { fs.unlinkSync(archive); } catch { /* noop */ }
+      throw new Error(`Piper binary integrity check failed (sha256 ${got.slice(0, 12)}… ≠ expected)`);
     }
     await new Promise<void>((resolve, reject) => {
       const p = cp.spawn('tar', ['-xzf', archive, '-C', dir]);
@@ -243,13 +243,13 @@ export class PiperManager {
       p.on('error', reject);
       p.on('close', (c: number) => (c === 0 ? resolve() : reject(new Error('tar: ' + (err.trim() || c)))));
     });
-    try { fs.unlinkSync(archive); } catch { /* nada */ }
-    try { fs.chmodSync(binPath, 0o755); } catch { /* nada */ }
+    try { fs.unlinkSync(archive); } catch { /* noop */ }
+    try { fs.chmodSync(binPath, 0o755); } catch { /* noop */ }
     if (!fs.existsSync(binPath)) throw new Error('piper binary not found after extract');
     return binPath;
   }
 
-  /** Resuelve el binario a usar: ruta explícita > venv pip > standalone (Linux). */
+  /** Resolves the binary to use: explicit path > pip venv > standalone (Linux). */
   async resolveBin(cfg: vscode.WorkspaceConfiguration, notify?: Notify): Promise<string> {
     const setting = cfg.get<string>('tts.piperPath', 'piper') || 'piper';
     if (setting && setting !== 'piper' && fs.existsSync(setting)) return setting;
@@ -269,22 +269,22 @@ export class PiperManager {
     return this.setupPromise;
   }
 
-  /** Instala el motor (si falta). */
+  /** Installs the engine (if missing). */
   async install(notify?: Notify): Promise<void> {
     await this.resolveBin(vscode.workspace.getConfiguration('langChat'), notify);
   }
 
   // ───────────────────────── Daemon HTTP (piper.http_server) ─────────────────────────
 
-  /** ¿El daemon está vivo? */
+  /** Is the daemon alive? */
   isServerRunning(): boolean { return !!this.serverProc; }
 
-  /** Ruta del `python` del venv. */
+  /** Path to `python` in the venv. */
   private venvPython(): string {
     return path.join(this.dir('piper-venv'), process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'python.exe' : 'python');
   }
 
-  /** Pide al SO un puerto TCP libre en 127.0.0.1. */
+  /** Asks the OS for a free TCP port on 127.0.0.1. */
   private freePort(): Promise<number> {
     return new Promise((resolve, reject) => {
       const srv = net.createServer();
@@ -297,15 +297,15 @@ export class PiperManager {
     });
   }
 
-  /** Reinicia el temporizador de inactividad: tras SERVER_IDLE_MS sin uso, apaga el daemon. */
+  /** Resets the idle timer: after SERVER_IDLE_MS without activity, shuts down the daemon. */
   private touchIdle(): void {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => this.stopServer(), PiperManager.SERVER_IDLE_MS);
   }
 
-  /** Asegura el daemon HTTP arrancado (apuntando a la carpeta de voces). Devuelve baseUrl.
-   *  `defaultModel` es una ruta .onnx requerida por el server (-m); las demás voces se
-   *  cargan on-demand por el campo `voice` del request. Lanza si no puede arrancar. */
+  /** Ensures the HTTP daemon is started (pointing to the voices folder). Returns baseUrl.
+   *  `defaultModel` is an .onnx path required by the server (-m); other voices are
+   *  loaded on-demand via the `voice` field of the request. Throws if it cannot start. */
   async ensureServer(defaultModel: string, notify?: Notify): Promise<string> {
     if (this.serverProc && this.serverPort) { this.touchIdle(); return `http://127.0.0.1:${this.serverPort}`; }
     if (!this.serverStarting) {
@@ -315,10 +315,10 @@ export class PiperManager {
   }
 
   private async startServer(defaultModel: string, notify?: Notify): Promise<string> {
-    await this.ensurePiperVenv(notify);       // garantiza venv (con [http]→flask en instalaciones nuevas)
+    await this.ensurePiperVenv(notify);       // ensures venv (with [http]→flask for new installs)
     const python = this.venvPython();
-    if (!fs.existsSync(python)) throw new Error('python del venv no encontrado');
-    await this.ensureHttpDeps(python, notify); // instalaciones viejas: añade flask on-demand
+    if (!fs.existsSync(python)) throw new Error('venv python not found');
+    await this.ensureHttpDeps(python, notify); // old installs: adds flask on-demand
     const voicesDir = this.dir('piper-voices');
     const port = await this.freePort();
     const args = ['-m', 'piper.http_server', '-m', defaultModel, '--data-dir', voicesDir, '--host', '127.0.0.1', '--port', String(port)];
@@ -332,7 +332,7 @@ export class PiperManager {
     try {
       await this.waitForServer(port, 20000);
     } catch (e: any) {
-      try { proc.kill(); } catch { /* nada */ }
+      try { proc.kill(); } catch { /* noop */ }
       throw new Error((stderr.trim().split('\n').slice(-3).join(' ') || e?.message) ?? 'piper http_server did not respond');
     }
     this.serverProc = proc;
@@ -342,7 +342,7 @@ export class PiperManager {
     return `http://127.0.0.1:${port}`;
   }
 
-  /** Asegura que flask (extra [http]) esté en el venv; instalaciones previas no lo traen. */
+  /** Ensures flask (the [http] extra) is in the venv; older installs don't include it. */
   private async ensureHttpDeps(python: string, notify?: Notify): Promise<void> {
     if (this.httpDepsOk) return;
     const check = cp.spawnSync(python, ['-c', 'import flask']);
@@ -353,7 +353,7 @@ export class PiperManager {
     this.httpDepsOk = true;
   }
 
-  /** Sondea GET /info hasta que el server responde (o expira). */
+  /** Polls GET / until the server responds (or times out). */
   private waitForServer(port: number, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     const tryOnce = (): Promise<void> => new Promise((resolve, reject) => {
@@ -368,7 +368,7 @@ export class PiperManager {
       for (;;) {
         try { await tryOnce(); return; }
         catch {
-          if (Date.now() > deadline) throw new Error('timeout esperando piper http_server');
+          if (Date.now() > deadline) throw new Error('timeout waiting for piper http_server');
           await new Promise((r) => setTimeout(r, 300));
         }
       }
@@ -376,7 +376,7 @@ export class PiperManager {
     return loop();
   }
 
-  /** Sintetiza vía el daemon: POST /synthesize → Buffer WAV. `voice` = id de voz curada. */
+  /** Synthesizes via the daemon: POST /synthesize → WAV Buffer. `voice` = curated voice id. */
   synthViaServer(baseUrl: string, text: string, voice: string, lengthScale: number, speakerId: number): Promise<Buffer> {
     this.touchIdle();
     const body = JSON.stringify({
@@ -406,42 +406,42 @@ export class PiperManager {
     });
   }
 
-  /** Detiene el daemon (si corre). */
+  /** Stops the daemon (if running). */
   stopServer(): void {
     if (this.idleTimer) { clearTimeout(this.idleTimer); this.idleTimer = null; }
     const was = !!this.serverProc;
-    if (this.serverProc) { try { this.serverProc.kill(); } catch { /* nada */ } this.serverProc = null; }
+    if (this.serverProc) { try { this.serverProc.kill(); } catch { /* noop */ } this.serverProc = null; }
     this.serverPort = 0;
     if (was) this._onChange.fire();
   }
 
-  /** Actualiza el motor: venv pip → upgrade; standalone → re-descarga. */
+  /** Updates the engine: pip venv → upgrade; standalone → re-download. */
   async update(notify?: Notify): Promise<void> {
-    this.stopServer(); // libera el venv antes de reinstalar
+    this.stopServer(); // releases the venv before reinstalling
     this.httpDepsOk = false;
     const pip = path.join(this.dir('piper-venv'), process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'pip.exe' : 'pip');
     if (fs.existsSync(pip)) {
       await this.runCmd(pip, ['install', '--upgrade', `piper-tts[http]==${PIPER_TTS_VERSION}`]);
     } else {
-      try { fs.rmSync(this.dir('piper-bin'), { recursive: true, force: true }); } catch { /* nada */ }
+      try { fs.rmSync(this.dir('piper-bin'), { recursive: true, force: true }); } catch { /* noop */ }
     }
     notify?.(tr('Piper updated.'));
   }
 
-  /** Borra TODO el motor (venv + Python autocontenido + binario standalone) y sus voces descargadas. */
+  /** Deletes the ENTIRE engine (venv + self-contained Python + standalone binary) and its downloaded voices. */
   delete(): void {
     this.stopServer();
     this.httpDepsOk = false;
     for (const d of ['piper-venv', 'piper-bin', 'python', 'piper-voices']) {
-      try { fs.rmSync(this.dir(d), { recursive: true, force: true }); } catch { /* nada */ }
+      try { fs.rmSync(this.dir(d), { recursive: true, force: true }); } catch { /* noop */ }
     }
     this.setupPromise = null;
   }
 
-  /** Apaga el daemon al desactivar la extensión (no dejar el proceso huérfano). */
+  /** Shuts down the daemon when the extension deactivates (avoids leaving an orphan process). */
   dispose(): void { this.stopServer(); this._onChange.dispose(); }
 
-  /** Ruta .onnx de la 1ª voz descargada (para arrancar el daemon manualmente). */
+  /** .onnx path of the first downloaded voice (to start the daemon manually). */
   firstVoiceModel(): string | undefined {
     const dir = this.dir('piper-voices');
     let files: string[];

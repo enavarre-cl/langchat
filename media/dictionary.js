@@ -1,4 +1,4 @@
-// Panel de gestión del diccionario personal (una tabla de palabras + agregar/quitar).
+// Personal dictionary management panel (a table of words + add/remove).
 (function () {
   const vscode = acquireVsCodeApi();
   const $ = (id) => document.getElementById(id);
@@ -23,7 +23,7 @@
   function render(words) {
     rows.innerHTML = '';
     emptyEl.classList.toggle('hidden', words.length > 0);
-    countEl.textContent = words.length + (words.length === 1 ? ' palabra / word' : ' palabras / words');
+    countEl.textContent = words.length + (words.length === 1 ? ' word' : ' words');
     for (const w of words) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');

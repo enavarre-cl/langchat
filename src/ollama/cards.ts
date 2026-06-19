@@ -1,4 +1,4 @@
-/** Caché local de "fichas" de modelo (sidecar): guarda la info de HF para no re-consultarla. */
+/** Local model "card" cache (sidecar): stores HF info to avoid re-fetching it. */
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -10,12 +10,12 @@ export class ModelCardCache {
   }
   save(id: string, data: unknown): void {
     try { fs.mkdirSync(this.dir, { recursive: true }); fs.writeFileSync(this.file(id), JSON.stringify(data)); }
-    catch { /* nada */ }
+    catch { /* ignore */ }
   }
   load(id: string): any | undefined {
     try { return JSON.parse(fs.readFileSync(this.file(id), 'utf8')); } catch { return undefined; }
   }
-  remove(id: string): void { try { fs.unlinkSync(this.file(id)); } catch { /* nada */ } }
-  /** Borra toda la caché de fichas. */
-  clear(): void { try { fs.rmSync(this.dir, { recursive: true, force: true }); } catch { /* nada */ } }
+  remove(id: string): void { try { fs.unlinkSync(this.file(id)); } catch { /* ignore */ } }
+  /** Clears the entire card cache. */
+  clear(): void { try { fs.rmSync(this.dir, { recursive: true, force: true }); } catch { /* ignore */ } }
 }

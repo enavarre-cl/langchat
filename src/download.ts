@@ -1,22 +1,22 @@
-/** Descarga de archivos con progreso e integridad (puro Node, sin VS Code). */
+/** File download with progress and integrity checks (pure Node, no VS Code). */
 import * as fs from 'fs';
 import * as https from 'https';
 import * as crypto from 'crypto';
 
-/** SHA256 (hex) de un archivo. */
+/** SHA256 (hex) of a file. */
 export function sha256File(p: string): string {
   return crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
 }
 
 export interface DownloadOpts {
   redirects?: number;
-  /** Progreso: bytes recibidos y total (0 si el servidor no manda content-length). */
+  /** Progress: bytes received and total (0 if the server sends no content-length). */
   onProgress?: (received: number, total: number) => void;
-  /** Permite cancelar la descarga. */
+  /** Allows cancelling the download. */
   signal?: AbortSignal;
 }
 
-/** Descarga `url` a `destPath` siguiendo redirecciones (GitHub/HF redirigen a su CDN). */
+/** Downloads `url` to `destPath` following redirects (GitHub/HF redirect to their CDN). */
 export function downloadFile(url: string, destPath: string, opts: DownloadOpts = {}): Promise<void> {
   const { redirects = 6, onProgress, signal } = opts;
   return new Promise((resolve, reject) => {
@@ -48,7 +48,7 @@ export function downloadFile(url: string, destPath: string, opts: DownloadOpts =
         let received = 0;
         const tmp = destPath + '.part';
         const file = fs.createWriteStream(tmp);
-        const fail = (e: any) => { try { file.destroy(); } catch { /* nada */ } try { fs.unlinkSync(tmp); } catch { /* nada */ } reject(e); };
+        const fail = (e: any) => { try { file.destroy(); } catch { /* noop */ } try { fs.unlinkSync(tmp); } catch { /* noop */ } reject(e); };
         res.on('error', fail);
         file.on('error', fail);
         if (onProgress) res.on('data', (chunk: Buffer) => { received += chunk.length; onProgress(received, total); });

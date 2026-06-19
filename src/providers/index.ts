@@ -7,40 +7,40 @@ import { AnthropicProvider } from './anthropic';
 
 export * from './types';
 
-/** Única fuente de verdad de los backends soportados. */
+/** Single source of truth for supported backends. */
 export const PROVIDER_IDS = ['openai', 'ollama', 'gemini', 'anthropic', 'openrouter'] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 
-/** Type guard para un id de backend válido. */
+/** Type guard for a valid backend id. */
 export function isProviderId(v: any): v is ProviderId {
   return PROVIDER_IDS.includes(v);
 }
 
-/** Normaliza un valor a un id de backend válido (por defecto 'openai'). */
+/** Normalizes a value to a valid backend id (defaults to 'openai'). */
 export function validateProvider(v: any): ProviderId {
   return isProviderId(v) ? v : 'openai';
 }
 
 /**
- * Construye el provider para un backend concreto. La elección de backend vive
- * en cada archivo `.chat`; las URLs/credenciales de conexión son ajustes globales.
+ * Builds the provider for a specific backend. The backend choice lives in each
+ * `.chat` file; connection URLs/credentials are global settings.
  */
-// API keys cargadas desde SecretStorage (cifrado), pobladas por la extensión al activar.
-// Tienen prioridad sobre el ajuste en settings (que queda como fallback / compat).
+// API keys loaded from SecretStorage (encrypted), populated by the extension on activation.
+// They take priority over the settings value (which remains as fallback / compat).
 const keyOverrides: Partial<Record<ProviderId, string>> = {};
 export function setApiKeyOverride(id: ProviderId, key: string | undefined): void {
   if (key) keyOverrides[id] = key; else delete keyOverrides[id];
 }
-/** Resuelve la API key de un backend: SecretStorage primero, ajuste de settings como fallback. */
+/** Resolves the API key for a backend: SecretStorage first, settings value as fallback. */
 export function resolveApiKey(id: ProviderId): string {
   const cfg = vscode.workspace.getConfiguration('langChat');
   return keyOverrides[id] || cfg.get<string>(`${id}.apiKey`, '') || '';
 }
 
-// baseUrl del servidor Ollama gestionado (lo fija el OllamaManager cuando está listo).
+// baseUrl of the managed Ollama server (set by OllamaManager when ready).
 let managedOllamaBaseUrl: string | undefined;
 export function setManagedOllamaBaseUrl(url: string | undefined): void { managedOllamaBaseUrl = url; }
-/** baseUrl de Ollama: el gestionado si está activo y listo; si no, el de settings. */
+/** Ollama baseUrl: the managed one if active and ready; otherwise the one from settings. */
 function ollamaBaseUrl(cfg: vscode.WorkspaceConfiguration): string {
   if (managedOllamaBaseUrl && cfg.get<boolean>('ollama.managed', true)) return managedOllamaBaseUrl;
   return cfg.get<string>('ollama.baseUrl', 'http://localhost:11434');
@@ -64,7 +64,7 @@ export function buildProvider(providerId: ProviderId): LLMProvider {
     );
   }
   if (providerId === 'openrouter') {
-    // OpenRouter es compatible con la API de OpenAI, y admite el parámetro `reasoning`.
+    // OpenRouter is compatible with the OpenAI API and supports the `reasoning` parameter.
     return new OpenAIProvider(
       cfg.get<string>('openrouter.baseUrl', 'https://openrouter.ai/api/v1'),
       resolveApiKey('openrouter'),
@@ -86,7 +86,7 @@ export interface ProviderInfo {
   hasKey: boolean;
 }
 
-/** Describe el backend activo: etiqueta legible, endpoint y estado de la API key. */
+/** Describes the active backend: human-readable label, endpoint, and API key status. */
 export function providerInfo(id: ProviderId): ProviderInfo {
   const cfg = vscode.workspace.getConfiguration('langChat');
   if (id === 'ollama') {
@@ -134,7 +134,7 @@ export function providerInfo(id: ProviderId): ProviderInfo {
   };
 }
 
-/** Valores por defecto para nuevos archivos `.chat`. */
+/** Default values for new `.chat` files. */
 export function chatDefaults() {
   const cfg = vscode.workspace.getConfiguration('langChat');
   return {

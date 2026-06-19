@@ -1,4 +1,4 @@
-/** Gestión de modelos del servidor Ollama (API /api/*). Usa httpFetch (proxy/SSRF cubiertos). */
+/** Ollama server model management (API /api/*). Uses httpFetch (proxy/SSRF covered). */
 import { httpFetch } from '../http';
 import { readLines } from '../providers/stream';
 
@@ -25,7 +25,7 @@ export interface PullProgress {
 
 const base = (baseUrl: string) => baseUrl.replace(/\/+$/, '');
 
-/** Lista los modelos locales (GET /api/tags). */
+/** Lists local models (GET /api/tags). */
 export async function listLocal(baseUrl: string): Promise<LocalModel[]> {
   const res = await httpFetch(`${base(baseUrl)}/api/tags`);
   if (!res.ok) throw new Error(`/api/tags HTTP ${res.status}`);
@@ -40,7 +40,7 @@ export async function listLocal(baseUrl: string): Promise<LocalModel[]> {
   }));
 }
 
-/** Detalle de un modelo (POST /api/show); incluye capacidades reales (D3: verdad tras bajar). */
+/** Model detail (POST /api/show); includes real capabilities (D3: truth after download). */
 export async function show(baseUrl: string, name: string): Promise<{ capabilities: ModelCapabilities; raw: any }> {
   const res = await httpFetch(`${base(baseUrl)}/api/show`, {
     method: 'POST',
@@ -60,7 +60,7 @@ export async function show(baseUrl: string, name: string): Promise<{ capabilitie
   };
 }
 
-/** Borra un modelo local (DELETE /api/delete). */
+/** Deletes a local model (DELETE /api/delete). */
 export async function remove(baseUrl: string, name: string): Promise<void> {
   const res = await httpFetch(`${base(baseUrl)}/api/delete`, {
     method: 'DELETE',
@@ -71,8 +71,8 @@ export async function remove(baseUrl: string, name: string): Promise<void> {
 }
 
 /**
- * Descarga un modelo (POST /api/pull, NDJSON en streaming).
- * `ref` puede ser `modelo:tag` (registro Ollama) o `hf.co/usuario/repo:quant` (Hugging Face).
+ * Downloads a model (POST /api/pull, streaming NDJSON).
+ * `ref` can be `model:tag` (Ollama registry) or `hf.co/user/repo:quant` (Hugging Face).
  */
 export async function pull(
   baseUrl: string,
@@ -88,8 +88,8 @@ export async function pull(
   });
   if (!res.ok || !res.body) throw new Error(`/api/pull HTTP ${res.status}`);
   const reader = res.body.getReader();
-  // Abortar el fetch no siempre corta la lectura del stream de Ollama; forzamos cancelar el reader.
-  const onAbort = () => { void reader.cancel().catch(() => { /* nada */ }); };
+  // Aborting the fetch does not always cut the Ollama stream reader; we force-cancel it.
+  const onAbort = () => { void reader.cancel().catch(() => { /* ignore */ }); };
   if (signal) {
     if (signal.aborted) onAbort();
     else signal.addEventListener('abort', onAbort, { once: true });

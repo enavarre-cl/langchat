@@ -1,6 +1,6 @@
-/** Vistas laterales (TreeView) de Lang Chat. Una vista por sección (Engines, Local models,
- *  Downloads, Voices, Dictionary): VS Code les da el encabezado sombreado nativo. El mismo
- *  provider se instancia por `section` y sirve directamente los ítems de esa sección. */
+/** Sidebar views (TreeView) for Lang Chat. One view per section (Engines, Local models,
+ *  Downloads, Voices, Dictionary): VS Code provides the native shaded heading. The same
+ *  provider is instantiated per `section` and directly serves the items for that section. */
 import * as vscode from 'vscode';
 import { OllamaManager } from './ollama/manager';
 import { listLocal, LocalModel } from './ollama/registry';
@@ -41,8 +41,8 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
     private readonly section: Section,
     onVoicesChanged: vscode.Event<void>
   ) {
-    // Cada vista se refresca ante cualquier cambio de estado relevante (barato; sin progreso, así
-    // los clics en los botones inline nunca se pierden — el % en vivo va en el panel).
+    // Each view refreshes on any relevant state change (cheap; no progress, so
+    // clicks on inline buttons are never lost — live % goes in the panel).
     manager.onDidChangeStatus(() => this.refresh());
     downloads.onDidChangeState(() => this.refresh());
     spell.onDidChange(() => this.refresh());
@@ -55,7 +55,7 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
   getTreeItem(el: ModelsTreeItem): vscode.TreeItem { return el; }
 
   async getChildren(el?: ModelsTreeItem): Promise<ModelsTreeItem[]> {
-    // Vista "Models": árbol con DOS grupos (Local models + Downloads) en la misma categoría.
+    // "Models" view: tree with TWO groups (Local models + Downloads) under the same category.
     if (this.section === 'models') {
       if (!el) {
         const lm = new ModelsTreeItem('group-models', tr('Local models'));
@@ -73,7 +73,7 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
       if (el.kind === 'group-downloads') return this.downloadItems();
       return [];
     }
-    // Vistas planas: los ítems van directos a la raíz (el encabezado de la vista ES la sección).
+    // Flat views: items go directly to the root (the view heading IS the section).
     if (el) return [];
     switch (this.section) {
       case 'engines': return [this.ollamaEngine(), this.piperEngine()];

@@ -1,4 +1,4 @@
-/** Catálogo de modelos GGUF de Hugging Face (búsqueda, ficheros, capacidades heurísticas). */
+/** Hugging Face GGUF model catalog (search, files, heuristic capabilities). */
 import { httpFetch } from '../http';
 import type { ModelCapabilities } from './registry';
 import {
@@ -9,35 +9,35 @@ import {
 export { heuristicCapabilities, parseQuant, hfPullRef, isAuxiliaryGguf, OFFICIAL_ORG_NAMES };
 
 export interface CatalogModel {
-  id: string;          // p. ej. "google/gemma-4-12b-qat-gguf"
+  id: string;          // e.g. "google/gemma-4-12b-qat-gguf"
   author: string;
   downloads: number;
   likes: number;
   updated: string;
   tags: string[];
-  pipeline: string;    // pipeline_tag de HF (text-generation, image-text-to-text…) → descripción
-  params: string;      // nº de parámetros deducido del nombre (12B, 4B…)
+  pipeline: string;    // HF pipeline_tag (text-generation, image-text-to-text…) → description
+  params: string;      // parameter count inferred from name (12B, 4B…)
   domain: string;      // LLM / VLM / Embeddings…
-  official: boolean;   // autor en la lista de orgs oficiales
-  capabilities: ModelCapabilities; // estimadas (D3: la verdad llega de /api/show tras bajar)
+  official: boolean;   // author is in the official orgs list
+  capabilities: ModelCapabilities; // estimated (D3: truth arrives from /api/show after download)
 }
 
-/** Info extra del modelo (arquitectura y params exactos), del endpoint individual de HF. */
+/** Extra model info (architecture and exact params), from the individual HF endpoint. */
 export interface ModelInfo {
   arch: string;        // config.model_type (qwen3, gemma, llama…)
-  params: string;      // de safetensors.total, si está
+  params: string;      // from safetensors.total, if available
 }
 
 export interface ModelFile {
-  path: string;        // ruta del .gguf en el repo
+  path: string;        // path of the .gguf in the repo
   size: number;        // bytes
-  quant: string;       // p. ej. "Q4_K_M"
-  pullable: boolean;   // ¿Ollama podrá resolver `:{quant}`? (nombres estándar)
+  quant: string;       // e.g. "Q4_K_M"
+  pullable: boolean;   // can Ollama resolve `:{quant}`? (standard names)
 }
 
 const HF = 'https://huggingface.co';
 
-/** Busca modelos GGUF en HF (GET /api/models?search=&filter=gguf). */
+/** Searches for GGUF models on HF (GET /api/models?search=&filter=gguf). */
 export type SortMode = 'relevance' | 'likes' | 'downloads' | 'modified';
 const SORT_PARAM: Record<SortMode, string> = {
   relevance: '', likes: 'likes', downloads: 'downloads', modified: 'lastModified',
@@ -48,8 +48,8 @@ export async function searchHF(
 ): Promise<CatalogModel[]> {
   const q = encodeURIComponent(query || '');
   let url = `${HF}/api/models?search=${q}&filter=gguf&limit=${limit}&full=true`;
-  // Capacidades NO se filtran en HF (sus tags son escasos: las orgs oficiales no etiquetan); se
-  // filtran en el cliente con la heurística por familias. "Best Match" (relevance) = sin sort.
+  // Capabilities are NOT filtered on HF (its tags are sparse: official orgs don't label them); they
+  // are filtered on the client with the family heuristic. "Best Match" (relevance) = no sort.
   const sortField = SORT_PARAM[sort] || (query ? '' : 'downloads');
   if (sortField) url += `&sort=${sortField}&direction=-1`;
   if (author) url += `&author=${encodeURIComponent(author)}`;
@@ -59,7 +59,7 @@ export async function searchHF(
   return (arr || []).map((m) => toCatalogModel(m));
 }
 
-/** Normaliza un objeto de la API de HF a nuestro CatalogModel. */
+/** Normalises an HF API object into our CatalogModel. */
 function toCatalogModel(m: any): CatalogModel {
   const id: string = m.id || m.modelId || '';
   const tags: string[] = Array.isArray(m.tags) ? m.tags : [];
@@ -81,12 +81,12 @@ function toCatalogModel(m: any): CatalogModel {
   };
 }
 
-/** URL directa de un fichero del repo en HF (para descargarlo a mano e importarlo a Ollama). */
+/** Direct URL of a repo file on HF (to download it manually and import it into Ollama). */
 export function hfFileUrl(id: string, filePath: string): string {
   return `${HF}/${id}/resolve/main/${filePath.split('/').map(encodeURIComponent).join('/')}`;
 }
 
-/** Ruta del proyector de visión (mmproj) del repo, si existe — para importar modelos con visión. */
+/** Path of the vision projector (mmproj) in the repo, if present — for importing vision models. */
 export async function projectorFile(id: string, signal?: AbortSignal): Promise<string | undefined> {
   try {
     const res = await httpFetch(`${HF}/api/models/${id}/tree/main?recursive=true`, { signal });
@@ -98,14 +98,14 @@ export async function projectorFile(id: string, signal?: AbortSignal): Promise<s
   } catch { return undefined; }
 }
 
-/** Trae UN modelo por id (GET /api/models/{id}) como CatalogModel — sin pasar por la búsqueda. */
+/** Fetches a single model by id (GET /api/models/{id}) as a CatalogModel — bypassing search. */
 export async function fetchModel(id: string, signal?: AbortSignal): Promise<CatalogModel> {
   const res = await httpFetch(`${HF}/api/models/${id}`, { signal });
   if (!res.ok) throw new Error(`HF model HTTP ${res.status}`);
   return toCatalogModel(await res.json());
 }
 
-/** Lista los ficheros .gguf de un repo con su tamaño y quant (GET /api/models/{id}/tree/main). */
+/** Lists the .gguf files of a repo with their size and quant (GET /api/models/{id}/tree/main). */
 export async function modelFiles(id: string, signal?: AbortSignal): Promise<ModelFile[]> {
   const url = `${HF}/api/models/${id}/tree/main?recursive=true`;
   const res = await httpFetch(url, { signal });
@@ -113,7 +113,7 @@ export async function modelFiles(id: string, signal?: AbortSignal): Promise<Mode
   const arr = (await res.json()) as any[];
   return (arr || [])
     .filter((e) => e?.type === 'file' && typeof e.path === 'string' && /\.gguf$/i.test(e.path))
-    .filter((e) => !isAuxiliaryGguf(e.path)) // excluye mmproj/proyectores: no son modelos sueltos
+    .filter((e) => !isAuxiliaryGguf(e.path)) // excludes mmproj/projectors: not standalone models
     .map((e): ModelFile => ({
       path: e.path,
       size: e.size || e.lfs?.size || 0,
@@ -123,7 +123,7 @@ export async function modelFiles(id: string, signal?: AbortSignal): Promise<Mode
     .sort((a, b) => a.size - b.size);
 }
 
-/** Info extra del modelo (arquitectura y params exactos) del endpoint individual de HF. */
+/** Extra model info (architecture and exact params) from the individual HF endpoint. */
 export async function modelInfo(id: string, signal?: AbortSignal): Promise<ModelInfo> {
   try {
     const res = await httpFetch(`${HF}/api/models/${id}`, { signal });
@@ -136,13 +136,13 @@ export async function modelInfo(id: string, signal?: AbortSignal): Promise<Model
   } catch { return { arch: '', params: '' }; }
 }
 
-/** README del modelo (markdown crudo), o cadena vacía si no hay. */
+/** Model README (raw markdown), or empty string if none. */
 export async function readme(id: string, signal?: AbortSignal): Promise<string> {
   try {
     const res = await httpFetch(`${HF}/${id}/resolve/main/README.md`, { signal });
     if (!res.ok) return '';
     const text = await res.text();
-    // Quita el front-matter YAML (--- … ---) del principio.
+    // Strips the leading YAML front-matter (--- … ---).
     return text.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
   } catch { return ''; }
 }

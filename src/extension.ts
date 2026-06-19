@@ -30,10 +30,10 @@ import { openVoicesPanel } from './voicesPanel';
 import { removePiperVoice, listPiperVoices } from './piperVoices';
 import { PiperManager } from './piper/manager';
 
-// Hub de tools (filesystem nativo + servidores MCP), compartido por todos los chats.
+// Tools hub (native filesystem + MCP servers), shared by all chats.
 const toolHub = new ToolHub();
 
-// Backends que usan API key (Ollama no). El secret se guarda como `langChat.<id>.apiKey`.
+// Backends that use an API key (Ollama does not). The secret is stored as `langChat.<id>.apiKey`.
 const KEY_PROVIDERS: { id: ProviderId; label: string }[] = [
   { id: 'openai', label: 'LM Studio / OpenAI' },
   { id: 'gemini', label: 'Google Gemini' },
@@ -41,7 +41,7 @@ const KEY_PROVIDERS: { id: ProviderId; label: string }[] = [
   { id: 'openrouter', label: 'OpenRouter' },
 ];
 
-/** Carga las API keys de SecretStorage (cifradas) a los overrides del provider. */
+/** Loads API keys from SecretStorage (encrypted) into the provider overrides. */
 async function loadApiKeys(context: vscode.ExtensionContext): Promise<void> {
   for (const { id } of KEY_PROVIDERS) {
     const k = await context.secrets.get(`langChat.${id}.apiKey`);
@@ -49,7 +49,7 @@ async function loadApiKeys(context: vscode.ExtensionContext): Promise<void> {
   }
 }
 
-/** Extrae el id de repo HF de un nombre de modelo local de Ollama (`hf.co/user/repo:quant` → `user/repo`). */
+/** Extracts the HF repo id from a local Ollama model name (`hf.co/user/repo:quant` → `user/repo`). */
 function localModelHfId(name?: string): string | undefined {
   if (!name || !/^hf\.co\//i.test(name)) return undefined;
   const id = name.replace(/^hf\.co\//i, '').replace(/:[^:/]+$/, '');
@@ -60,20 +60,20 @@ export function activate(context: vscode.ExtensionContext) {
   const spellWords = new SpellWordsStore(context);
   context.subscriptions.push(spellWords);
   const piper = new PiperManager(context);
-  // Avisa a los chats abiertos cuando cambia el set de voces descargadas (panel/árbol) para
-  // que el selector de voz del chat solo muestre las descargadas.
+  // Notifies open chats when the set of downloaded voices changes (panel/tree) so that
+  // the chat's voice selector only shows downloaded ones.
   const voicesChanged = new vscode.EventEmitter<void>();
   context.subscriptions.push(voicesChanged);
   const provider = new ChatEditorProvider(context, spellWords, piper, voicesChanged.event);
 
-  registerCompare(context); // comando de comparación de versiones (Timeline / paleta)
+  registerCompare(context); // version comparison command (Timeline / palette)
 
-  initProxy(); // configura el proxy (http.proxy / env) para todas las peticiones
+  initProxy(); // configures the proxy (http.proxy / env) for all requests
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => { if (e.affectsConfiguration('http')) initProxy(); })
   );
-  void loadApiKeys(context); // poblar overrides desde SecretStorage al arrancar
-  // Si los secrets cambian (otra ventana, o el comando), recarga.
+  void loadApiKeys(context); // populate overrides from SecretStorage on startup
+  // If secrets change (another window, or the command), reload.
   context.secrets.onDidChange((e) => { if (e.key.startsWith('langChat.') && e.key.endsWith('.apiKey')) void loadApiKeys(context); });
 
   context.subscriptions.push(
@@ -83,7 +83,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('langChat.new', () => createNewChat()),
     vscode.commands.registerCommand('langChat.spell.openDictionary', (item: any) => {
-      const lang = item?.word === 'en' ? 'en' : 'es'; // el nodo lleva el idioma en `word`
+      const lang = item?.word === 'en' ? 'en' : 'es'; // the node carries the language in `word`
       openDictionaryPanel(context, spellWords, lang);
     }),
     vscode.commands.registerCommand('langChat.setApiKey', async () => {
@@ -97,7 +97,7 @@ export function activate(context: vscode.ExtensionContext) {
         prompt: `${tr('API key for')} ${pick.label} ${tr('(empty = delete)')}`,
         placeHolder: '••••••••',
       });
-      if (key === undefined) return; // cancelado
+      if (key === undefined) return; // cancelled
       const secretKey = `langChat.${pick.id}.apiKey`;
       if (key) await context.secrets.store(secretKey, key);
       else await context.secrets.delete(secretKey);
@@ -106,15 +106,15 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // ---- Modelos locales (Ollama gestionado + explorador) ----
+  // ---- Local models (managed Ollama + explorer) ----
   const ollama = new OllamaManager(context, (s) => {
     if (vscode.workspace.getConfiguration('langChat').get<boolean>('tts.debug', false)) console.log(s);
   });
-  // Publica el baseUrl gestionado para que el provider Ollama lo use cuando esté listo.
+  // Publishes the managed baseUrl so the Ollama provider can use it when ready.
   ollama.onDidChangeStatus(() => setManagedOllamaBaseUrl(ollama.status === 'ready' ? ollama.baseUrl() : undefined));
   const needServer = async (): Promise<string | undefined> => {
     try {
-      // Si está listo, vuelve al instante; si no, muestra progreso (la 1ª vez baja el binario).
+      // If ready, returns immediately; otherwise shows progress (first time downloads the binary).
       if (ollama.status === 'ready') return ollama.baseUrl();
       return await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Window, title: 'Ollama' },
@@ -122,7 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
       );
     } catch (e: any) { vscode.window.showErrorMessage(`Ollama: ${e?.message || e}`); return undefined; }
   };
-  // Descargas persistentes (sobreviven a reinicios) que auto-arrancan el servidor al (re)intentar.
+  // Persistent downloads (survive restarts) that auto-start the server on (re)attempt.
   const downloads = new DownloadManager(
     () => needServer(),
     (name, modelPath, projPath) => ollama.create(name, modelPath, projPath),
@@ -131,14 +131,14 @@ export function activate(context: vscode.ExtensionContext) {
     path.join(context.globalStorageUri.fsPath, 'imports')
   );
   const piperVoicesDir = vscode.Uri.joinPath(context.globalStorageUri, 'piper-voices').fsPath;
-  // Una vista (TreeProvider) por sección → VS Code les da el encabezado sombreado nativo.
+  // One view (TreeProvider) per section → VS Code gives them the native shaded header.
   const mkTree = (s: Section) => new ModelsTreeProvider(ollama, downloads, spellWords, piperVoicesDir, piper, s, voicesChanged.event);
   const treeEngines = mkTree('engines');
-  const treeModels = mkTree('models'); // incluye Local models + Downloads (árbol)
+  const treeModels = mkTree('models'); // includes Local models + Downloads (tree)
   const treeVoices = mkTree('voices');
   const treeDict = mkTree('dictionary');
   const refreshTrees = (): void => { treeEngines.refresh(); treeModels.refresh(); treeVoices.refresh(); treeDict.refresh(); };
-  // Caché de fichas (sidecar): ver/encolar guarda la info de HF; cancelar/eliminar la borra.
+  // Card cache (sidecar): view/queue saves HF info; cancel/remove clears it.
   const cards = new ModelCardCache(path.join(context.globalStorageUri.fsPath, 'model-cards'));
   const panelHooks = {
     onChanged: () => refreshTrees(),
@@ -148,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
     },
   };
 
-  // Instala/actualiza un motor mostrando progreso. (Ollama "update" = reinstala la versión pineada.)
+  // Installs/updates an engine showing progress. (Ollama "update" = reinstalls the pinned version.)
   const runEngineTask = async (which: any): Promise<void> => {
     if (which !== 'ollama' && which !== 'piper') return;
     const name = which === 'ollama' ? 'Ollama' : 'Piper';
@@ -168,7 +168,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     ollama,
     downloads,
-    piper, // dispose() apaga el daemon HTTP al desactivar la extensión
+    piper, // dispose() shuts down the HTTP daemon when the extension deactivates
     vscode.window.registerTreeDataProvider('langChat.engines', treeEngines),
     vscode.window.registerTreeDataProvider('langChat.models', treeModels),
     vscode.window.registerTreeDataProvider('langChat.voices', treeVoices),
@@ -206,7 +206,7 @@ export function activate(context: vscode.ExtensionContext) {
     }),
     vscode.commands.registerCommand('langChat.tts.stopServer', () => piper.stopServer()),
     vscode.commands.registerCommand('langChat.tts.removeVoice', async (item: any) => {
-      const id = item?.word; // el nodo de voz lleva el id en `word`
+      const id = item?.word; // the voice node carries its id in `word`
       if (typeof id !== 'string') return;
       const yes = tr('Delete');
       const pick = await vscode.window.showWarningMessage(tr('Delete this voice?') + ` (${id})`, { modal: true }, yes);
@@ -248,11 +248,11 @@ export function deactivate() {
   toolHub.dispose();
 }
 
-/** Crea un nuevo archivo `.chat` (pidiendo destino) y lo abre con el editor de chat. */
+/** Creates a new `.chat` file (asking for a destination) and opens it with the chat editor. */
 async function createNewChat(): Promise<void> {
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
   const defaultUri = folder
-    ? vscode.Uri.joinPath(folder, 'nuevo.chat')
+    ? vscode.Uri.joinPath(folder, 'new.chat')
     : undefined;
 
   const target = await vscode.window.showSaveDialog({
@@ -269,7 +269,7 @@ async function createNewChat(): Promise<void> {
 
 class ChatEditorProvider implements vscode.CustomTextEditorProvider {
   static readonly viewType = 'langChat.editor';
-  /** Applier del chat enfocado: la vista de modelos lo usa para "usar este modelo". */
+  /** Applier for the focused chat: the models view uses it to "use this model". */
   static activeApply: ((patch: any) => Promise<void>) | undefined;
 
   constructor(
@@ -279,7 +279,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly onVoicesChanged: vscode.Event<void>
   ) {}
 
-  /** Voces Piper descargadas (ids), para que el chat solo ofrezca esas en su selector. */
+  /** Downloaded Piper voice ids, so the chat only offers those in its selector. */
   private downloadedVoiceIds(): string[] {
     return listPiperVoices(vscode.Uri.joinPath(this.context.globalStorageUri, 'piper-voices').fsPath).map((v) => v.id);
   }
@@ -295,23 +295,23 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     };
     webview.html = this.html(webview);
 
-    // Texto que escribimos nosotros: para distinguir nuestras ediciones de las externas.
+    // Text we write ourselves: to distinguish our own edits from external ones.
     let lastWritten: string | null = null;
     let abort: AbortController | undefined;
-    let busy = false; // hay una inferencia en curso: rechaza solicitudes nuevas
-    let ttsToken = 0; // identifica la petición TTS actual; al cambiar, se cancela el bucle de trozos
-    let currentPiperProc: any = null; // proceso piper en curso, para poder matarlo al cancelar
-    const killPiper = () => { if (currentPiperProc) { try { currentPiperProc.kill(); } catch { /* nada */ } currentPiperProc = null; } };
-    // Traza de TTS a archivo (para depurar sin depender de la consola del webview).
+    let busy = false; // an inference is in progress: reject new requests
+    let ttsToken = 0; // identifies the current TTS request; when it changes, the chunk loop is cancelled
+    let currentPiperProc: any = null; // piper process in flight, so we can kill it on cancel
+    const killPiper = () => { if (currentPiperProc) { try { currentPiperProc.kill(); } catch { /* nothing */ } currentPiperProc = null; } };
+    // TTS trace to file (for debugging without relying on the webview console).
     const tlog = (s: string) => {
-      // Solo traza si el usuario activa el debug (por defecto off).
+      // Only traces if the user enables debug (off by default).
       if (!vscode.workspace.getConfiguration('langChat').get<boolean>('tts.debug', false)) return;
-      try { console.log('[TTS]', s); } catch { /* nada */ }
-      try { fs.appendFileSync(path.join(os.tmpdir(), 'langchat-tts.log'), new Date().toISOString() + ' ' + s + '\n'); } catch { /* nada */ }
+      try { console.log('[TTS]', s); } catch { /* nothing */ }
+      try { fs.appendFileSync(path.join(os.tmpdir(), 'langchat-tts.log'), new Date().toISOString() + ' ' + s + '\n'); } catch { /* nothing */ }
     };
-    let modelContexts: Record<string, number> = {}; // id de modelo -> tokens de contexto
-    // Caché del parseo del documento por versión: parseDoc valida/normaliza en cada llamada y
-    // getDoc se invoca muchas veces por operación. Devolvemos un clon para no corromper la caché.
+    let modelContexts: Record<string, number> = {}; // model id -> context tokens
+    // Cache of document parsing by version: parseDoc validates/normalises on every call and
+    // getDoc is invoked many times per operation. We return a clone to avoid corrupting the cache.
     let docCache: { version: number; doc: ChatDoc } | null = null;
 
     const getDoc = (): ChatDoc | null => {
@@ -328,13 +328,13 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
     };
 
-    // `save`/`prune` se pueden desactivar para escrituras intermedias (p. ej. cada iteración
-    // del tool-loop): se aplican una sola vez al final del turno y se evita re-volcar a disco
-    // y re-escribir el sidecar de adjuntos en cada paso (coste O(n) por iteración).
+    // `save`/`prune` can be disabled for intermediate writes (e.g. each iteration
+    // of the tool-loop): they are applied once at the end of the turn, avoiding flushing to disk
+    // and rewriting the attachment sidecar on every step (O(n) cost per iteration).
     const writeDoc = async (doc: ChatDoc, opts?: { save?: boolean; prune?: boolean }): Promise<void> => {
       const save = opts?.save !== false;
       const prune = opts?.prune !== false;
-      // Sella id + timestamp en cada mensaje que aún no los tenga (un solo punto para todos).
+      // Stamps id + timestamp on every message that doesn't have them yet (single place for all).
       for (const m of doc.messages) {
         if (!m.id) m.id = `msg_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
         if (!m.ts) m.ts = new Date().toISOString();
@@ -353,11 +353,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         webview.postMessage({ type: 'error', message: tr('Could not write the .chat file.') });
         return;
       }
-      // Persiste a disco para que la configuración no se pierda.
+      // Persists to disk so configuration is not lost.
       if (save && !document.isUntitled) {
         await document.save();
       }
-      // Limpia adjuntos huérfanos del sidecar tras cada cambio persistido.
+      // Cleans up orphan attachments from the sidecar after each persisted change.
       if (prune) await pruneAttach(doc);
     };
 
@@ -366,30 +366,30 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (doc) webview.postMessage({ type: 'doc', doc: resolveDocForView(doc) });
     };
 
-    // Envía el idioma efectivo + la preferencia cruda al webview.
+    // Sends the effective language + raw preference to the webview.
     const pushLang = (): void => {
       const pref = vscode.workspace.getConfiguration('langChat').get<string>('language', 'auto');
       webview.postMessage({ type: 'lang', lang: resolvedLang(), pref });
     };
 
-    // TTS neural con Piper: parte el texto en frases y envía cada trozo como WAV en base64.
-    // Así suena el primer fragmento enseguida y no se generan WAV gigantes en mensajes largos.
-    // `voice` es un id de voz curada (se descarga solo); si está vacío usa la ruta de los ajustes.
+    // Neural TTS with Piper: splits the text into sentences and sends each chunk as base64 WAV.
+    // This way the first fragment plays immediately and no giant WAVs are generated for long messages.
+    // `voice` is a curated voice id (downloaded automatically); if empty, uses the path from settings.
     const synthPiper = async (text: string, rate: number, voice: string, reqId: number): Promise<void> => {
       const t = text.trim();
       if (!t) return;
-      const myToken = ++ttsToken; // cualquier petición/stop posterior cancela ésta
+      const myToken = ++ttsToken; // any later request/stop cancels this one
       const cancelled = () => myToken !== ttsToken;
-      killPiper(); // mata cualquier piper de una petición anterior aún en vuelo
-      tlog(`req#${reqId} recibido (engine=piper, rate=${rate}, voice=${voice || '(setting)'})`);
-      // Todos los mensajes TTS llevan el id de petición para que el webview filtre los obsoletos.
+      killPiper(); // kill any piper from a previous request still in flight
+      tlog(`req#${reqId} received (engine=piper, rate=${rate}, voice=${voice || '(setting)'})`);
+      // All TTS messages carry the request id so the webview can filter stale ones.
       const post = (m: any) => webview.postMessage({ ...m, id: reqId });
       const notice = (m: string) => webview.postMessage({ type: 'notice', message: m });
       const cfg = vscode.workspace.getConfiguration('langChat');
       const speaker = cfg.get<number>('tts.piperSpeaker', -1);
       const isCurated = !!voice && /^[a-z]{2}_[A-Z]{2}-/.test(voice);
-      // Vía DAEMON (modelo residente, rápido): solo voces curadas. Cualquier fallo cae al
-      // spawn-por-trozo de abajo, así que no hay regresión si el server no arranca.
+      // Via DAEMON (resident model, fast): curated voices only. Any failure falls through to
+      // the per-chunk spawn below, so there is no regression if the server fails to start.
       if (isCurated) {
         try {
           const modelPath = await this.piper.ensureVoice(voice, notice);
@@ -399,12 +399,12 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           const lscale = rate > 0 ? 1 / rate : 1;
           const wav = await this.piper.synthViaServer(baseUrl, t, voice, lscale, typeof speaker === 'number' ? speaker : -1);
           if (cancelled()) return;
-          tlog(`req#${reqId} OK vía daemon: WAV ${wav.length} bytes`);
+          tlog(`req#${reqId} OK via daemon: WAV ${wav.length} bytes`);
           post({ type: 'ttsAudio', data: wav.toString('base64'), last: true });
           post({ type: 'ttsDone' });
           return;
         } catch (e: any) {
-          tlog(`req#${reqId} daemon falló (${e?.message ?? e}); fallback a spawn-por-trozo`);
+          tlog(`req#${reqId} daemon failed (${e?.message ?? e}); falling back to per-chunk spawn`);
         }
       }
       let bin: string;
@@ -441,7 +441,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         env.LD_LIBRARY_PATH = libDir + (env.LD_LIBRARY_PATH ? ':' + env.LD_LIBRARY_PATH : '');
       }
 
-      // Sintetiza un trozo y devuelve el Buffer del WAV (o un error).
+      // Synthesises a chunk and returns the WAV Buffer (or an error).
       const synthChunk = (chunk: string): Promise<{ ok: boolean; buf?: Buffer; err?: string }> =>
         new Promise((resolve) => {
           const out = path.join(os.tmpdir(), `langchat-tts-${Date.now()}-${Math.floor(Math.random() * 1e6)}.wav`);
@@ -453,12 +453,12 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           } catch (e: any) {
             return resolve({ ok: false, err: e?.message ?? String(e) });
           }
-          currentPiperProc = proc; // para poder matarlo si se cancela
+          currentPiperProc = proc; // so we can kill it if cancelled
           let stderr = '';
           proc.stderr?.on('data', (d: any) => { stderr += d.toString(); });
           proc.on('error', (e: any) => {
             if (currentPiperProc === proc) currentPiperProc = null;
-            try { fs.unlinkSync(out); } catch { /* no creado / ya borrado */ }
+            try { fs.unlinkSync(out); } catch { /* not created / already deleted */ }
             resolve({ ok: false, err: e?.message ?? String(e) });
           });
           proc.on('close', (code: number) => {
@@ -467,55 +467,55 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
               if (code === 0 && fs.existsSync(out)) resolve({ ok: true, buf: fs.readFileSync(out) });
               else resolve({ ok: false, err: stderr.trim() || `exit ${code}` });
             } finally {
-              try { fs.unlinkSync(out); } catch { /* ya borrado */ }
+              try { fs.unlinkSync(out); } catch { /* already deleted */ }
             }
           });
           proc.stdin?.write(chunk);
           proc.stdin?.end();
         });
 
-      // Sintetiza cada frase por separado (rápido) y las concatena en UN solo WAV.
+      // Synthesises each sentence separately (fast) and concatenates them into a single WAV.
       const chunks = splitForTTS(t);
-      tlog(`req#${reqId} bin=${bin.split('/').slice(-3).join('/')} chars=${t.length} trozos=${chunks.length}`);
+      tlog(`req#${reqId} bin=${bin.split('/').slice(-3).join('/')} chars=${t.length} chunks=${chunks.length}`);
       if (chunks.length > 1) webview.postMessage({ type: 'notice', message: tr('Generating audio…') });
       const bufs: Buffer[] = [];
       let lastErr = '';
       for (let i = 0; i < chunks.length; i++) {
-        if (cancelled()) { tlog(`req#${reqId} cancelado en trozo ${i}`); return; }
+        if (cancelled()) { tlog(`req#${reqId} cancelled at chunk ${i}`); return; }
         const r = await synthChunk(chunks[i]);
-        if (cancelled()) { tlog(`req#${reqId} cancelado tras trozo ${i}`); return; }
+        if (cancelled()) { tlog(`req#${reqId} cancelled after chunk ${i}`); return; }
         if (r.ok && r.buf) bufs.push(r.buf);
-        else { lastErr = r.err || ''; tlog(`req#${reqId} trozo ${i} FALLÓ: ${lastErr}`); }
+        else { lastErr = r.err || ''; tlog(`req#${reqId} chunk ${i} FAILED: ${lastErr}`); }
       }
       if (cancelled()) return;
-      if (!bufs.length) { tlog(`req#${reqId} sin audio: ${lastErr}`); post({ type: 'ttsError', message: tr('Piper failed: ') + lastErr }); return; }
+      if (!bufs.length) { tlog(`req#${reqId} no audio: ${lastErr}`); post({ type: 'ttsError', message: tr('Piper failed: ') + lastErr }); return; }
       const wav = concatWavs(bufs);
-      tlog(`req#${reqId} OK: ${bufs.length} trozos → WAV ${wav.length} bytes (~${(wavData(wav).len / (22050 * 2)).toFixed(1)}s); enviando`);
-      // Un único WAV → una sola reproducción en el webview (sin cadenas frágiles).
+      tlog(`req#${reqId} OK: ${bufs.length} chunks → WAV ${wav.length} bytes (~${(wavData(wav).len / (22050 * 2)).toFixed(1)}s); sending`);
+      // A single WAV → a single playback in the webview (no fragile chains).
       post({ type: 'ttsAudio', data: wav.toString('base64'), last: true });
       post({ type: 'ttsDone' });
     };
 
-    // System prompt efectivo: el del archivo .md referenciado, si existe; si no, el inline.
+    // Effective system prompt: from the referenced .md file if it exists; otherwise the inline one.
     const resolveSystemPrompt = (doc: ChatDoc): string => {
       if (doc.systemPromptFile) {
         try {
           const dir = path.dirname(document.uri.fsPath);
           const resolved = path.resolve(dir, doc.systemPromptFile);
-          // Confina al directorio del .chat: el archivo no puede apuntar fuera (p. ej. ../../etc/passwd).
+          // Confines to the .chat directory: the file cannot point outside (e.g. ../../etc/passwd).
           if (resolved !== dir && !resolved.startsWith(dir + path.sep)) {
-            throw new Error('systemPromptFile fuera del directorio del .chat');
+            throw new Error('systemPromptFile outside the .chat directory');
           }
           const text = fs.readFileSync(resolved, 'utf8');
           if (text.trim()) return text;
         } catch {
-          /* ausente o fuera de límites: cae al inline */
+          /* absent or out of bounds: falls through to inline */
         }
       }
       return doc.systemPrompt || '';
     };
 
-    // ---- Sidecar de adjuntos (.attach): los blobs viven aquí, el .chat solo referencia ----
+    // ---- Attachment sidecar (.attach): blobs live here, the .chat only holds references ----
     const attachUri = (): vscode.Uri => {
       const stem = path.basename(document.uri.fsPath).replace(/\.chat$/i, '');
       return vscode.Uri.joinPath(document.uri, '..', stem + '.attach');
@@ -534,7 +534,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       attachCache = store;
       await vscode.workspace.fs.writeFile(attachUri(), Buffer.from(JSON.stringify(store) + '\n', 'utf8'));
     };
-    // Guarda los blobs nuevos en el sidecar y devuelve adjuntos con solo {kind,name,mime,ref}.
+    // Saves new blobs in the sidecar and returns attachments with only {kind,name,mime,ref}.
     const storeAttachments = async (atts: any[]): Promise<any[]> => {
       if (!atts.length) return [];
       const store = loadAttach();
@@ -547,18 +547,18 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       await saveAttach(store);
       return refs;
     };
-    // Devuelve un adjunto con `data` resuelto (desde el sidecar si es ref, o inline antiguo).
+    // Returns an attachment with `data` resolved (from the sidecar if a ref, or legacy inline).
     const resolveAtt = (a: any): any => {
-      if (typeof a?.data === 'string') return a; // inline antiguo
+      if (typeof a?.data === 'string') return a; // legacy inline
       if (a?.ref) {
         const e = loadAttach()[a.ref];
         if (e) return { kind: a.kind, name: a.name || e.name, mime: a.mime || e.mime, data: e.data };
       }
       return a;
     };
-    // Quita del sidecar las entradas que ya no referencia ningún mensaje (al borrar/fusionar/bifurcar).
+    // Removes from the sidecar entries no longer referenced by any message (on delete/merge/fork).
     const pruneAttach = async (doc: ChatDoc): Promise<void> => {
-      if (!attachCache) return; // solo si hay/hubo adjuntos cargados
+      if (!attachCache) return; // only if attachments have been/were loaded
       const used = new Set<string>();
       for (const m of doc.messages) for (const a of (m.attachments ?? [])) if (a.ref) used.add(a.ref);
       let changed = false;
@@ -567,13 +567,13 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
       if (!changed) return;
       if (Object.keys(attachCache).length === 0) {
-        try { await vscode.workspace.fs.delete(attachUri()); } catch { /* ya no existe */ }
+        try { await vscode.workspace.fs.delete(attachUri()); } catch { /* no longer exists */ }
       } else {
         await vscode.workspace.fs.writeFile(attachUri(), Buffer.from(JSON.stringify(attachCache) + '\n', 'utf8'));
       }
     };
 
-    // Copia del doc con los adjuntos resueltos (para webview), sin tocar el doc que se persiste.
+    // Copy of the doc with resolved attachments (for the webview), without touching the persisted doc.
     const resolveDocForView = (doc: ChatDoc): ChatDoc => ({
       ...doc,
       messages: doc.messages.map((m) =>
@@ -607,7 +607,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
 
       try {
         let models = await buildProvider(doc.provider).listModels();
-        // Filtro global de vendors de OpenRouter (prefijo antes de '/').
+        // Global OpenRouter vendor filter (prefix before '/').
         if (doc.provider === 'openrouter') {
           const vendors = vscode.workspace
             .getConfiguration('langChat')
@@ -633,7 +633,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
     };
 
-    // Llama al modelo para resumir un bloque de mensajes (sin streaming a la UI).
+    // Calls the model to summarise a block of messages (no streaming to the UI).
     const summarizeMessages = async (
       doc: ChatDoc,
       prevText: string,
@@ -669,11 +669,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       } finally {
         abort = undefined;
       }
-      // Algunos modelos de razonamiento devuelven el texto solo en el canal de thinking.
+      // Some reasoning models return text only in the thinking channel.
       return (text.trim() || reasoning.trim());
     };
 
-    // Garantiza un resumen que cubra messages[0..targetUpTo); lo extiende de forma incremental.
+    // Ensures a summary covering messages[0..targetUpTo); extends it incrementally.
     const ensureSummary = async (
       doc: ChatDoc,
       history: ChatMessage[],
@@ -684,8 +684,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const startFrom = prev ? prev.upTo : 0;
       const block = history.slice(startFrom, targetUpTo);
       if (!block.length) return prev?.text ?? '';
-      // Indicador PERSISTENTE (con spinner) durante toda la llamada al modelo; se quita al terminar
-      // o fallar. (Antes era un aviso que se autocerraba a los 6s y dejaba un hueco sin feedback.)
+      // PERSISTENT indicator (with spinner) throughout the model call; removed on completion
+      // or failure. (Previously it was a notice that auto-closed after 6 s, leaving a feedback gap.)
       webview.postMessage({ type: 'summarizing', active: true, message: tr('🗜️ Summarizing previous context…') });
       try {
         const text = await summarizeMessages(doc, prev?.text ?? '', block);
@@ -699,8 +699,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
     };
 
-    // Ejecuta una inferencia en streaming sobre `context`. Devuelve lo acumulado.
-    // Con `allowTools`, ejecuta el bucle agéntico (tools MCP / filesystem nativo).
+    // Runs a streaming inference over `context`. Returns the accumulated result.
+    // With `allowTools`, runs the agentic loop (MCP tools / native filesystem).
     const runInference = async (
       doc: ChatDoc,
       context: ChatMessage[],
@@ -712,27 +712,27 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const cmCfg = doc.params.contextMessages;
       const lastNActive = cmCfg.enabled && cmCfg.value > 0;
       if (lastNActive) {
-        // PRIORIDAD: "últimos N mensajes" gana sobre el resumen (que queda obsoleto al avanzar).
-        // El budget de tokens (auto = 75% de la ventana del modelo) también acota: gana el corte
-        // más cercano (no reventar la ventana).
+        // PRIORITY: "last N messages" wins over the summary (which becomes stale as the chat advances).
+        // The token budget (auto = 75% of the model window) also caps: the tighter cut wins
+        // (to avoid blowing the window).
         const modelCtx = modelContexts[doc.model];
         const budget = modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
         let acc = estTokens(doc.systemPrompt);
         let start = history.length;
         for (let i = history.length - 1; i >= 0; i--) {
-          if (history.length - i > cmCfg.value) break;            // tope: N mensajes
+          if (history.length - i > cmCfg.value) break;            // cap: N messages
           const tk = msgTokens(history[i]);
-          if (acc + tk > budget && start < history.length) break; // tope: token budget
+          if (acc + tk > budget && start < history.length) break; // cap: token budget
           acc += tk;
           start = i;
         }
         history = history.slice(start);
       } else if (doc.params.autoSummary) {
-        // Compactación por TOKENS contra la ventana real del modelo (auto = 75% de la ventana).
+        // TOKEN-based compaction against the real model window (auto = 75% of the window).
         const modelCtx = modelContexts[doc.model];
         const budget = modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
 
-        // Parte del resumen ya existente: nunca reenviamos lo ya resumido.
+        // Start from the existing summary: never resend what has already been summarised.
         let upTo = doc.summary ? doc.summary.upTo : 0;
         summaryText = doc.summary?.text ?? '';
 
@@ -741,7 +741,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         for (let i = upTo; i < history.length; i++) total += msgTokens(history[i]);
 
         if (total > budget) {
-          // Conserva los mensajes recientes que quepan en ~la mitad del presupuesto.
+          // Keeps recent messages that fit within ~half the budget.
           const keepBudget = Math.max(1, Math.floor(budget / 2));
           let acc = 0;
           let keepFrom = history.length;
@@ -765,7 +765,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         history = history.slice(upTo);
       }
 
-      // Tras recortar, no empieces por assistant/tool (rompería function calling y Anthropic/Gemini).
+      // After trimming, don't start with assistant/tool (would break function calling and Anthropic/Gemini).
       while (history.length && (history[0].role === 'assistant' || history[0].role === 'tool')) {
         history = history.slice(1);
       }
@@ -776,13 +776,13 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (summaryText) {
         wire.push({ role: 'system', content: `Summary of the previous conversation (compacted context):\n${summaryText}` });
       }
-      // Se envían rol/contenido/imágenes y, si los hay, los campos de tools. El thinking se OMITE.
+      // Role/content/images are sent and, if present, tool fields. Thinking is OMITTED.
       wire.push(...history.map((m) => {
         let content = m.content;
         const resolved = (m.attachments ?? []).map(resolveAtt);
         const media = resolved.filter((a) => a.kind === 'image' || a.kind === 'document');
         for (const f of resolved.filter((a) => a.kind === 'text')) {
-          content += `\n\n[Archivo adjunto: ${f.name}]\n${f.data ?? ''}`;
+          content += `\n\n[Attached file: ${f.name}]\n${f.data ?? ''}`;
         }
         const wm: ChatMessage = { role: m.role, content };
         if (media.length) wm.attachments = media;
@@ -801,7 +801,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (toolHub.mcpErrors().length) {
             webview.postMessage({ type: 'notice', message: tr('⚠️ Some MCP servers failed to start: ') + toolHub.mcpErrors().join('; ') });
           }
-        } catch { /* sin tools si falla */ }
+        } catch { /* no tools if it fails */ }
       }
 
       let answer = '';
@@ -810,9 +810,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       let aborted = false;
       let usage: any = undefined;
 
-      // Bucle agéntico: si el modelo pide tools, se ejecutan y se realimentan.
-      // Un único AbortController para TODO el turno: así Stop corta también entre
-      // iteraciones y antes de ejecutar la siguiente tool (no solo durante el chat()).
+      // Agentic loop: if the model requests tools, they are executed and fed back.
+      // A single AbortController for the ENTIRE turn: so Stop also cuts between
+      // iterations and before executing the next tool (not only during chat()).
       const ac = new AbortController();
       abort = ac;
       const MAX_ITERS = 8;
@@ -838,7 +838,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
 
         if (failed || aborted || !res.toolCalls || !res.toolCalls.length) break;
 
-        // El modelo pidió tools: persiste la llamada, ejecuta y realimenta.
+        // The model requested tools: persist the call, execute, and feed back.
         const callMsg: ChatMessage = { role: 'assistant', content: res.answer, toolCalls: res.toolCalls };
         if (res.thinking) callMsg.thinking = res.thinking;
         wire.push(callMsg);
@@ -846,10 +846,10 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         fresh?.messages.push(callMsg);
 
         for (const tc of res.toolCalls) {
-          if (ac.signal.aborted) { aborted = true; break; } // Stop antes de la siguiente tool
+          if (ac.signal.aborted) { aborted = true; break; } // Stop before the next tool
           let out: string;
           let args: any = {};
-          try { args = JSON.parse(tc.arguments || '{}'); } catch { /* args vacíos */ }
+          try { args = JSON.parse(tc.arguments || '{}'); } catch { /* empty args */ }
           webview.postMessage({ type: 'toolCall', name: tc.name, args: tc.arguments || '' });
           try {
             out = await toolHub.call(tc.name, args);
@@ -861,13 +861,13 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           wire.push(toolMsg);
           fresh?.messages.push(toolMsg);
         }
-        // Escritura intermedia del tool-loop: sin save() ni prune (se hacen una vez al final del turno).
+        // Intermediate write in the tool-loop: no save() or prune (done once at the end of the turn).
         if (fresh) await writeDoc(fresh, { save: false, prune: false });
         sendHistory();
         if (aborted) break;
-        // siguiente iteración: el modelo ve los resultados
+        // next iteration: the model sees the results
       }
-      if (abort === ac) abort = undefined; // libera el controller del turno
+      if (abort === ac) abort = undefined; // release the turn's controller
 
       if (!failed && !answer && !thinking && !aborted) {
         webview.postMessage({
@@ -890,11 +890,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
 
       const userMsg: ChatMessage = { role: 'user', content: text };
-      if (atts.length) userMsg.attachments = await storeAttachments(atts); // blobs → .attach, mensaje solo refs
+      if (atts.length) userMsg.attachments = await storeAttachments(atts); // blobs → .attach, message holds only refs
       doc.messages.push(userMsg);
       const onlyUser = doc.messages.filter((m) => m.role === 'user').length === 1;
-      if (onlyUser && (!doc.title || doc.title === 'Nuevo chat')) {
-        const base = text || atts[0]?.name || 'Adjunto';
+      if (onlyUser && (!doc.title || doc.title === 'New chat')) {
+        const base = text || atts[0]?.name || 'Attachment';
         doc.title = base.length > 40 ? base.slice(0, 40) + '…' : base;
       }
       await writeDoc(doc);
@@ -913,8 +913,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       sendHistory();
     };
 
-    // Genera una respuesta cuando la conversación termina en un mensaje del usuario
-    // (p. ej. tras un error, una cancelación o haber borrado la respuesta).
+    // Generates a response when the conversation ends with a user message
+    // (e.g. after an error, a cancellation, or having deleted the response).
     const handleGenerate = async (): Promise<void> => {
       const doc = getDoc();
       if (!doc) return;
@@ -939,25 +939,25 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       sendHistory();
     };
 
-    // Bifurca: clona la conversación hasta `index` (incluido) en un nuevo .chat y lo abre.
+    // Fork: clones the conversation up to `index` (inclusive) into a new .chat and opens it.
     const handleFork = async (index: number, fromHere = false): Promise<void> => {
       const doc = getDoc();
       if (!doc) return;
       if (!Number.isInteger(index) || index < 0 || index >= doc.messages.length) return;
 
-      // Normal: clona hasta aquí (incluido). ⌥/Alt: clona DESDE aquí hasta el final.
+      // Normal: clones up to here (inclusive). ⌥/Alt: clones FROM here to the end.
       const sliced = fromHere ? doc.messages.slice(index) : doc.messages.slice(0, index + 1);
       const forked: ChatDoc = {
         ...doc,
         title: doc.title + ' (' + tr('fork') + ')',
         messages: sliced,
-        // El resumen referencia índices viejos; solo sigue válido en el fork "hasta aquí"
-        // si cubre dentro del recorte. En "desde aquí" se descarta (cambia el origen).
+        // The summary references old indices; it remains valid in an "up to here" fork
+        // only if it covers within the slice. In "from here" it is discarded (origin changes).
         summary: !fromHere && doc.summary && doc.summary.upTo <= sliced.length ? doc.summary : undefined,
-        usage: undefined, // el uso se deriva de los mensajes presentes
+        usage: undefined, // usage is derived from the present messages
       };
 
-      // Nombre disponible junto al archivo actual.
+      // Available name next to the current file.
       const cur = document.uri;
       const dir = vscode.Uri.joinPath(cur, '..');
       const file = cur.path.slice(cur.path.lastIndexOf('/') + 1);
@@ -967,15 +967,15 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         const name = `${stem} (fork${n > 1 ? ' ' + n : ''}).chat`;
         target = vscode.Uri.joinPath(dir, name);
         try {
-          await vscode.workspace.fs.stat(target); // existe → probar siguiente
+          await vscode.workspace.fs.stat(target); // exists → try next
         } catch {
-          break; // libre
+          break; // free
         }
       }
 
       await vscode.workspace.fs.writeFile(target, Buffer.from(serializeDoc(forked), 'utf8'));
 
-      // Copia los adjuntos referenciados al sidecar del fork (mismos ids).
+      // Copies referenced attachments to the fork's sidecar (same ids).
       const refIds = new Set<string>();
       for (const m of sliced) for (const a of (m.attachments ?? [])) if (a.ref) refIds.add(a.ref);
       if (refIds.size) {
@@ -990,14 +990,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       await vscode.commands.executeCommand('vscode.openWith', target, ChatEditorProvider.viewType);
     };
 
-    // Continúa la última respuesta del asistente: anexa la nueva generación.
+    // Continues the last assistant response: appends the new generation.
     const handleContinue = async (): Promise<void> => {
       const doc = getDoc();
       if (!doc || !doc.model) return;
       const lastIdx = doc.messages.length - 1;
       if (lastIdx < 0 || doc.messages[lastIdx].role !== 'assistant') return;
 
-      // Contexto = historial completo + una instrucción efímera de continuar (no se guarda).
+      // Context = full history + an ephemeral continue instruction (not saved).
       const ctx: ChatMessage[] = [
         ...doc.messages,
         { role: 'user', content: 'Continue exactly from where you left off, expanding your previous response. Do not repeat what you already wrote, do not greet or summarize; keep writing.' },
@@ -1013,9 +1013,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const sep = /\s$/.test(target.content) ? '' : ' ';
       target.content = target.content + sep + answer;
       if (thinking) target.thinking = (target.thinking ? target.thinking + '\n\n' : '') + thinking;
-      // Continuar es otra llamada: acumula su uso de tokens.
+      // Continue is another call: accumulate its token usage.
       if (usage) target.usage = addUsage(target.usage, usage);
-      // Si la respuesta tiene variantes, anexa a la activa (contenido y uso).
+      // If the response has variants, append to the active one (content and usage).
       if (Array.isArray(target.variants) && typeof target.active === 'number' && target.variants[target.active]) {
         const av = target.variants[target.active];
         av.content = target.content;
@@ -1026,8 +1026,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       sendHistory();
     };
 
-    // Reprocesa la última instrucción: regenera la última respuesta del asistente,
-    // guardándola como una nueva variante (sin perder las anteriores).
+    // Reprocesses the last instruction: regenerates the last assistant response,
+    // saving it as a new variant (without losing previous ones).
     const handleRegenerate = async (): Promise<void> => {
       const doc = getDoc();
       if (!doc || !doc.model) return;
@@ -1045,7 +1045,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (!fresh || !target || target.role !== 'assistant') { sendHistory(); return; }
 
       if (!Array.isArray(target.variants) || target.variants.length === 0) {
-        // La respuesta original pasa a ser la variante 0 (conserva su uso de tokens).
+        // The original response becomes variant 0 (preserving its token usage).
         target.variants = [{ content: target.content, thinking: target.thinking, usage: target.usage }];
       }
       const variant: any = { content: answer };
@@ -1060,7 +1060,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       sendHistory();
     };
 
-    // Cambia la variante activa de un mensaje del asistente.
+    // Changes the active variant of an assistant message.
     const setVariant = async (index: number, variant: number): Promise<void> => {
       const doc = getDoc();
       const t = doc?.messages[index];
@@ -1074,7 +1074,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       sendHistory();
     };
 
-    // Borra una variante (solo si hay más de una). Al quedar una, colapsa a respuesta simple.
+    // Deletes a variant (only if more than one exists). When one remains, collapses to a simple response.
     const deleteVariant = async (index: number, variant: number): Promise<void> => {
       const doc = getDoc();
       const t = doc?.messages[index];
@@ -1101,14 +1101,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
 
     const sendHistory = (): void => {
       const doc = getDoc();
-      // Incluir `summary`: el resumen se crea durante la inferencia y, sin esto, el webview se
-      // quedaba con un summary viejo (barra de contexto contando todo el historial + sin marcas).
+      // Include `summary`: the summary is created during inference and, without this, the webview
+      // would be left with a stale summary (context bar counting the full history + no markers).
       if (doc) webview.postMessage({ type: 'history', messages: resolveDocForView(doc).messages, usage: doc.usage, summary: doc.summary ?? null });
     };
 
-    // Pide confirmación modal antes de borrar, salvo que el webview indique saltarla (Shift).
+    // Asks for modal confirmation before deleting, unless the webview signals to skip it (Shift).
     const confirmDelete = async (msg: any, text: string): Promise<boolean> => {
-      if (msg && msg.confirm === false) return true; // Shift: borra directo
+      if (msg && msg.confirm === false) return true; // Shift: delete immediately
       const yes = tr('Delete');
       const pick = await vscode.window.showWarningMessage(text, { modal: true }, yes);
       return pick === yes;
@@ -1124,14 +1124,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           await loadModels();
           break;
         case 'spellAddWord':
-          // Agrega a la lista del idioma activo del corrector. El store dispara onDidChange →
-          // todos los webviews + la vista lateral se actualizan.
+          // Adds to the active spell-checker language list. The store fires onDidChange →
+          // all webviews + the sidebar view are updated.
           if (typeof msg.word === 'string' && (msg.lang === 'es' || msg.lang === 'en')) {
             await this.spellWords.add(msg.lang as SpellLang, msg.word);
           }
           break;
         case 'summarizeUpTo': {
-          // Resume el contexto hasta el mensaje `index` (exclusivo), igual que el fork "up to here".
+          // Summarises context up to message `index` (exclusive), same as the "up to here" fork.
           if (busy) break;
           const doc = getDoc();
           if (!doc) break;
@@ -1155,7 +1155,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'setSummary': {
-          // Edición manual del texto del resumen (no cambia su `upTo`).
+          // Manual editing of the summary text (does not change its `upTo`).
           if (busy) break;
           const doc = getDoc();
           if (!doc || !doc.summary || typeof msg.text !== 'string') break;
@@ -1165,7 +1165,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'clearSummary': {
-          // Borra el resumen: el historial vuelve a enviarse completo (se recalcula si hace falta).
+          // Clears the summary: the full history is sent again (recalculated if needed).
           if (busy) break;
           const doc = getDoc();
           if (!doc || !doc.summary) break;
@@ -1187,8 +1187,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         case 'ttsStop':
           tlog('ttsStop (cancel)');
-          ttsToken++; // cancela el bucle de trozos en curso
-          killPiper(); // y mata el piper en vuelo (no malgastar CPU)
+          ttsToken++; // cancels the current chunk loop
+          killPiper(); // and kills the in-flight piper (avoid wasting CPU)
           break;
         case 'ttsLog':
           tlog('[webview] ' + msg.message + ' ' + (msg.data != null ? JSON.stringify(msg.data) : ''));
@@ -1199,14 +1199,14 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
             const notice = (m: string) => webview.postMessage({ type: 'notice', message: m });
             const isVoice = !!voice && /^[a-z]{2}_[A-Z]{2}-/.test(voice);
             if (isVoice) removePiperVoice(vscode.Uri.joinPath(this.context.globalStorageUri, 'piper-voices').fsPath, voice);
-            await this.piper.update(notice);          // actualiza el motor (pip upgrade)
-            if (isVoice) await this.piper.ensureVoice(voice, notice); // re-descarga la voz
+            await this.piper.update(notice);          // updates the engine (pip upgrade)
+            if (isVoice) await this.piper.ensureVoice(voice, notice); // re-downloads the voice
           } catch (e: any) {
             webview.postMessage({ type: 'ttsError', message: tr('Could not set up Piper: ') + (e?.message ?? e) });
           }
           break;
         case 'setConfig': {
-          if (busy) break; // no mutar el doc mientras hay una inferencia escribiendo
+          if (busy) break; // do not mutate the doc while an inference is writing
           const doc = getDoc();
           if (!doc) break;
           const before = doc.provider;
@@ -1222,34 +1222,34 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           const i = msg.index;
           if (Number.isInteger(i) && i >= 0 && i < doc.messages.length) {
             if (!(await confirmDelete(msg, tr('Delete this message?')))) break;
-            // Arrastra la cadena de tools OCULTA adyacente (assistant con toolCalls + resultados
-            // 'tool') en AMBOS lados: antes (turno completo) y después (turno roto sin respuesta
-            // final). Si no, quedarían huérfanas en el JSON.
+            // Also drags the adjacent HIDDEN tool chain (assistant with toolCalls + 'tool' results)
+            // on BOTH sides: before (complete turn) and after (broken turn without a final response).
+            // Otherwise they would remain orphaned in the JSON.
             let start = i;
             let end = i;
             while (start > 0 && isHiddenToolMsg(doc.messages[start - 1])) start--;
             while (end + 1 < doc.messages.length && isHiddenToolMsg(doc.messages[end + 1])) end++;
             doc.messages.splice(start, end - start + 1);
-            // Si solo quedan restos de tools (ningún mensaje mostrable), limpia del todo.
+            // If only tool remnants remain (no displayable message), clear entirely.
             if (!doc.messages.some((m) => !isHiddenToolMsg(m))) doc.messages = [];
-            doc.summary = undefined; // los índices del resumen cambiaron
+            doc.summary = undefined; // summary indices changed
             await writeDoc(doc);
             sendHistory();
           }
           break;
         }
         case 'deleteFrom': {
-          // Borra el mensaje `index` y todos los posteriores (⌥/Alt + papelera).
+          // Deletes message `index` and all subsequent ones (⌥/Alt + trash).
           if (busy) break;
           const doc = getDoc();
           if (!doc) break;
           const i = msg.index;
           if (Number.isInteger(i) && i >= 0 && i < doc.messages.length) {
             if (!(await confirmDelete(msg, tr('Delete this message and all below?')))) break;
-            // Incluye la cadena de tools oculta que precede al punto de corte.
+            // Includes the hidden tool chain preceding the cut point.
             let start = i;
             while (start > 0 && isHiddenToolMsg(doc.messages[start - 1])) start--;
-            doc.messages.splice(start); // quita desde start hasta el final
+            doc.messages.splice(start); // removes from start to the end
             doc.summary = undefined;
             await writeDoc(doc);
             sendHistory();
@@ -1257,7 +1257,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           break;
         }
         case 'mergeMessage': {
-          // Fusiona el mensaje `index` con el anterior (mismo rol) en uno solo.
+          // Merges message `index` with the previous one (same role) into a single message.
           if (busy) break;
           const doc = getDoc();
           if (!doc) break;
@@ -1272,7 +1272,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
             const merged = [prev.thinking, cur.thinking].filter(Boolean).join('\n\n');
             if (merged) prev.thinking = merged;
             doc.messages.splice(i, 1);
-            doc.summary = undefined; // los índices del resumen cambiaron
+            doc.summary = undefined; // summary indices changed
             await writeDoc(doc);
             sendHistory();
           }
@@ -1286,11 +1286,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (Number.isInteger(i) && i >= 0 && i < doc.messages.length && typeof msg.content === 'string') {
             const m = doc.messages[i];
             m.content = msg.content;
-            // Si el mensaje tiene variantes, edita la activa.
+            // If the message has variants, edit the active one.
             if (Array.isArray(m.variants) && typeof m.active === 'number' && m.variants[m.active]) {
               m.variants[m.active].content = msg.content;
             }
-            doc.summary = undefined; // contenido cambiado: invalida el resumen
+            doc.summary = undefined; // content changed: invalidate the summary
             await writeDoc(doc);
             sendHistory();
           }
@@ -1314,17 +1314,17 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           }
           break;
         case 'regenerateFrom': {
-          // Regenera la respuesta a un mensaje de usuario: descarta todo lo posterior
-          // (respuesta vieja, tool-calls a medias…) y vuelve a inferir.
+          // Regenerates the response to a user message: discards everything after it
+          // (old response, partial tool-calls…) and runs inference again.
           if (busy) break;
           const doc = getDoc();
           if (!doc) break;
           const i = msg.index;
           if (!Number.isInteger(i) || i < 0 || i >= doc.messages.length || doc.messages[i].role !== 'user') break;
-          busy = true; // bloquea reentradas ANTES de mutar/escribir
+          busy = true; // blocks re-entrancy BEFORE mutating/writing
           try {
             if (i + 1 < doc.messages.length) {
-              doc.messages.splice(i + 1); // deja el prompt como último mensaje
+              doc.messages.splice(i + 1); // leaves the prompt as the last message
               doc.summary = undefined;
               await writeDoc(doc);
               sendHistory();
@@ -1351,20 +1351,20 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           if (typeof msg.text === 'string') await vscode.env.clipboard.writeText(msg.text);
           break;
         case 'exportHtml': {
-          // Escribe un HTML autocontenido y lo abre en el navegador (que se imprime solo → Guardar como PDF).
+          // Writes a self-contained HTML file and opens it in the browser (which can print it → Save as PDF).
           const safe = String(msg.title || 'chat').replace(/[^\w\- ]+/g, '_').replace(/\s+/g, '_').slice(0, 40);
           const file = vscode.Uri.file(path.join(os.tmpdir(), `langchat-${safe}-${Date.now()}.html`));
           await vscode.workspace.fs.writeFile(file, Buffer.from(String(msg.html || ''), 'utf8'));
           await vscode.env.openExternal(file);
-          // Borra el temporal tras dar tiempo a que el navegador lo cargue (si no, se acumulan en /tmp).
-          setTimeout(() => { try { fs.unlinkSync(file.fsPath); } catch { /* nada */ } }, 60000);
+          // Deletes the temp file after giving the browser time to load it (otherwise they pile up in /tmp).
+          setTimeout(() => { try { fs.unlinkSync(file.fsPath); } catch { /* nothing */ } }, 60000);
           break;
         }
         case 'openSettings':
           await vscode.commands.executeCommand('workbench.action.openSettings', 'langChat');
           break;
         case 'createSysPrompt': {
-          // Crea un .md (con el prompt inline actual) junto al .chat, lo referencia y lo abre.
+          // Creates a .md file (with the current inline prompt) next to the .chat, references it and opens it.
           const doc = getDoc();
           if (!doc) break;
           const dir = vscode.Uri.joinPath(document.uri, '..');
@@ -1400,8 +1400,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         case 'openSysPrompt': {
           const doc = getDoc();
           if (!doc || !doc.systemPromptFile) break;
-          // Confina al directorio del .chat (mismo guard que resolveSystemPrompt): un
-          // systemPromptFile editado a mano no puede abrir archivos fuera (../../etc/passwd).
+          // Confines to the .chat directory (same guard as resolveSystemPrompt): a
+          // manually edited systemPromptFile cannot open files outside (../../etc/passwd).
           const dir = path.dirname(document.uri.fsPath);
           const resolved = path.resolve(dir, doc.systemPromptFile);
           if (resolved !== dir && !resolved.startsWith(dir + path.sep)) break;
@@ -1419,15 +1419,15 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
     });
 
-    // Sincroniza cambios externos del documento (edición manual del JSON, undo/redo)
-    // sin pisar el streaming en curso (que nosotros mismos provocamos).
+    // Syncs external document changes (manual JSON editing, undo/redo)
+    // without overwriting the in-progress streaming (which we ourselves triggered).
     const onChange = vscode.workspace.onDidChangeTextDocument((e) => {
       if (e.document.uri.toString() !== document.uri.toString()) return;
-      if (document.getText() === lastWritten) return; // edición nuestra: ya reflejada en el webview
+      if (document.getText() === lastWritten) return; // our own edit: already reflected in the webview
       pushDoc();
     });
 
-    // La vista de modelos puede aplicar provider+modelo al chat actualmente enfocado.
+    // The models view can apply a provider+model to the currently focused chat.
     const applyConfig = async (patch: any): Promise<void> => {
       if (busy) return;
       const doc = getDoc();
@@ -1438,17 +1438,17 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (doc.provider !== before) await loadModels();
       pushDoc();
     };
-    // Apunta al ÚLTIMO chat activo. No lo limpiamos al perder foco: si lo hiciéramos, al enfocar la
-    // barra lateral para "Usar en el chat" se perdería la referencia. Solo se limpia en dispose.
+    // Points to the LAST active chat. We don't clear it on focus loss: if we did, focusing the
+    // sidebar to "Use in chat" would lose the reference. It is only cleared on dispose.
     const setActive = (active: boolean): void => {
       if (active) ChatEditorProvider.activeApply = applyConfig;
     };
     setActive(panel.active);
     const onState = panel.onDidChangeViewState(() => setActive(panel.active));
 
-    // Cualquier cambio en el diccionario personal (panel, otro chat) → refresca este webview.
+    // Any change to the personal dictionary (panel, another chat) → refreshes this webview.
     const onSpell = this.spellWords.onDidChange(async () => webview.postMessage({ type: 'spellWords', words: await this.spellWords.all() }));
-    // Cambio en las voces descargadas (panel de voces, árbol) → re-filtra el selector del chat.
+    // Change in downloaded voices (voices panel, tree) → re-filters the chat selector.
     const onVoices = this.onVoicesChanged(() => webview.postMessage({ type: 'piperVoices', ids: this.downloadedVoiceIds() }));
     panel.onDidDispose(() => {
       abort?.abort();
@@ -1472,7 +1472,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       `font-src ${webview.cspSource}`,
       `img-src ${webview.cspSource} data: blob:`,
       `media-src ${webview.cspSource} data: blob:`,
-      `connect-src ${webview.cspSource}`, // fetch de los diccionarios del corrector
+      `connect-src ${webview.cspSource}`, // fetch of spell-checker dictionaries
     ].join('; ');
 
     return /* html */ `<!DOCTYPE html>
@@ -1612,7 +1612,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
   }
 }
 
-/** Suma dos registros de uso de tokens. */
+/** Adds two token-usage records together. */
 function addUsage(a: any, b: any): any {
   if (!b) return a;
   if (!a) return { ...b };
@@ -1626,7 +1626,7 @@ function addUsage(a: any, b: any): any {
   return out;
 }
 
-/** Estimación aproximada de tokens (~4 caracteres por token). */
+/** Rough token estimate (~4 characters per token). */
 function estTokens(s?: string): number {
   return s ? Math.ceil(s.length / 4) : 0;
 }
@@ -1636,12 +1636,12 @@ function msgTokens(m: ChatMessage): number {
   return t;
 }
 
-/** ¿Mensaje interno de tools (oculto en la UI)? El assistant con toolCalls o un resultado 'tool'. */
+/** Is this an internal tool message (hidden in the UI)? An assistant with toolCalls or a 'tool' result. */
 function isHiddenToolMsg(m: ChatMessage): boolean {
   return m.role === 'tool' || (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length > 0);
 }
 
-/** Valida y limita los adjuntos que llegan del webview. */
+/** Validates and limits the attachments arriving from the webview. */
 function sanitizeAttachments(input: any): { kind: 'image' | 'text' | 'document'; name: string; mime: string; data: string }[] {
   if (!Array.isArray(input)) return [];
   const out: { kind: 'image' | 'text' | 'document'; name: string; mime: string; data: string }[] = [];
@@ -1650,7 +1650,7 @@ function sanitizeAttachments(input: any): { kind: 'image' | 'text' | 'document';
     if (typeof a.data !== 'string' || !a.data) continue;
     out.push({
       kind: a.kind,
-      name: typeof a.name === 'string' ? a.name : 'adjunto',
+      name: typeof a.name === 'string' ? a.name : 'attachment',
       mime: typeof a.mime === 'string' ? a.mime : (a.kind === 'image' ? 'image/png' : 'text/plain'),
       data: a.data,
     });
@@ -1663,7 +1663,7 @@ const TOGGLE_KEYS: (keyof ChatParams)[] = [
   'repeatPenalty', 'presencePenalty', 'frequencyPenalty', 'seed',
 ];
 
-/** Aplica sobre `doc` solo las claves válidas que llegan del webview (incluida la config anidada). */
+/** Applies to `doc` only the valid keys arriving from the webview (including nested config). */
 function applyPatch(doc: ChatDoc, patch: any): void {
   if (!patch || typeof patch !== 'object') return;
   if (typeof patch.title === 'string') doc.title = patch.title;
@@ -1706,12 +1706,12 @@ function applyPatch(doc: ChatDoc, patch: any): void {
 function errMsg(err: any): string {
   const m = err?.message ?? String(err);
   if (/fetch failed|ECONNREFUSED|Failed to fetch/i.test(m)) {
-    return 'No se pudo conectar con el backend. ¿Está LM Studio / Ollama en ejecución? Revisa la URL en los ajustes (🔧).';
+    return 'Could not connect to the backend. Is LM Studio / Ollama running? Check the URL in settings (🔧).';
   }
   return m;
 }
 
-// Iconos de línea (monocromos, heredan currentColor) para la barra y cabeceras.
+// Line icons (monochrome, inherit currentColor) for the toolbar and headers.
 const SVG = (inner: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 const UI = {
@@ -1728,6 +1728,6 @@ const UI = {
 };
 
 function makeNonce(): string {
-  // Aleatoriedad criptográfica (no Math.random) para el nonce del CSP.
+  // Cryptographic randomness (not Math.random) for the CSP nonce.
   return crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '');
 }

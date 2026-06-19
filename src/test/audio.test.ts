@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { splitForTTS, wavData, concatWavs } from '../audio';
 
-/** Crea un WAV mínimo de cabecera 44 bytes + `pcm` bytes de datos. */
+/** Creates a minimal WAV with a 44-byte header + `pcm` bytes of data. */
 function makeWav(pcmLen: number): Buffer {
   const h = Buffer.alloc(44);
   h.write('RIFF', 0); h.writeUInt32LE(36 + pcmLen, 4); h.write('WAVE', 8);
@@ -12,35 +12,35 @@ function makeWav(pcmLen: number): Buffer {
   return Buffer.concat([h, Buffer.alloc(pcmLen, 7)]);
 }
 
-test('splitForTTS divide por frases y no pierde texto', () => {
-  const parts = splitForTTS('Hola mundo. ¿Cómo estás? Bien, gracias!');
+test('splitForTTS splits by sentences and loses no text', () => {
+  const parts = splitForTTS('Hello world. How are you? Fine, thanks!');
   assert.ok(parts.length >= 1);
-  assert.ok(parts.join(' ').includes('Hola mundo'));
-  assert.ok(parts.join(' ').includes('gracias'));
+  assert.ok(parts.join(' ').includes('Hello world'));
+  assert.ok(parts.join(' ').includes('thanks'));
 });
 
-test('splitForTTS parte frases más largas que maxLen', () => {
-  const long = 'palabra '.repeat(100).trim(); // ~799 chars, una "frase" sin puntuación
+test('splitForTTS splits sentences longer than maxLen', () => {
+  const long = 'word '.repeat(100).trim(); // ~499 chars, one "sentence" with no punctuation
   const parts = splitForTTS(long, 100);
-  assert.ok(parts.length > 1, 'debería trocear');
-  for (const p of parts) assert.ok(p.length <= 100, `trozo demasiado largo: ${p.length}`);
+  assert.ok(parts.length > 1, 'should chunk');
+  for (const p of parts) assert.ok(p.length <= 100, `chunk too long: ${p.length}`);
 });
 
-test('splitForTTS nunca devuelve vacío', () => {
+test('splitForTTS never returns empty', () => {
   assert.deepEqual(splitForTTS('   '), ['   ']);
 });
 
-test('concatWavs suma el PCM y corrige las cabeceras de tamaño', () => {
+test('concatWavs sums the PCM and fixes the size headers', () => {
   const a = makeWav(100), b = makeWav(250);
   const out = concatWavs([a, b]);
   const d = wavData(out);
-  assert.equal(d.len, 350, 'PCM concatenado = suma');
+  assert.equal(d.len, 350, 'concatenated PCM = sum');
   assert.equal(out.readUInt32LE(4), out.length - 8, 'RIFF size = fileSize-8');
   assert.equal(out.readUInt32LE(40), 350, 'data sub-chunk size');
   assert.equal(out.toString('ascii', 0, 4), 'RIFF');
   assert.equal(out.toString('ascii', 8, 12), 'WAVE');
 });
 
-test('concatWavs con lista vacía devuelve buffer vacío', () => {
+test('concatWavs with empty list returns empty buffer', () => {
   assert.equal(concatWavs([]).length, 0);
 });

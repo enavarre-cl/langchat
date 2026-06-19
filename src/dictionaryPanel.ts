@@ -5,7 +5,7 @@ import { tr } from './i18n';
 
 const openPanels: Partial<Record<SpellLang, vscode.WebviewPanel>> = {};
 
-/** Abre (o revela) el panel de gestión del diccionario personal de un idioma. */
+/** Opens (or reveals) the personal dictionary management panel for a language. */
 export function openDictionaryPanel(context: vscode.ExtensionContext, store: SpellWordsStore, lang: SpellLang): void {
   const existing = openPanels[lang];
   if (existing) { existing.reveal(); return; }

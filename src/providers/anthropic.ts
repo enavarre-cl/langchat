@@ -5,8 +5,8 @@ import { readLines, safeToolArgs } from './stream';
 import { imageAttachments, documentAttachments } from './multimodal';
 
 /**
- * Provider para la Messages API de Anthropic (Claude).
- * Streaming SSE; soporta extended thinking (panel de razonamiento).
+ * Provider for the Anthropic Messages API (Claude).
+ * SSE streaming; supports extended thinking (reasoning panel).
  */
 export class AnthropicProvider implements LLMProvider {
   readonly id = 'anthropic';
@@ -45,10 +45,10 @@ export class AnthropicProvider implements LLMProvider {
     p: GenerationParams,
     cb: StreamCallbacks
   ): Promise<ChatResult> {
-    // Anthropic separa el system y solo admite roles user/assistant.
+    // Anthropic separates the system and only accepts user/assistant roles.
     const systemTexts: string[] = [];
     const msgs: any[] = [];
-    // Los resultados de tools consecutivos se agrupan en un único mensaje 'user'.
+    // Consecutive tool results are grouped into a single 'user' message.
     let pendingToolResults: any[] = [];
     const flushTools = () => {
       if (pendingToolResults.length) {
@@ -71,7 +71,7 @@ export class AnthropicProvider implements LLMProvider {
         if (m.content) content.push({ type: 'text', text: m.content });
         for (const tc of m.toolCalls) {
           let input: any = {};
-          try { input = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* vacío */ }
+          try { input = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* empty */ }
           content.push({ type: 'tool_use', id: tc.id, name: tc.name, input });
         }
         msgs.push({ role: 'assistant', content });
@@ -95,7 +95,7 @@ export class AnthropicProvider implements LLMProvider {
     }
     flushTools();
 
-    // max_tokens es OBLIGATORIO en la API.
+    // max_tokens is MANDATORY in the API.
     const maxTokens = p.maxTokens && p.maxTokens > 0 ? p.maxTokens : 4096;
 
     const body: any = { model, messages: msgs, max_tokens: maxTokens, stream: true };
@@ -107,7 +107,7 @@ export class AnthropicProvider implements LLMProvider {
     }
 
     if (p.thinking) {
-      // Con thinking: budget < max_tokens, y temperature debe ser 1 (sin top_p/top_k).
+      // With thinking: budget < max_tokens, and temperature must be 1 (no top_p/top_k).
       const budget = Math.max(1024, Math.min(maxTokens - 512, 4096));
       body.max_tokens = Math.max(maxTokens, budget + 512);
       body.thinking = { type: 'enabled', budget_tokens: budget };
@@ -144,7 +144,7 @@ export class AnthropicProvider implements LLMProvider {
       try {
         evt = JSON.parse(payload);
       } catch {
-        return; // Evento parcial o no-JSON: se ignora.
+        return; // Partial or non-JSON event: ignored.
       }
       if (evt?.type === 'error') {
         throw new Error(`Anthropic (stream): ${evt.error?.message ?? JSON.stringify(evt.error)}`);

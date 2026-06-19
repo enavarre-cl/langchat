@@ -5,7 +5,7 @@ import { httpFetch } from '../http';
 import { readLines, safeToolArgs } from './stream';
 import { imageAttachments, documentAttachments, dataUrl } from './multimodal';
 
-/** content de un mensaje en formato OpenAI: string, o array de parts si hay imágenes/documentos. */
+/** Message content in OpenAI format: string, or array of parts if there are images/documents. */
 function openAIContent(m: ChatMessage): any {
   const imgs = imageAttachments(m);
   const docs = documentAttachments(m);
@@ -17,7 +17,7 @@ function openAIContent(m: ChatMessage): any {
   return parts;
 }
 
-/** Convierte un ChatMessage al formato de mensaje de la API de OpenAI. */
+/** Converts a ChatMessage to the OpenAI API message format. */
 function openAIMessage(m: ChatMessage): any {
   if (m.role === 'tool') {
     return { role: 'tool', tool_call_id: m.toolCallId, content: m.content };
@@ -27,8 +27,8 @@ function openAIMessage(m: ChatMessage): any {
     msg.tool_calls = m.toolCalls.map((tc) => ({
       id: tc.id,
       type: 'function',
-      // Sanea al ENVIAR: repara una tool-call ya guardada con JSON inválido (si no, el provider
-      // devuelve 400 en cada turno y la conversación queda bloqueada para siempre).
+      // Sanitize on SEND: repair a tool-call already saved with invalid JSON (otherwise the provider
+      // returns 400 on every turn and the conversation stays permanently blocked).
       function: { name: tc.name, arguments: safeToolArgs(tc.arguments) },
     }));
     if (!msg.content) msg.content = null;
@@ -37,7 +37,7 @@ function openAIMessage(m: ChatMessage): any {
 }
 
 /**
- * Provider para endpoints compatibles con la API de OpenAI
+ * Provider for OpenAI-API-compatible endpoints
  * (LM Studio, llama.cpp server, vLLM, LocalAI, etc.).
  */
 export class OpenAIProvider implements LLMProvider {
@@ -46,9 +46,9 @@ export class OpenAIProvider implements LLMProvider {
   constructor(
     private readonly baseUrl: string,
     private readonly apiKey: string,
-    // OpenRouter usa nombres propios (repetition_penalty, top_a) y admite `reasoning`.
+    // OpenRouter uses its own names (repetition_penalty, top_a) and supports `reasoning`.
     private readonly openrouter: boolean = false,
-    // Preferencia de enrutado de OpenRouter: '' | 'throughput' | 'latency' | 'price'.
+    // OpenRouter routing preference: '' | 'throughput' | 'latency' | 'price'.
     private readonly routeSort: string = ''
   ) {}
 
@@ -67,7 +67,7 @@ export class OpenAIProvider implements LLMProvider {
   async listModels(): Promise<ModelInfo[]> {
     const res = await httpFetch(this.url('/models'), { headers: this.headers() });
     if (!res.ok) {
-      throw new Error(`No se pudieron listar los modelos (${res.status} ${res.statusText})`);
+      throw new Error(`Could not list models (${res.status} ${res.statusText})`);
     }
     const json: any = await res.json();
     const data = Array.isArray(json?.data) ? json.data : [];
@@ -81,7 +81,7 @@ export class OpenAIProvider implements LLMProvider {
         const hasIn = (k: string) => inputs.includes(k) || modality.includes(k);
         return {
           id: m.id,
-          // OpenRouter expone context_length; LM Studio a veces max_context_length.
+          // OpenRouter exposes context_length; LM Studio sometimes max_context_length.
           contextLength: typeof m.context_length === 'number' ? m.context_length
             : typeof m.max_context_length === 'number' ? m.max_context_length
             : undefined,
@@ -116,21 +116,21 @@ export class OpenAIProvider implements LLMProvider {
     if (p.temperature !== undefined) body.temperature = p.temperature;
     if (p.maxTokens !== undefined && p.maxTokens > 0) body.max_tokens = p.maxTokens;
     if (p.topP !== undefined) body.top_p = p.topP;
-    if (p.topK !== undefined) body.top_k = p.topK; // extensión de LM Studio / llama.cpp
+    if (p.topK !== undefined) body.top_k = p.topK; // LM Studio / llama.cpp extension
     if (p.minP !== undefined) body.min_p = p.minP;
     if (p.repeatPenalty !== undefined) {
-      // OpenRouter lo llama repetition_penalty; LM Studio / llama.cpp, repeat_penalty.
+      // OpenRouter calls it repetition_penalty; LM Studio / llama.cpp calls it repeat_penalty.
       if (this.openrouter) body.repetition_penalty = p.repeatPenalty;
       else body.repeat_penalty = p.repeatPenalty;
     }
     if (p.presencePenalty !== undefined) body.presence_penalty = p.presencePenalty;
     if (p.frequencyPenalty !== undefined) body.frequency_penalty = p.frequencyPenalty;
     if (p.seed !== undefined) body.seed = p.seed;
-    if (p.topA !== undefined) body.top_a = p.topA; // sampler específico de OpenRouter
+    if (p.topA !== undefined) body.top_a = p.topA; // OpenRouter-specific sampler
     if (p.stop && p.stop.length) body.stop = p.stop;
-    // OpenRouter: pedir que el modelo de razonamiento devuelva sus tokens de thinking.
+    // OpenRouter: ask the reasoning model to return its thinking tokens.
     if (p.thinking && this.openrouter) body.reasoning = { enabled: true };
-    // OpenRouter: preferencia de enrutado entre proveedores (velocidad/precio).
+    // OpenRouter: routing preference across providers (speed/price).
     if (this.openrouter && this.routeSort) body.provider = { sort: this.routeSort };
 
     const res = await httpFetch(this.url('/chat/completions'), {
@@ -163,18 +163,18 @@ export class OpenAIProvider implements LLMProvider {
       try {
         json = JSON.parse(payload);
       } catch {
-        return; // Línea parcial o no-JSON: se ignora.
+        return; // Partial or non-JSON line: ignored.
       }
-      // Algunos servidores (OpenRouter, etc.) mandan el error DENTRO del stream.
+      // Some servers (OpenRouter, etc.) send the error INSIDE the stream.
       if (json?.error) {
         const err = json.error;
         let m = err?.message ?? JSON.stringify(err);
-        // OpenRouter esconde la causa real (p. ej. "tools no soportadas") en metadata.
+        // OpenRouter hides the real cause (e.g. "tools not supported") in metadata.
         const meta = err?.metadata;
         if (meta) {
           const raw = typeof meta.raw === 'string' ? meta.raw.trim() : meta.raw ? JSON.stringify(meta.raw) : '';
           if (raw) m += ` — ${raw}`;
-          if (meta.provider_name) m += ` (proveedor: ${meta.provider_name})`;
+          if (meta.provider_name) m += ` (provider: ${meta.provider_name})`;
         }
         if (err?.code) m += ` [${err.code}]`;
         throw new Error(`Backend (stream): ${m}`);
@@ -188,15 +188,15 @@ export class OpenAIProvider implements LLMProvider {
         if (typeof json.usage.cost === 'number') usage.cost = json.usage.cost;
       }
       const delta = json?.choices?.[0]?.delta ?? {};
-      // Servidores con campo de razonamiento dedicado (o1-style).
+      // Servers with a dedicated reasoning field (o1-style).
       const reasoning: string = delta.reasoning_content ?? delta.reasoning ?? '';
       if (reasoning) {
         thinking += reasoning;
         cb.onReasoning?.(reasoning);
       }
-      // Contenido normal: puede traer <think>…</think> embebido.
+      // Normal content: may carry embedded <think>…</think>.
       if (delta.content) splitter.push(delta.content);
-      // Acumula tool_calls que llegan fragmentados.
+      // Accumulate tool_calls that arrive fragmented.
       if (Array.isArray(delta.tool_calls)) {
         for (const tc of delta.tool_calls) {
           const i = typeof tc.index === 'number' ? tc.index : 0;

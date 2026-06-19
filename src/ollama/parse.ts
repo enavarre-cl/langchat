@@ -1,7 +1,7 @@
-/** Helpers puros del subsistema de modelos (sin VS Code ni red, testeables). */
+/** Pure helpers for the model subsystem (no VS Code or network, testable). */
 import type { ModelCapabilities } from './registry';
 
-/** Formatea bytes a una unidad legible (GB/MB). */
+/** Formats bytes into a human-readable unit (GB/MB). */
 export function formatBytes(n: number): string {
   if (!n || n < 0) return '—';
   const gb = n / 1073741824;
@@ -10,9 +10,9 @@ export function formatBytes(n: number): string {
 }
 
 /**
- * Capacidades estimadas a partir de tags/pipeline/nombre + conocimiento de familias de modelos.
- * Los tags de HF son escasos (las orgs oficiales no etiquetan reasoning/tools), así que añadimos
- * conocimiento de familias (gemma-4, qwen3, llama-4…). La verdad exacta llega de /api/show tras bajar.
+ * Capabilities estimated from tags/pipeline/name + model family knowledge.
+ * HF tags are sparse (official orgs don't label reasoning/tools), so we add
+ * family knowledge (gemma-4, qwen3, llama-4…). Exact truth arrives from /api/show after download.
  */
 export function heuristicCapabilities(id: string, tags: string[], pipeline = ''): ModelCapabilities {
   const hay = (id + ' ' + tags.join(' ') + ' ' + pipeline).toLowerCase();
@@ -33,28 +33,28 @@ export function heuristicCapabilities(id: string, tags: string[], pipeline = '')
 }
 
 /**
- * Detecta ficheros .gguf auxiliares (NO son el modelo principal descargable):
- * proyectores de visión (mmproj) y modelos draft de speculative decoding (MTP/draft).
+ * Detects auxiliary .gguf files (NOT the main downloadable model):
+ * vision projectors (mmproj) and speculative decoding draft models (MTP/draft).
  */
 export function isAuxiliaryGguf(filePath: string): boolean {
   const full = filePath.toLowerCase();
   const base = (filePath.split('/').pop() || filePath).toLowerCase();
-  // Proyector de visión.
+  // Vision projector.
   if (/(?:^|[._-])(mmproj|mproj|projector|clip|vision[._-]?adapter)(?:[._-]|\.gguf$)/.test(base)) return true;
-  // MTP / draft / speculative (modelos auxiliares pequeños, p. ej. carpeta MTP/ de unsloth).
+  // MTP / draft / speculative (small auxiliary models, e.g. unsloth's MTP/ folder).
   if (/(?:^|[/._-])mtp(?:[/._-]|\.gguf$)/.test(full)) return true;
   if (/(?:^|[._-])(draft|speculative)(?:[._-]|\.gguf$)/.test(base)) return true;
   return false;
 }
 
-/** ¿La cadena es EXACTAMENTE un token de cuantización? (Q4_K_M, IQ3_XS, F16…). */
+/** Is the string EXACTLY a quantisation token? (Q4_K_M, IQ3_XS, F16…). */
 function isQuantToken(s: string): boolean {
   return /^(?:IQ\d+(?:_[A-Z0-9]+)*|Q\d+(?:_[A-Z0-9]+)*|BF16|FP16|F16|F32)$/i.test(s);
 }
 
 /**
- * Nº de tokens de cuantización LIMPIOS en el nombre. Ollama separa por `-`/`.` (NO por `_`, que va
- * dentro de los quants tipo Q4_K_M), así que un quant "pegado" (`..._q4_0-it.gguf`) no cuenta.
+ * Number of CLEAN quantisation tokens in the name. Ollama splits on `-`/`.` (NOT on `_`, which is
+ * used inside quants like Q4_K_M), so a "glued" quant (`..._q4_0-it.gguf`) does not count.
  */
 export function quantTokenCount(filePath: string): number {
   const base = (filePath.split('/').pop() || filePath).replace(/\.gguf$/i, '');
@@ -62,27 +62,27 @@ export function quantTokenCount(filePath: string): number {
 }
 
 /**
- * ¿Ollama resolverá el tag `:{quant}` de este fichero? Ollama extrae el quant de los tokens
- * delimitados por `-`/`.`; falla si va pegado (`..._q4_0-it.gguf`) o si hay varios/ninguno
- * → "tag not available" (400). En esos casos hay que descargar el .gguf e importar a mano.
+ * Will Ollama resolve the `:{quant}` tag for this file? Ollama extracts the quant from tokens
+ * delimited by `-`/`.`; it fails if glued (`..._q4_0-it.gguf`) or if there are several/none
+ * → "tag not available" (400). In those cases the .gguf must be downloaded and imported manually.
  */
 export function isOllamaPullable(filePath: string): boolean {
   return quantTokenCount(filePath) === 1;
 }
 
-/** Extrae el nivel de cuantización del nombre de un fichero .gguf (Q4_K_M, IQ3_XS, F16, BF16…). */
+/** Extracts the quantisation level from a .gguf filename (Q4_K_M, IQ3_XS, F16, BF16…). */
 export function parseQuant(filename: string): string {
   const base = filename.split('/').pop() || filename;
   const m = base.match(/(?:^|[._-])(IQ\d+(?:_[A-Z0-9]+)*|Q\d+(?:_[A-Z0-9]+)*|BF16|F16|F32|FP16)(?=[._-]|\.gguf$)/i);
   return m ? m[1].toUpperCase() : 'GGUF';
 }
 
-/** Referencia para `ollama pull` desde HF: hf.co/{id}:{quant}. */
+/** Reference for `ollama pull` from HF: hf.co/{id}:{quant}. */
 export function hfPullRef(id: string, quant: string): string {
   return `hf.co/${id}:${quant}`;
 }
 
-/** Nº de parámetros deducido del nombre del repo (12B, 4B, 8x7B, 700M…), o '' si no se ve. */
+/** Parameter count inferred from the repo name (12B, 4B, 8x7B, 700M…), or '' if not found. */
 export function parseParamCount(id: string): string {
   const s = (id.split('/').pop() || id);
   const moe = s.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*b\b/i);
@@ -94,7 +94,7 @@ export function parseParamCount(id: string): string {
   return '';
 }
 
-/** Formatea un total de parámetros (de safetensors.total) a 4B / 12.2B / 700M. */
+/** Formats a total parameter count (from safetensors.total) as 4B / 12.2B / 700M. */
 export function formatParams(total: number): string {
   if (!total || total <= 0) return '';
   const b = total / 1e9;
@@ -103,7 +103,7 @@ export function formatParams(total: number): string {
   return Math.round(total / 1e6) + 'M';
 }
 
-/** Dominio del modelo a partir del pipeline_tag/capacidades (LLM / VLM / Embeddings / ASR / TTS). */
+/** Model domain from pipeline_tag/capabilities (LLM / VLM / Embeddings / ASR / TTS). */
 export function domainFromPipeline(pipeline: string, caps?: { vision?: boolean }): string {
   const p = (pipeline || '').toLowerCase();
   if (caps?.vision || p === 'image-text-to-text' || p === 'any-to-any' || p === 'image-to-text') return 'VLM';
@@ -113,8 +113,8 @@ export function domainFromPipeline(pipeline: string, caps?: { vision?: boolean }
   return 'LLM';
 }
 
-// Organizaciones "oficiales" (publishers verificados), con su id real de HF (case-sensitive).
-// HF no expone el check por API; lista curada. Sirve para el badge ✓ y para el filtro de proveedor.
+// "Official" organisations (verified publishers), with their real HF id (case-sensitive).
+// HF does not expose this check via API; curated list. Used for the ✓ badge and provider filter.
 export const OFFICIAL_ORG_NAMES = [
   '01-ai', 'ai21labs', 'allenai', 'apple', 'bigcode', 'CohereLabs', 'databricks', 'deepseek-ai',
   'facebook', 'google', 'HuggingFaceH4', 'ibm-granite', 'internlm', 'LiquidAI', 'meta-llama',
@@ -123,7 +123,7 @@ export const OFFICIAL_ORG_NAMES = [
 ];
 const OFFICIAL_ORGS = new Set(OFFICIAL_ORG_NAMES.map((n) => n.toLowerCase()));
 
-/** ¿El autor es una organización oficial conocida? (case-insensitive). */
+/** Is the author a known official organisation? (case-insensitive). */
 export function isOfficialOrg(author: string): boolean {
   return OFFICIAL_ORGS.has((author || '').toLowerCase());
 }

@@ -6,7 +6,7 @@ import { tr } from './i18n';
 
 let openPanel: vscode.WebviewPanel | undefined;
 
-/** Construye el listado de voces (catálogo curado + cuáles ya están descargadas y su tamaño). */
+/** Builds the voice list (curated catalogue + which are already downloaded and their size). */
 function voicesState(voicesDir: string) {
   const downloaded = new Map(listPiperVoices(voicesDir).map((v) => [v.id, v.sizeBytes]));
   return PIPER_VOICE_CATALOG.map((v) => ({
@@ -18,7 +18,7 @@ function voicesState(voicesDir: string) {
   }));
 }
 
-/** Abre (o revela) el panel de descarga/gestión de voces Piper (TTS). */
+/** Opens (or reveals) the Piper (TTS) voice download/management panel. */
 export function openVoicesPanel(
   context: vscode.ExtensionContext,
   piper: PiperManager,
@@ -74,7 +74,7 @@ export function openVoicesPanel(
     }
     if (m?.type === 'download' && typeof m.id === 'string') {
       const id = m.id;
-      if (!PIPER_VOICE_CATALOG.some((v) => v.id === id)) return; // fail-closed: solo voces del catálogo
+      if (!PIPER_VOICE_CATALOG.some((v) => v.id === id)) return; // fail-closed: catalogue voices only
       panel.webview.postMessage({ type: 'busy', id });
       try {
         await vscode.window.withProgress(

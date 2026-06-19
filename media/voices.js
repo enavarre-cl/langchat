@@ -1,9 +1,9 @@
-// Panel de descarga/gestión de voces Piper (TTS): tabla de voces curadas + descargar/borrar.
+// Piper (TTS) voice download/management panel: curated voice table + download/delete.
 (function () {
   const vscode = acquireVsCodeApi();
   const T = window.VOICES_T || { download: 'Download', delete: 'Delete voice', downloaded: 'Downloaded', downloading: 'Downloading…' };
   const rows = document.getElementById('rows');
-  const busy = new Set(); // ids en descarga (para deshabilitar el botón)
+  const busy = new Set(); // ids currently downloading (to disable the button)
 
   function fmtBytes(n) {
     if (!n) return '';

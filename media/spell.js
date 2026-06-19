@@ -1,26 +1,26 @@
-// Corrector ortográfico del webview: carga un diccionario hunspell (es/en) y expone
-// correct()/suggest() vía nspell (bundle en spell-engine.js → window.nspell).
-// Los .aff/.dic se sirven desde media/dict y se cargan con fetch (CSP connect-src).
+// Webview spell-checker: loads a hunspell dictionary (es/en) and exposes
+// correct()/suggest() via nspell (bundled in spell-engine.js → window.nspell).
+// The .aff/.dic files are served from media/dict and loaded with fetch (CSP connect-src).
 (function () {
-  let speller = null;     // instancia nspell activa (o null = corrector desactivado)
+  let speller = null;     // active nspell instance (or null = spell-checker disabled)
   let activeLang = null;  // 'es' | 'en' | null
-  let loadToken = null;   // identifica la carga en vuelo (evita carreras al cambiar idioma)
-  const cache = {};       // lang -> nspell (no recargar el mismo diccionario)
+  let loadToken = null;   // identifies the in-flight load (avoids races when switching language)
+  const cache = {};       // lang -> nspell (avoid reloading the same dictionary)
   const listeners = [];
-  let customWords = { es: [], en: [] }; // palabras propias POR IDIOMA
-  const applied = {};                   // lang -> palabras actualmente inyectadas en cache[lang]
+  let customWords = { es: [], en: [] }; // user-defined words PER LANGUAGE
+  const applied = {};                   // lang -> words currently injected into cache[lang]
 
-  function emitReady() { listeners.forEach((f) => { try { f(); } catch (_) { /* nada */ } }); }
+  function emitReady() { listeners.forEach((f) => { try { f(); } catch (_) { /* nothing */ } }); }
 
-  // Sincroniza la instancia nspell de `lang` con customWords[lang]: AGREGA las nuevas y QUITA las
-  // borradas (nspell.add no se deshace solo; sin esto, una palabra eliminada seguiría aceptándose).
+  // Syncs the nspell instance for `lang` with customWords[lang]: ADDS new words and REMOVES
+  // deleted ones (nspell.add is not self-reversing; without this, a removed word would keep being accepted).
   function syncCustom(lang) {
     const sp = cache[lang];
     if (!sp) return;
     const want = customWords[lang] || [];
     const have = applied[lang] || [];
-    for (const w of have) if (want.indexOf(w) === -1) { try { sp.remove(w); } catch (_) { /* nada */ } }
-    for (const w of want) if (have.indexOf(w) === -1) { try { sp.add(w); } catch (_) { /* nada */ } }
+    for (const w of have) if (want.indexOf(w) === -1) { try { sp.remove(w); } catch (_) { /* nothing */ } }
+    for (const w of want) if (have.indexOf(w) === -1) { try { sp.add(w); } catch (_) { /* nothing */ } }
     applied[lang] = want.slice();
   }
 
@@ -30,7 +30,7 @@
     return r.text();
   }
 
-  // Activa el corrector para `lang` ('es'|'en'); cualquier otro valor lo desactiva.
+  // Activates the spell-checker for `lang` ('es'|'en'); any other value disables it.
   async function setLang(lang) {
     if (lang !== 'es' && lang !== 'en') { speller = null; activeLang = null; loadToken = null; emitReady(); return; }
     if (activeLang === lang && speller) return;
@@ -40,7 +40,7 @@
     const token = loadToken = {};
     try {
       const [aff, dic] = await Promise.all([fetchText(d.aff), fetchText(d.dic)]);
-      if (loadToken !== token) return; // otra carga más reciente ganó
+      if (loadToken !== token) return; // a more recent load won
       const sp = window.nspell(aff, dic);
       cache[lang] = sp;
       applied[lang] = [];
@@ -52,11 +52,11 @@
     }
   }
 
-  // Reemplaza las palabras propias (mapa {es,en} del backend) y las aplica a cada diccionario.
+  // Replaces custom words (map {es,en} from the backend) and applies them to each dictionary.
   function setWords(map) {
     const clean = (a) => (Array.isArray(a) ? a.filter((w) => typeof w === 'string' && w) : []);
     customWords = { es: clean(map && map.es), en: clean(map && map.en) };
-    for (const k in cache) syncCustom(k); // reconcilia (agrega nuevas, quita borradas)
+    for (const k in cache) syncCustom(k); // reconcile (add new, remove deleted)
     emitReady();
   }
 
@@ -72,7 +72,7 @@
     },
     ready() { return !!speller; },
     lang() { return activeLang; },
-    // Sin corrector activo → todo se considera correcto (no subraya nada).
+    // No active spell-checker → everything is considered correct (nothing is underlined).
     correct(w) { return speller ? speller.correct(w) : true; },
     suggest(w) { return speller ? speller.suggest(w).slice(0, 8) : []; },
     onReady(f) { if (typeof f === 'function') listeners.push(f); },

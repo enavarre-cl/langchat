@@ -1,6 +1,6 @@
-/** Utilidades de audio/WAV y troceo de texto para TTS (puras, sin VS Code, testeables). */
+/** Audio/WAV utilities and text chunking for TTS (pure, no VS Code dependency, testable). */
 
-/** Localiza el sub-chunk `data` de un WAV; devuelve dónde empieza el PCM y su longitud. */
+/** Locates the `data` sub-chunk of a WAV; returns where the PCM starts and its length. */
 export function wavData(buf: Buffer): { start: number; len: number } {
   let i = 12;
   while (i + 8 <= buf.length) {
@@ -12,19 +12,19 @@ export function wavData(buf: Buffer): { start: number; len: number } {
   return { start: 44, len: Math.max(0, buf.length - 44) };
 }
 
-/** Concatena varios WAV del MISMO formato en uno solo (reusa la cabecera del primero). */
+/** Concatenates multiple WAVs of the SAME format into one (reuses the header of the first). */
 export function concatWavs(buffers: Buffer[]): Buffer {
   if (!buffers.length) return Buffer.alloc(0);
   const d0 = wavData(buffers[0]);
   const header = Buffer.from(buffers[0].slice(0, d0.start)); // RIFF + fmt + 'data' + size
   const pcms = buffers.map((b) => { const d = wavData(b); return b.slice(d.start, d.start + d.len); });
   const total = pcms.reduce((s, p) => s + p.length, 0);
-  header.writeUInt32LE(header.length + total - 8, 4); // tamaño del chunk RIFF
-  header.writeUInt32LE(total, header.length - 4);     // tamaño del sub-chunk data
+  header.writeUInt32LE(header.length + total - 8, 4); // RIFF chunk size
+  header.writeUInt32LE(total, header.length - 4);     // data sub-chunk size
   return Buffer.concat([header, ...pcms]);
 }
 
-/** Parte un texto en trozos por frases (agrupando hasta ~maxLen) para TTS incremental. */
+/** Splits text into chunks by sentence (grouping up to ~maxLen) for incremental TTS. */
 export function splitForTTS(text: string, maxLen = 350): string[] {
   const parts: string[] = [];
   const sentences = text.replace(/\s+/g, ' ').match(/[^.!?;\n]+[.!?;]*/g) || [text];
@@ -33,7 +33,7 @@ export function splitForTTS(text: string, maxLen = 350): string[] {
   for (let s of sentences) {
     s = s.trim();
     if (!s) continue;
-    // Frase más larga que maxLen: pártela por el último espacio antes del límite.
+    // Sentence longer than maxLen: split at the last space before the limit.
     while (s.length > maxLen) {
       let cut = s.lastIndexOf(' ', maxLen);
       if (cut < maxLen * 0.5) cut = maxLen;

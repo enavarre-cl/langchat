@@ -1,6 +1,6 @@
 /**
- * Convierte una respuesta de error HTTP (cuyo cuerpo suele ser JSON tipo
- * {error:{message}} o {error:"..."}) en un mensaje legible, con pistas según el código.
+ * Converts an HTTP error response (whose body is typically JSON of the form
+ * {error:{message}} or {error:"..."}) into a readable message, with hints based on the status code.
  */
 export function formatHttpError(
   label: string,

@@ -17,7 +17,7 @@ interface McpTool {
   inputSchema?: any;
 }
 
-/** Cliente MCP mínimo sobre stdio (JSON-RPC 2.0 delimitado por saltos de línea). */
+/** Minimal MCP client over stdio (newline-delimited JSON-RPC 2.0). */
 class McpClient {
   private proc?: ChildProcess;
   private buffer = '';
@@ -32,8 +32,8 @@ class McpClient {
       env: { ...process.env, ...(this.config.env ?? {}) },
       cwd: this.config.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      // Windows: `npx`/`node` y otros son `.cmd`/`.bat`; sin shell, spawn da ENOENT.
-      // El comando viene del .mcp del workspace (ya gateado por Workspace Trust).
+      // Windows: `npx`/`node` and others are `.cmd`/`.bat`; without shell, spawn gives ENOENT.
+      // The command comes from the workspace .mcp (already gated by Workspace Trust).
       shell: process.platform === 'win32',
     });
     this.proc.stdout!.on('data', (d) => this.onData(d));
@@ -73,16 +73,16 @@ class McpClient {
       if (msg.id !== undefined && this.pending.has(msg.id)) {
         const p = this.pending.get(msg.id)!;
         this.pending.delete(msg.id);
-        if (msg.error) p.reject(new Error(msg.error.message ?? 'Error MCP'));
+        if (msg.error) p.reject(new Error(msg.error.message ?? 'MCP error'));
         else p.resolve(msg.result);
       }
-      // Peticiones/notificaciones iniciadas por el servidor se ignoran en este MVP.
+      // Server-initiated requests/notifications are ignored in this MVP.
     }
   }
 
   private send(obj: any): void {
-    // El proceso puede haber muerto: evita el TypeError de `stdin!` y degrada limpio.
-    try { this.proc?.stdin?.write(JSON.stringify(obj) + '\n'); } catch { /* proceso muerto */ }
+    // The process may have died: avoids the TypeError on `stdin!` and degrades cleanly.
+    try { this.proc?.stdin?.write(JSON.stringify(obj) + '\n'); } catch { /* process dead */ }
   }
 
   private request(method: string, params: any): Promise<any> {
@@ -93,7 +93,7 @@ class McpClient {
       setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
-          reject(new Error(`Timeout MCP: ${method}`));
+          reject(new Error(`MCP timeout: ${method}`));
         }
       }, 30000);
     });
@@ -109,12 +109,12 @@ class McpClient {
     const text = content
       .map((c: any) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
       .join('\n');
-    return text || '(sin salida)';
+    return text || '(no output)';
   }
 
   dispose(): void {
-    // Rechaza lo pendiente de inmediato (no esperar al timeout de 30s) y cierra el proceso.
-    for (const p of this.pending.values()) { try { p.reject(new Error('MCP cerrado')); } catch { /* noop */ } }
+    // Reject pending immediately (don't wait for the 30s timeout) and close the process.
+    for (const p of this.pending.values()) { try { p.reject(new Error('MCP closed')); } catch { /* noop */ } }
     this.pending.clear();
     try { this.proc?.stdin?.end(); } catch { /* noop */ }
     try { this.proc?.kill(); } catch { /* noop */ }
@@ -122,7 +122,7 @@ class McpClient {
   }
 }
 
-/** Lee las configuraciones de servidores MCP de `.mcp.json` y de `.mcp/*.json` del workspace. */
+/** Reads MCP server configurations from `.mcp.json` and `.mcp/*.json` in the workspace. */
 function loadServerConfigs(): ServerConfig[] {
   const out: ServerConfig[] = [];
   const add = (cfg: any) => {
@@ -143,13 +143,13 @@ function loadServerConfigs(): ServerConfig[] {
     } catch {
       return;
     }
-    // Formato estándar { mcpServers: { nombre: cfg } }
+    // Standard format { mcpServers: { name: cfg } }
     if (json && json.mcpServers && typeof json.mcpServers === 'object') {
       for (const [name, cfg] of Object.entries<any>(json.mcpServers)) add({ name, ...cfg });
     } else if (Array.isArray(json)) {
       json.forEach(add);
     } else {
-      add(json); // un único servidor por archivo
+      add(json); // single server per file
     }
   };
 
@@ -158,7 +158,7 @@ function loadServerConfigs(): ServerConfig[] {
     try {
       parse(fs.readFileSync(`${root}/.mcp.json`, 'utf8'));
     } catch {
-      /* no existe */
+      /* does not exist */
     }
     try {
       for (const entry of fs.readdirSync(`${root}/.mcp`)) {
@@ -166,31 +166,31 @@ function loadServerConfigs(): ServerConfig[] {
           try {
             parse(fs.readFileSync(`${root}/.mcp/${entry}`, 'utf8'));
           } catch {
-            /* archivo inválido */
+            /* invalid file */
           }
         }
       }
     } catch {
-      /* no hay carpeta .mcp */
+      /* no .mcp folder */
     }
   }
   return out;
 }
 
-/** Gestiona los servidores MCP y agrega sus tools (prefijadas por servidor: `servidor__tool`). */
+/** Manages MCP servers and aggregates their tools (prefixed by server: `server__tool`). */
 export class McpManager {
   private clients: McpClient[] = [];
   private startPromise?: Promise<void>;
   errors: string[] = [];
 
-  /** Arranca los servidores una sola vez (idempotente). */
+  /** Starts the servers once (idempotent). */
   ensureStarted(): Promise<void> {
     if (!this.startPromise) {
       this.startPromise = (async () => {
-        // Seguridad: no arrancar servidores MCP (spawn de comandos del .mcp del repo) en
-        // un workspace no confiable — sería RCE al abrir un repo malicioso.
+        // Security: do not start MCP servers (spawning commands from the repo's .mcp) in
+        // an untrusted workspace — that would be RCE when opening a malicious repo.
         if (!vscode.workspace.isTrusted) {
-          this.errors.push('MCP deshabilitado: el workspace no es de confianza (Workspace Trust).');
+          this.errors.push('MCP disabled: the workspace is not trusted (Workspace Trust).');
           return;
         }
         for (const cfg of loadServerConfigs()) {
@@ -226,7 +226,7 @@ export class McpManager {
     const server = sep >= 0 ? fullName.slice(0, sep) : '';
     const tool = sep >= 0 ? fullName.slice(sep + 2) : fullName;
     const client = this.clients.find((c) => c.config.name === server);
-    if (!client) throw new Error(`Servidor MCP no encontrado: ${server}`);
+    if (!client) throw new Error(`MCP server not found: ${server}`);
     return client.callTool(tool, args);
   }
 

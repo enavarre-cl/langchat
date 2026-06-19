@@ -1,4 +1,4 @@
-/** Ciclo de vida del servidor Ollama gestionado (descarga binario propio + serve). */
+/** Lifecycle of the managed Ollama server (downloads its own binary + serve). */
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,7 +10,7 @@ import { OLLAMA_ASSET_SHA256, ollamaAsset, ollamaAssetUrl, assetFormat, ollamaBi
 
 export type OllamaStatus = 'stopped' | 'downloading' | 'starting' | 'ready' | 'error';
 
-/** Busca un puerto TCP libre en 127.0.0.1. */
+/** Finds a free TCP port on 127.0.0.1. */
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const srv = net.createServer();
@@ -22,11 +22,11 @@ function freePort(): Promise<number> {
   });
 }
 
-/** Extrae un archivo con `tar` (bsdtar en Win/mac, GNU tar en Linux maneja --zstd). */
+/** Extracts an archive with `tar` (bsdtar on Win/mac, GNU tar on Linux handles --zstd). */
 function extract(archive: string, dir: string, format: ReturnType<typeof assetFormat>): Promise<void> {
   const args = format === 'gz' ? ['-xzf', archive, '-C', dir]
     : format === 'zst' ? ['--zstd', '-xf', archive, '-C', dir]
-      : ['-xf', archive, '-C', dir]; // zip: bsdtar lo soporta en mac/Win10+
+      : ['-xf', archive, '-C', dir]; // zip: bsdtar supports this on mac/Win10+
   return new Promise((resolve, reject) => {
     const p = cp.spawn('tar', args);
     let err = '';
@@ -64,7 +64,7 @@ export class OllamaManager {
     return path.join(this.context.globalStorageUri.fsPath, 'ollama-bin');
   }
 
-  /** Busca el ejecutable (BFS, el más superficial) dentro del directorio extraído. */
+  /** Finds the executable (BFS, shallowest first) within the extracted directory. */
   private findBinary(dir: string, name: string): string | null {
     if (!fs.existsSync(dir)) return null;
     const queue = [dir];
@@ -78,16 +78,16 @@ export class OllamaManager {
     return null;
   }
 
-  /** Asegura el binario propio descargado (D1: nunca usa el del sistema). Devuelve su ruta. */
+  /** Ensures the downloaded private binary is present (D1: never uses the system one). Returns its path. */
   async ensureBinary(onProgress?: (received: number, total: number) => void): Promise<string> {
     const asset = ollamaAsset(process.platform, process.arch);
-    if (!asset) throw new Error(`Ollama no soportado en ${process.platform}/${process.arch}`);
+    if (!asset) throw new Error(`Ollama not supported on ${process.platform}/${process.arch}`);
     const binName = ollamaBinName(process.platform);
     const existing = this.findBinary(this.binDir, binName);
     if (existing) return existing;
 
     const expected = OLLAMA_ASSET_SHA256[asset];
-    if (!expected) throw new Error(`Ollama sin SHA256 pineado: ${asset}`); // fail-closed
+    if (!expected) throw new Error(`Ollama without pinned SHA256: ${asset}`); // fail-closed
     fs.mkdirSync(this.binDir, { recursive: true });
     const archive = path.join(this.binDir, asset);
     this.set('downloading', asset);
@@ -95,36 +95,36 @@ export class OllamaManager {
       await downloadFile(ollamaAssetUrl(asset), archive, { onProgress });
       const got = sha256File(archive);
       if (got !== expected) {
-        try { fs.unlinkSync(archive); } catch { /* nada */ }
-        throw new Error(`integridad de Ollama fallida (sha256 ${got.slice(0, 12)}… ≠ esperado)`);
+        try { fs.unlinkSync(archive); } catch { /* ignore */ }
+        throw new Error(`Ollama integrity check failed (sha256 ${got.slice(0, 12)}… ≠ expected)`);
       }
       await extract(archive, this.binDir, assetFormat(asset));
-      try { fs.unlinkSync(archive); } catch { /* nada */ }
+      try { fs.unlinkSync(archive); } catch { /* ignore */ }
       const bin = this.findBinary(this.binDir, binName);
       if (!bin) throw new Error('ollama binary not found after extracting');
-      if (process.platform !== 'win32') { try { fs.chmodSync(bin, 0o755); } catch { /* nada */ } }
+      if (process.platform !== 'win32') { try { fs.chmodSync(bin, 0o755); } catch { /* ignore */ } }
       return bin;
     } finally {
-      // No dejar el estado pegado en 'downloading' al instalar fuera de start()
-      // (start() pone 'starting'/'ready' justo después y lo sobreescribe).
+      // Don't leave the status stuck at 'downloading' when installing outside of start()
+      // (start() sets 'starting'/'ready' right after and overwrites it).
       if (this._status === 'downloading') this.set(this.proc ? 'ready' : 'stopped');
     }
   }
 
-  /** Espera a que el servidor responda /api/version (o lanza al agotar el tiempo). */
+  /** Waits until the server responds at /api/version (or throws on timeout). */
   private async waitHealthy(baseUrl: string, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
         const res = await httpFetch(`${baseUrl}/api/version`);
         if (res.ok) return;
-      } catch { /* aún no arranca */ }
+      } catch { /* not up yet */ }
       await new Promise((r) => setTimeout(r, 400));
     }
     throw new Error('the Ollama server did not respond in time');
   }
 
-  /** Arranca el servidor gestionado (idempotente, con guard de concurrencia). Devuelve el baseUrl. */
+  /** Starts the managed server (idempotent, with concurrency guard). Returns the baseUrl. */
   async start(onProgress?: (received: number, total: number) => void): Promise<string> {
     if (this._status === 'ready' && this._baseUrl) return this._baseUrl;
     if (this.startPromise) return this.startPromise;
@@ -161,8 +161,8 @@ export class OllamaManager {
   }
 
   /**
-   * Importa un .gguf local como modelo de Ollama (`ollama create … -f Modelfile`).
-   * Si se da `projectorPath` (mmproj), se añade como segundo FROM para habilitar la visión.
+   * Imports a local .gguf as an Ollama model (`ollama create … -f Modelfile`).
+   * If `projectorPath` (mmproj) is provided, it is added as a second FROM to enable vision.
    */
   async create(name: string, ggufPath: string, projectorPath?: string): Promise<void> {
     const baseUrl = await this.start();
@@ -181,26 +181,26 @@ export class OllamaManager {
         p.on('close', (c) => (c === 0 ? resolve() : reject(new Error('ollama create: ' + (err.trim() || c)))));
       });
     } finally {
-      try { fs.unlinkSync(modelfile); } catch { /* nada */ }
+      try { fs.unlinkSync(modelfile); } catch { /* ignore */ }
     }
   }
 
-  /** Detiene el servidor (no borra el binario ni los modelos). */
+  /** Stops the server (does not delete the binary or models). */
   stop(): void {
     this.set('stopped');
     this._baseUrl = undefined;
-    if (this.proc) { try { this.proc.kill(); } catch { /* nada */ } this.proc = null; }
+    if (this.proc) { try { this.proc.kill(); } catch { /* ignore */ } this.proc = null; }
   }
 
-  /** ¿El binario propio está descargado? */
+  /** Is the private binary downloaded? */
   isInstalled(): boolean {
     return !!this.findBinary(this.binDir, ollamaBinName(process.platform));
   }
 
-  /** Detiene el servidor y borra el binario descargado (se re-descarga al volver a arrancar). */
+  /** Stops the server and deletes the downloaded binary (re-downloaded on next start). */
   deleteBinary(): void {
     this.stop();
-    try { fs.rmSync(this.binDir, { recursive: true, force: true }); } catch { /* nada */ }
+    try { fs.rmSync(this.binDir, { recursive: true, force: true }); } catch { /* ignore */ }
     this._onChange.fire();
   }
 

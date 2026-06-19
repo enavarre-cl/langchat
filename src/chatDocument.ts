@@ -1,33 +1,33 @@
 import { ChatMessage, ChatVariant, GenerationParams, ProviderId, TokenUsage, validateProvider } from './providers';
 
-/** Parámetro que se puede activar/desactivar, con su valor numérico. */
+/** A parameter that can be toggled on/off, with its numeric value. */
 export interface Toggle {
   enabled: boolean;
   value: number;
 }
 
-/** Configuración de inferencia almacenada en el archivo `.chat`. */
+/** Inference settings stored in the `.chat` file. */
 export interface ChatParams {
-  temperature: number; // siempre activo
-  maxTokens: Toggle; // límite de longitud de respuesta
-  contextMessages: Toggle; // ventana de contexto: nº de últimos mensajes a enviar
-  contextLength: Toggle; // num_ctx, tamaño de contexto del modelo (Ollama)
+  temperature: number; // always active
+  maxTokens: Toggle; // response length limit
+  contextMessages: Toggle; // context window: number of last messages to send
+  contextLength: Toggle; // num_ctx, model context size (Ollama)
   numThreads: Toggle; // CPU threads (Ollama)
   topK: Toggle;
   topP: Toggle;
   minP: Toggle;
-  topA: Toggle; // sampler de OpenRouter
+  topA: Toggle; // OpenRouter sampler
   repeatPenalty: Toggle;
   presencePenalty: Toggle;
   frequencyPenalty: Toggle;
   seed: Toggle;
   stop: string[]; // stop strings
-  thinking: boolean; // modo razonamiento en Ollama (think: true)
-  autoSummary: boolean; // al saturar la ventana de contexto, resume lo viejo
-  tools: boolean; // habilita tools (filesystem nativo + servidores MCP)
+  thinking: boolean; // reasoning mode in Ollama (think: true)
+  autoSummary: boolean; // when the context window fills up, summarises old messages
+  tools: boolean; // enables tools (native filesystem + MCP servers)
 }
 
-/** Resumen acumulado del contexto antiguo (compactación). Cubre messages[0..upTo). */
+/** Accumulated summary of old context (compaction). Covers messages[0..upTo). */
 export interface ChatSummary {
   text: string;
   upTo: number;
@@ -39,11 +39,11 @@ export interface ChatDoc {
   provider: ProviderId;
   model: string;
   systemPrompt: string;
-  systemPromptFile?: string; // ruta a un .md (relativa al .chat); si existe, prevalece
-  spellLang?: 'auto' | 'off' | 'es' | 'en'; // idioma del corrector (per-chat). Ausente/'auto' = sistema
+  systemPromptFile?: string; // path to a .md (relative to the .chat); takes precedence if present
+  spellLang?: 'auto' | 'off' | 'es' | 'en'; // spell-checker language (per-chat). Absent/'auto' = system default
   params: ChatParams;
   summary?: ChatSummary;
-  usage?: TokenUsage; // tokens acumulados del chat
+  usage?: TokenUsage; // accumulated token usage for the chat
   messages: ChatMessage[];
 }
 
@@ -80,7 +80,7 @@ export function defaultParams(defaults: ChatDefaults): ChatParams {
 export function defaultDoc(defaults: ChatDefaults): ChatDoc {
   return {
     version: 2,
-    title: 'Nuevo chat',
+    title: 'New chat',
     provider: defaults.provider,
     model: '',
     systemPrompt: 'You are a helpful assistant.',
@@ -93,7 +93,7 @@ function num(v: any, fallback: number): number {
   return typeof v === 'number' && !Number.isNaN(v) ? v : fallback;
 }
 
-/** Normaliza un Toggle leído de JSON, tolerando formatos antiguos/parciales. */
+/** Normalises a Toggle read from JSON, tolerating old/partial formats. */
 function toggle(v: any, def: Toggle): Toggle {
   if (typeof v === 'number') return { enabled: true, value: v };
   if (v && typeof v === 'object') {
@@ -102,14 +102,14 @@ function toggle(v: any, def: Toggle): Toggle {
   return { ...def };
 }
 
-/** Parsea el texto de un archivo `.chat`. Migra el formato v1 a v2. Lanza si el JSON es inválido. */
+/** Parses the text of a `.chat` file. Migrates v1 format to v2. Throws if the JSON is invalid. */
 export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
   if (!text || !text.trim()) return defaultDoc(defaults);
 
   const raw = JSON.parse(text);
   const base = defaultDoc(defaults);
   const dp = base.params;
-  // Soporta tanto el nuevo `params` como los campos sueltos del formato v1.
+  // Supports both the new `params` object and the loose fields from the v1 format.
   const rp = raw.params && typeof raw.params === 'object' ? raw.params : raw;
 
   const params: ChatParams = {
@@ -160,8 +160,8 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
     usage,
     messages: Array.isArray(raw.messages)
       ? raw.messages
-          // Nunca persistimos mensajes 'system' (el system prompt vive aparte). Filtrarlos
-          // mantiene el invariante de que los índices del webview == índices de doc.messages.
+          // We never persist 'system' messages (the system prompt lives separately). Filtering them
+          // preserves the invariant that webview indices == doc.messages indices.
           .filter((m: any) => m && typeof m.content === 'string' && typeof m.role === 'string' && m.role !== 'system')
           .map((m: any) => {
             const msg: ChatMessage = { role: m.role, content: m.content };
@@ -190,11 +190,11 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
                 .map((a: any) => {
                   const o: any = {
                     kind: a.kind,
-                    name: typeof a.name === 'string' ? a.name : 'adjunto',
+                    name: typeof a.name === 'string' ? a.name : 'attachment',
                     mime: typeof a.mime === 'string' ? a.mime : 'application/octet-stream',
                   };
                   if (typeof a.ref === 'string') o.ref = a.ref;
-                  if (typeof a.data === 'string') o.data = a.data; // compat: adjuntos inline antiguos
+                  if (typeof a.data === 'string') o.data = a.data; // compat: legacy inline attachments
                   return o;
                 });
               if (atts.length) msg.attachments = atts;
@@ -262,7 +262,7 @@ export function serializeDoc(doc: ChatDoc): string {
   return JSON.stringify(ordered, null, 2) + '\n';
 }
 
-/** Convierte la config del documento en los parámetros que se envían al backend (solo los activos). */
+/** Converts the document config into the parameters sent to the backend (active ones only). */
 export function resolveGenerationParams(p: ChatParams): GenerationParams {
   const g: GenerationParams = { temperature: p.temperature };
   if (p.maxTokens.enabled) g.maxTokens = p.maxTokens.value;

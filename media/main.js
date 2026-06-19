@@ -1,19 +1,19 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const t = (s) => window.LangI18n.t(s); // traducción (inglés es la clave)
-  // Traza de depuración del TTS (visible en la consola del webview y reenviada al backend).
+  const t = (s) => window.LangI18n.t(s); // translation (English is the key)
+  // TTS debug trace (visible in the webview console and forwarded to the backend).
   const ttsLog = (msg, data) => {
     try { console.log('[TTS]', msg, data !== undefined ? data : ''); } catch (e) {}
     try { vscode.postMessage({ type: 'ttsLog', message: msg, data: data === undefined ? null : data }); } catch (e) {}
   };
 
-  let doc = null; // ChatDoc actual
+  let doc = null; // current ChatDoc
   let streamingEl = null;
   let streamingText = '';
-  let thinkingText = ''; // razonamiento del turno en curso
+  let thinkingText = ''; // reasoning for the current turn
 
-  // Render de streaming coalescido con requestAnimationFrame: en vez de re-parsear todo
-  // el markdown en CADA token (O(n²) + reflow), se renderiza como mucho una vez por frame.
+  // Coalesced streaming render with requestAnimationFrame: instead of re-parsing all
+  // markdown on EVERY token (O(n²) + reflow), renders at most once per frame.
   let rafQueued = false;
   let pendingBody = false;
   let pendingThink = false;
@@ -53,7 +53,7 @@
   const toolsPanel = $('tools');
   const toolsContent = $('toolsContent');
   const sidepanels = $('sidepanels');
-  let toolsLive = []; // actividad de tools del turno en curso
+  let toolsLive = []; // tool activity for the current turn
   const attachBtn = $('attachBtn');
   const fileInput = $('fileInput');
   const attachmentsEl = $('attachments');
@@ -64,12 +64,12 @@
   const modelCtxEl = $('modelCtx');
   const modelCapsEl = $('modelCaps');
   const usageChipEl = $('usageChip');
-  let modelContext = {}; // id de modelo -> tokens de contexto
-  let modelCaps = {}; // id de modelo -> capacidades
+  let modelContext = {}; // model id -> context tokens
+  let modelCaps = {}; // model id -> capabilities
 
-  let pending = []; // adjuntos pendientes de enviar: {kind,name,mime,data}
+  let pending = []; // pending attachments to send: {kind,name,mime,data}
 
-  // Esquema del panel de configuración. `only` limita el parámetro a ciertos backends.
+  // Configuration panel schema. `only` restricts a parameter to certain backends.
   const SCHEMA = [
     { group: 'General', items: [
       { key: 'temperature', label: 'Temperature', kind: 'slider', min: 0, max: 2, step: 0.01, toggle: false },
@@ -94,15 +94,15 @@
     ] },
   ];
 
-  // ---- Render de mensajes ----
+  // ---- Message rendering ----
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, (c) => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     }[c]));
   }
 
-  // Formato inline: escapa HTML y aplica código, enlaces, negrita, cursiva, tachado.
-  // LaTeX inline → Unicode (los modelos sueltan $\rightarrow$, \alpha, etc. en el razonamiento).
+  // Inline formatting: escapes HTML and applies code, links, bold, italic, strikethrough.
+  // Inline LaTeX → Unicode (models emit $\rightarrow$, \alpha, etc. in reasoning).
   const LATEX = {
     rightarrow: '→', to: '→', longrightarrow: '→', Rightarrow: '⇒', implies: '⇒', iff: '⇔',
     leftarrow: '←', gets: '←', Leftarrow: '⇐', leftrightarrow: '↔', Leftrightarrow: '⇔',
@@ -120,13 +120,13 @@
     Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
   };
   function deLatex(t) {
-    // Quita los delimitadores $…$ SOLO si envuelven un \comando (no toca monedas tipo $5).
+    // Remove $…$ delimiters ONLY when they wrap a \command (does not touch currency like $5).
     t = t.replace(/\$\$?([^$\n]*?\\[a-zA-Z][^$\n]*?)\$\$?/g, '$1');
-    t = t.replace(/\\\\/g, ' ');                  // salto de línea LaTeX
+    t = t.replace(/\\\\/g, ' ');                  // LaTeX line break
     t = t.replace(/\\[()[\]]/g, ' ');             // \( \) \[ \]
-    t = t.replace(/\\(left|right|big|Big|bigg|Bigg)\b/g, ''); // tamaños de delimitadores
-    t = t.replace(/\\[,;:! ]/g, ' ');             // espaciado fino
-    t = t.replace(/\\([a-zA-Z]+)/g, (m, c) => (LATEX[c] !== undefined ? LATEX[c] : m)); // símbolos conocidos
+    t = t.replace(/\\(left|right|big|Big|bigg|Bigg)\b/g, ''); // delimiter size commands
+    t = t.replace(/\\[,;:! ]/g, ' ');             // thin spacing
+    t = t.replace(/\\([a-zA-Z]+)/g, (m, c) => (LATEX[c] !== undefined ? LATEX[c] : m)); // known symbols
     return t;
   }
 
@@ -134,11 +134,11 @@
     let t = escapeHtml(text);
     const codes = [];
     t = t.replace(/`([^`]+)`/g, (_, c) => { codes.push(c); return '\u0000' + (codes.length - 1) + '\u0000'; });
-    t = deLatex(t); // LaTeX inline → Unicode (los code-spans ya están protegidos arriba)
+    t = deLatex(t); // Inline LaTeX → Unicode (code-spans are already protected above)
     t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, label, url) => {
-      // Allowlist de esquema: bloquea javascript:/data:/vbscript:… (defensa en profundidad además de la CSP).
+      // Scheme allowlist: blocks javascript:/data:/vbscript:… (defense-in-depth on top of CSP).
       const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url);
-      const href = scheme && !/^(https?|mailto)$/i.test(scheme[1]) ? '#' : url; // el url ya viene escapado
+      const href = scheme && !/^(https?|mailto)$/i.test(scheme[1]) ? '#' : url; // url is already escaped
       return '<a href="' + href + '">' + label + '</a>';
     });
     t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
@@ -154,18 +154,18 @@
     return line.replace(/^\s*\|?/, '').replace(/\|?\s*$/, '').split('|').map((c) => c.trim());
   }
 
-  // Renderer de Markdown por bloques (encabezados, listas, citas, tablas, código…).
-  // Memo de renderMarkdown: es función pura, y renderConversation re-renderiza todos los
-  // mensajes (casi todos idénticos) en cada cambio. El streaming usa renderMarkdownImpl (raw).
+  // Block-level Markdown renderer (headings, lists, blockquotes, tables, code…).
+  // renderMarkdown is memoized: it is a pure function, and renderConversation re-renders all
+  // messages (almost all identical) on every change. Streaming uses renderMarkdownImpl (raw).
   const mdCache = new Map();
   const MD_CACHE_MAX = 400;
   function renderMarkdown(src) {
     const key = String(src);
     const hit = mdCache.get(key);
-    if (hit !== undefined) { mdCache.delete(key); mdCache.set(key, hit); return hit; } // refresca LRU
+    if (hit !== undefined) { mdCache.delete(key); mdCache.set(key, hit); return hit; } // refresh LRU
     const html = renderMarkdownImpl(key);
     mdCache.set(key, html);
-    if (mdCache.size > MD_CACHE_MAX) mdCache.delete(mdCache.keys().next().value); // evict más antiguo
+    if (mdCache.size > MD_CACHE_MAX) mdCache.delete(mdCache.keys().next().value); // evict oldest
     return html;
   }
   function renderMarkdownImpl(src) {
@@ -180,7 +180,7 @@
     while (i < lines.length) {
       const line = lines[i];
 
-      // Bloque de código ```
+      // Code block ```
       if (/^```/.test(line)) {
         const buf = [];
         i++;
@@ -189,14 +189,14 @@
         out.push('<pre><code>' + escapeHtml(buf.join('\n')) + '</code></pre>');
         continue;
       }
-      // Línea en blanco
+      // Blank line
       if (/^\s*$/.test(line)) { i++; continue; }
-      // Encabezado
+      // Heading
       const h = line.match(/^(#{1,6})\s+(.*)$/);
       if (h) { out.push(`<h${h[1].length}>${inlineMd(h[2])}</h${h[1].length}>`); i++; continue; }
-      // Regla horizontal
+      // Horizontal rule
       if (/^\s*([-*_])\1\1+\s*$/.test(line)) { out.push('<hr/>'); i++; continue; }
-      // Tabla: cabecera con | y línea separadora |---|
+      // Table: header with | and separator line |---|
       if (line.includes('|') && i + 1 < lines.length &&
           /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1])) {
         const header = splitRow(line);
@@ -208,28 +208,28 @@
         out.push(html + '</tbody></table>');
         continue;
       }
-      // Cita
+      // Blockquote
       if (/^\s*>\s?/.test(line)) {
         const buf = [];
         while (i < lines.length && /^\s*>\s?/.test(lines[i])) { buf.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
         out.push('<blockquote>' + renderMarkdownImpl(buf.join('\n')) + '</blockquote>');
         continue;
       }
-      // Lista no ordenada
+      // Unordered list
       if (/^\s*[-*+]\s+/.test(line)) {
         const items = [];
         while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) { items.push(inlineMd(lines[i].replace(/^\s*[-*+]\s+/, ''))); i++; }
         out.push('<ul>' + items.map((t) => `<li>${t}</li>`).join('') + '</ul>');
         continue;
       }
-      // Lista ordenada
+      // Ordered list
       if (/^\s*\d+\.\s+/.test(line)) {
         const items = [];
         while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) { items.push(inlineMd(lines[i].replace(/^\s*\d+\.\s+/, ''))); i++; }
         out.push('<ol>' + items.map((t) => `<li>${t}</li>`).join('') + '</ol>');
         continue;
       }
-      // Párrafo
+      // Paragraph
       const para = [];
       while (i < lines.length && !isSpecial(lines[i])) { para.push(lines[i]); i++; }
       out.push('<p>' + inlineMd(para.join('\n')).replace(/\n/g, '<br/>') + '</p>');
@@ -237,7 +237,7 @@
     return out.join('');
   }
 
-  // Iconos SVG monocromos (heredan currentColor → buen contraste en cualquier fondo).
+  // Monochrome SVG icons (inherit currentColor → good contrast on any background).
   const SVG = (inner) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
   const ICONS = {
     edit: SVG('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
@@ -266,8 +266,8 @@
     return b;
   }
 
-  // ---- Lectura en voz alta (Web Speech API; local, sin censura) ----
-  // Voces Piper curadas (femeninas EN/ES). Se descargan solas la 1ª vez y quedan cacheadas.
+  // ---- Read aloud (Web Speech API; local, uncensored) ----
+  // Curated Piper voices (feminine EN/ES). Downloaded automatically on first use and cached.
   const PIPER_VOICES = [
     { id: 'es_MX-claude-high', label: 'Claude — Spanish 🇲🇽 (female)' },
     { id: 'es_AR-daniela-high', label: 'Daniela — Spanish 🇦🇷 (female)' },
@@ -282,19 +282,19 @@
     supported: 'speechSynthesis' in window,
     voices: [],
     piperVoices: PIPER_VOICES,
-    // Set de ids de voces descargadas: inyectado en el HTML (window.DOWNLOADED_VOICES) para que
-    // esté listo desde el primer render; el mensaje 'piperVoices' lo actualiza en vivo.
+    // Set of downloaded voice ids: injected into the HTML (window.DOWNLOADED_VOICES) so it is
+    // ready from the first render; the 'piperVoices' message updates it live.
     downloadedVoices: new Set(Array.isArray(window.DOWNLOADED_VOICES) ? window.DOWNLOADED_VOICES : []),
-    customSet: !!window.PIPER_CUSTOM_SET, // ¿hay una ruta .onnx custom configurada en Ajustes?
-    // Preferencias persistidas en el estado del webview.
+    customSet: !!window.PIPER_CUSTOM_SET, // is there a custom .onnx path configured in Settings?
+    // Preferences persisted in the webview state.
     prefs: Object.assign({ engine: 'system', voiceURI: '', rate: 1, piperVoice: 'es_MX-claude-high' }, (vscode.getState() && vscode.getState().tts) || {}),
-    speakingBtn: null, // botón 🔊 activo (para alternar icono)
-    msgId: null,       // id del mensaje que se está leyendo (para parar si lo borran)
-    ctx: null,         // AudioContext (Web Audio): se desbloquea con el clic
-    source: null,      // AudioBufferSourceNode en reproducción (motor Piper)
-    awaiting: false,   // hay una petición Piper activa (esperando/reproduciendo)
-    playing: false,    // hay audio sonando
-    reqId: 0,          // id de la petición Piper actual (filtra respuestas obsoletas)
+    speakingBtn: null, // active 🔊 button (to toggle the icon)
+    msgId: null,       // id of the message being read (to stop if deleted)
+    ctx: null,         // AudioContext (Web Audio): unlocked on click
+    source: null,      // AudioBufferSourceNode currently playing (Piper engine)
+    awaiting: false,   // there is an active Piper request (waiting/playing)
+    playing: false,    // audio is currently playing
+    reqId: 0,          // id of the current Piper request (filters stale responses)
     save() {
       const s = vscode.getState() || {};
       s.tts = this.prefs;
@@ -303,7 +303,7 @@
     loadVoices() {
       if (!this.supported) return;
       this.voices = window.speechSynthesis.getVoices() || [];
-      // Si no hay voz elegida, intenta una española femenina conocida, o la primera 'es'.
+      // If no voice is selected, try a known Spanish feminine voice, or the first 'es'.
       if (!this.prefs.voiceURI && this.voices.length) {
         const es = this.voices.filter((v) => /^es/i.test(v.lang));
         const fem = es.find((v) => /m[oó]nica|paulina|monica|female|mujer/i.test(v.name));
@@ -311,7 +311,7 @@
         if (pick) this.prefs.voiceURI = pick.voiceURI;
       }
     },
-    // Voces ordenadas: español primero, luego el resto.
+    // Sorted voices: Spanish first, then the rest.
     sortedVoices() {
       return this.voices.slice().sort((a, b) => {
         const ae = /^es/i.test(a.lang) ? 0 : 1;
@@ -319,23 +319,23 @@
         return ae - be || a.lang.localeCompare(b.lang) || a.name.localeCompare(b.name);
       });
     },
-    // Convierte markdown a texto plano para que no lea símbolos (#, *, etc.).
+    // Converts markdown to plain text so symbols (#, *, etc.) are not read aloud.
     toPlain(md) {
       const tmp = document.createElement('div');
       tmp.innerHTML = renderMarkdown(md || '');
       return (tmp.textContent || '').replace(/\s+\n/g, '\n').trim();
     },
-    // Crea/desbloquea el AudioContext. DEBE llamarse desde el gesto del clic
-    // para esquivar la política de autoplay del webview.
+    // Creates/unlocks the AudioContext. MUST be called from a click gesture
+    // to bypass the webview's autoplay policy.
     ensureCtx() {
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC) { try { this.ctx = new AC(); ttsLog('AudioContext creado', { state: this.ctx.state, rate: this.ctx.sampleRate }); } catch (e) { this.ctx = null; ttsLog('AudioContext FALLÓ', { err: String(e) }); } }
-        else ttsLog('AudioContext NO soportado');
+        if (AC) { try { this.ctx = new AC(); ttsLog('AudioContext created', { state: this.ctx.state, rate: this.ctx.sampleRate }); } catch (e) { this.ctx = null; ttsLog('AudioContext FAILED', { err: String(e) }); } }
+        else ttsLog('AudioContext NOT supported');
       }
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume().then(() => ttsLog('AudioContext resume()->ok', { state: this.ctx.state }))
-          .catch((e) => ttsLog('AudioContext resume()->ERROR', { err: String(e) }));
+          .catch((e) => ttsLog('AudioContext resume()->error', { err: String(e) }));
       }
       return this.ctx;
     },
@@ -351,23 +351,23 @@
       if (this.supported) window.speechSynthesis.cancel();
       if (this.source) { try { this.source.onended = null; this.source.stop(); } catch (e) {} this.source = null; }
       this.msgId = null;
-      if (wasPiper) vscode.postMessage({ type: 'ttsStop' }); // aborta la síntesis pendiente en el backend
+      if (wasPiper) vscode.postMessage({ type: 'ttsStop' }); // aborts any pending synthesis in the backend
       this.resetBtn();
     },
     resetBtn() {
       if (this.speakingBtn) { this.speakingBtn.innerHTML = ICONS.speaker; this.speakingBtn = null; }
     },
     speak(text, btn, msgId) {
-      // Click sobre el mismo botón que está sonando/cargando → parar.
+      // Click on the same button that is playing/loading → stop.
       const same = this.speakingBtn === btn && this.busy();
       this.stop();
       if (same) return;
       const plain = this.toPlain(text);
       if (!plain) return;
-      this.msgId = msgId || null; // mensaje que se lee (para parar si lo borran)
+      this.msgId = msgId || null; // message being read (to stop if deleted)
       if (btn) { btn.innerHTML = ICONS.stopsq; this.speakingBtn = btn; }
       if ((this.prefs.engine || 'system') === 'piper') {
-        const ctx = this.ensureCtx(); // ¡desbloqueo dentro del gesto del clic!
+        const ctx = this.ensureCtx(); // unlock inside the click gesture!
         this.reqId++;
         this.awaiting = true;
         this.playing = false;
@@ -376,7 +376,7 @@
         vscode.postMessage({ type: 'tts', text: plain, rate: this.prefs.rate || 1, voice, id: this.reqId });
         return;
       }
-      // Motor del sistema (Web Speech API).
+      // System engine (Web Speech API).
       if (!this.supported) { notice(t('Speech synthesis is not available in this environment.'), true); this.resetBtn(); return; }
       const u = new SpeechSynthesisUtterance(plain);
       const v = this.voices.find((x) => x.voiceURI === this.prefs.voiceURI);
@@ -386,9 +386,9 @@
       u.onerror = () => this.resetBtn();
       window.speechSynthesis.speak(u);
     },
-    // Decodifica el WAV (base64) del backend y lo reproduce con Web Audio (sin autoplay).
+    // Decodes the WAV (base64) from the backend and plays it with Web Audio (no autoplay).
     async playWav(b64, id) {
-      if (id !== this.reqId || !this.awaiting) { ttsLog('playWav: descartado (obsoleto)', { id, current: this.reqId, awaiting: this.awaiting }); return; }
+      if (id !== this.reqId || !this.awaiting) { ttsLog('playWav: discarded (stale)', { id, current: this.reqId, awaiting: this.awaiting }); return; }
       const ctx = this.ensureCtx();
       if (!ctx) { this.awaiting = false; this.resetBtn(); notice(t('Audio playback is not available in this environment.'), true); return; }
       let bytes;
@@ -396,42 +396,42 @@
         const binStr = atob(b64);
         bytes = new Uint8Array(binStr.length);
         for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
-      } catch (e) { ttsLog('playWav: atob FALLÓ', { err: String(e) }); this.awaiting = false; this.resetBtn(); return; }
-      ttsLog('playWav: decodificando', { bytes: bytes.length, ctxState: ctx.state });
+      } catch (e) { ttsLog('playWav: atob FAILED', { err: String(e) }); this.awaiting = false; this.resetBtn(); return; }
+      ttsLog('playWav: decoding', { bytes: bytes.length, ctxState: ctx.state });
       let buf;
       try {
         buf = await ctx.decodeAudioData(bytes.buffer);
       } catch (e) {
-        ttsLog('playWav: decodeAudioData FALLÓ', { err: String(e) });
+        ttsLog('playWav: decodeAudioData FAILED', { err: String(e) });
         this.awaiting = false; this.resetBtn();
         notice(t('Could not decode the audio.'), true);
         return;
       }
-      if (id !== this.reqId || !this.awaiting) { ttsLog('playWav: cancelado tras decodificar'); return; }
-      ttsLog('playWav: decodificado OK', { segundos: +buf.duration.toFixed(1), canales: buf.numberOfChannels, ctxState: ctx.state });
+      if (id !== this.reqId || !this.awaiting) { ttsLog('playWav: cancelled after decoding'); return; }
+      ttsLog('playWav: decoded OK', { seconds: +buf.duration.toFixed(1), channels: buf.numberOfChannels, ctxState: ctx.state });
       const src = ctx.createBufferSource();
       src.buffer = buf;
       src.connect(ctx.destination);
       src.onended = () => {
-        if (this.source === src) { ttsLog('playWav: onended (fin)'); this.source = null; this.playing = false; this.awaiting = false; this.resetBtn(); }
+        if (this.source === src) { ttsLog('playWav: onended (end)'); this.source = null; this.playing = false; this.awaiting = false; this.resetBtn(); }
       };
       this.source = src;
       this.playing = true;
-      try { src.start(); ttsLog('playWav: start() OK — sonando', { ctxState: ctx.state }); }
-      catch (e) { ttsLog('playWav: start() FALLÓ', { err: String(e) }); this.source = null; this.playing = false; this.awaiting = false; this.resetBtn(); }
+      try { src.start(); ttsLog('playWav: start() OK — playing', { ctxState: ctx.state }); }
+      catch (e) { ttsLog('playWav: start() FAILED', { err: String(e) }); this.source = null; this.playing = false; this.awaiting = false; this.resetBtn(); }
     },
   };
   tts.loadVoices();
-  // Libera el AudioContext al descargar el webview (evita contextos colgados).
+  // Release the AudioContext when the webview is unloaded (avoids dangling contexts).
   window.addEventListener('pagehide', () => { if (tts.ctx) { try { tts.ctx.close(); } catch (e) {} } });
   if (tts.supported) {
     const refreshVoicesUI = () => {
-      // Si el panel de config está abierto, refresca el selector de voces.
+      // If the config panel is open, refresh the voice selector.
       if (doc && !configPanel.classList.contains('hidden')) renderConfig();
     };
     window.speechSynthesis.onvoiceschanged = () => { tts.loadVoices(); refreshVoicesUI(); };
-    // Fallback: en Electron/VS Code 'voiceschanged' a veces no se dispara; sondea
-    // hasta que getVoices() devuelva algo (o nos rindamos tras ~6s).
+    // Fallback: in Electron/VS Code 'voiceschanged' sometimes never fires; poll
+    // until getVoices() returns something (or give up after ~6s).
     tts.pollVoices = () => {
       tts.triedVoices = false;
       let polls = 0;
@@ -491,7 +491,7 @@
       roleEl.appendChild(tbadge);
     }
 
-    // Navegador de variantes de reproceso (‹ i/n › 🗑) cuando hay más de una.
+    // Variant navigator (‹ i/n › 🗑) shown when there is more than one variant.
     if (opts.variantCount > 1) {
       const nav = document.createElement('span');
       nav.className = 'variant-nav';
@@ -514,7 +514,7 @@
       roleEl.appendChild(nav);
     }
 
-    // Acciones por mensaje (solo en mensajes persistidos, con índice conocido).
+    // Per-message actions (only for persisted messages with a known index).
     if (Number.isInteger(opts.index)) {
       const actions = document.createElement('span');
       actions.className = 'msg-actions';
@@ -538,12 +538,12 @@
           () => { clearNotices(); vscode.postMessage({ type: 'continue' }); }));
       }
       if (opts.canGenerate) {
-        // Regenera la respuesta a este prompt: trunca lo que cuelgue tras él (tool-calls a medias, etc.) y vuelve a inferir.
+        // Regenerates the response to this prompt: truncates anything dangling after it (partial tool-calls, etc.) and re-infers.
         actions.appendChild(iconButton(ICONS.retry, t('Generate a response to this message'),
           () => { clearNotices(); vscode.postMessage({ type: 'regenerateFrom', index: opts.index }); }));
       }
       if (opts.canRegenFromPrompt) {
-        // Re-rolla la respuesta a este prompt (variante del asistente), sin borrar nada.
+        // Re-rolls the response to this prompt (assistant variant) without deleting anything.
         actions.appendChild(iconButton(ICONS.retry, t('Regenerate the response to this message'),
           () => {
             clearNotices();
@@ -556,7 +556,7 @@
         actions.appendChild(iconButton(ICONS.mergeUp, t('Merge with previous message'),
           () => vscode.postMessage({ type: 'mergeMessage', index: opts.index })));
       }
-      // Resumir el contexto hasta aquí (mismo límite que el fork "up to here"). Solo con auto-resumen.
+      // Summarize the context up to here (same limit as the "up to here" fork). Only with auto-summary.
       if (doc && doc.params && doc.params.autoSummary && !opts.preSummary && opts.index > 0) {
         actions.appendChild(iconButton(ICONS.summarize, t('Summarize the conversation up to here'),
           () => { clearNotices(); vscode.postMessage({ type: 'summarizeUpTo', index: opts.index }); }));
@@ -569,9 +569,9 @@
         ? `${t('Delete this variant')} (${(opts.variantActive || 0) + 1}/${opts.variantCount})`
         : t('Delete message')) + ` · ${t('⌥/Alt: delete this and all below')} · ${t('⇧/Shift: skip confirmation')}`;
       actions.appendChild(iconButton(ICONS.trash, delTitle, (e) => {
-        const confirm = !(e && e.shiftKey); // Shift salta la confirmación
+        const confirm = !(e && e.shiftKey); // Shift skips confirmation
         if (e && e.altKey && Number.isInteger(opts.index)) {
-          vscode.postMessage({ type: 'deleteFrom', index: opts.index, confirm }); // borra este y todos los de abajo
+          vscode.postMessage({ type: 'deleteFrom', index: opts.index, confirm }); // deletes this and all below
         } else if (hasVariants) {
           vscode.postMessage({ type: 'deleteVariant', index: opts.index, variant: opts.variantActive || 0, confirm });
         } else {
@@ -585,7 +585,7 @@
     const body = document.createElement('div');
     body.className = 'body';
     if (role === 'assistant' && !opts.cursor && !(content && content.trim())) {
-      // Respuesta vacía (algunos modelos vuelcan todo al razonamiento): nota clara en vez de globo en blanco.
+      // Empty response (some models put everything into reasoning): clear note instead of a blank bubble.
       body.innerHTML = opts.thinking
         ? '<span class="empty-note">' + escapeHtml(t('The model put the whole response in its reasoning 🧠 — turn off «Reasoning / thinking» in ⚙ to see it here.')) + '</span>'
         : '<span class="empty-note">' + escapeHtml(t('(empty response)')) + '</span>';
@@ -626,9 +626,9 @@
     el.classList.toggle('has-think', !!text);
   }
 
-  // Edición inline del contenido de un mensaje.
+  // Inline editing of a message's content.
   function startEditInline(el, index) {
-    if (el.querySelector('.edit-wrap')) return; // ya editando
+    if (el.querySelector('.edit-wrap')) return; // already editing
     const m = doc && doc.messages[index];
     if (!m) return;
     el.classList.add('editing');
@@ -640,7 +640,7 @@
     const ta = document.createElement('textarea');
     ta.className = 'edit-area';
     ta.spellcheck = true;
-    ta.lang = 'es';
+    ta.lang = window.LangI18n.get();
     ta.value = m.content;
     const bar = document.createElement('div');
     bar.className = 'edit-bar';
@@ -650,8 +650,8 @@
     const save = document.createElement('button');
     save.textContent = t('Save');
     save.className = 'btn-primary';
-    bar.appendChild(cancel); // izquierda
-    bar.appendChild(save);   // derecha
+    bar.appendChild(cancel); // left
+    bar.appendChild(save);   // right
     wrap.appendChild(ta);
     wrap.appendChild(bar);
     body.after(wrap);
@@ -665,9 +665,9 @@
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
       else if (e.key === 'Escape') { e.preventDefault(); close(); }
     });
-    setupEmojiAutocomplete(ta); // autocompletado :nombre también al editar
+    setupEmojiAutocomplete(ta); // :name autocomplete also works when editing
 
-    // Alinea el borde inferior de la burbuja en edición al final del área visible.
+    // Aligns the bottom edge of the editing bubble to the end of the visible area.
     const alignBottom = () => {
       const cr = messagesEl.getBoundingClientRect();
       const er = el.getBoundingClientRect();
@@ -680,7 +680,7 @@
     requestAnimationFrame(alignBottom);
   }
 
-  // ---- Paneles laterales ----
+  // ---- Side panels ----
   function updateSide() {
     const open = !configPanel.classList.contains('hidden')
       || !thinkPanel.classList.contains('hidden')
@@ -690,7 +690,7 @@
   function openThink() { thinkPanel.classList.remove('hidden'); updateSide(); }
   function openTools() { toolsPanel.classList.remove('hidden'); updateSide(); }
 
-  // Renderiza una lista de actividad de tools en el panel.
+  // Renders a list of tool activity in the panel.
   function showTools(activity) {
     toolsContent.innerHTML = '';
     if (!activity || !activity.length) {
@@ -723,7 +723,7 @@
   }
   function showThinking(text) {
     if (text) {
-      thinkContent.innerHTML = renderMarkdownImpl(text); // se llama por frame al razonar: sin caché
+      thinkContent.innerHTML = renderMarkdownImpl(text); // called per-frame during reasoning: no cache
       thinkContent.classList.remove('empty');
     } else {
       thinkContent.textContent = t('This message has no reasoning.');
@@ -740,18 +740,18 @@
     scrollDown();
   }
 
-  let suppressScroll = false; // evita auto-scroll durante un re-render masivo
-  let stickToBottom = true;   // seguir el fondo mientras llega texto; se desactiva si el usuario sube
+  let suppressScroll = false; // prevents auto-scroll during a bulk re-render
+  let stickToBottom = true;   // follow the bottom while text arrives; disabled when the user scrolls up
   function scrollDown() {
-    if (suppressScroll || !stickToBottom) return; // si el usuario subió, no lo arrastramos al final
+    if (suppressScroll || !stickToBottom) return; // if the user scrolled up, don't drag them to the bottom
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
-  // El usuario manda: cerca del fondo → seguimos pegados; si sube a leer → paramos el auto-scroll.
+  // The user is in control: near the bottom → stick to it; if they scroll up to read → pause auto-scroll.
   messagesEl.addEventListener('scroll', () => {
     stickToBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 80;
   });
 
-  // Avisos persistentes (errores, resúmenes): NO se borran al re-renderizar el historial.
+  // Persistent notices (errors, summaries): NOT cleared when the history is re-rendered.
   function notice(text, isError) {
     const el = document.createElement('div');
     el.className = 'banner' + (isError ? ' error' : '');
@@ -766,12 +766,12 @@
     el.appendChild(span);
     el.appendChild(x);
     noticesEl.appendChild(el);
-    if (!isError) setTimeout(() => el.remove(), 6000); // los avisos informativos se autocierran
+    if (!isError) setTimeout(() => el.remove(), 6000); // informational notices auto-dismiss
     return el;
   }
   function clearNotices() { noticesEl.innerHTML = ''; toolsLive = []; summarizingEl = null; }
 
-  // Indicador persistente de "resumiendo…" (con spinner); dura toda la operación, sin auto-cierre.
+  // Persistent "summarizing…" indicator (with spinner); lasts the whole operation, no auto-dismiss.
   let summarizingEl = null;
   function showSummarizing(text) {
     if (summarizingEl && summarizingEl.isConnected) return;
@@ -789,13 +789,13 @@
   }
   function hideSummarizing() { if (summarizingEl) { summarizingEl.remove(); summarizingEl = null; } }
 
-  let summaryOpen = false; // ¿está expandida la burbuja del resumen?
+  let summaryOpen = false; // is the summary bubble expanded?
   function renderConversation() {
-    // Si se está leyendo un mensaje que ya no existe (lo borraron), detén el audio.
+    // If a message that no longer exists (was deleted) is being read, stop the audio.
     if (tts.busy() && tts.msgId && doc && !(doc.messages || []).some((m) => m.id === tts.msgId)) {
       tts.stop();
     }
-    // Conserva la posición de scroll del usuario (salvo que estuviera al final).
+    // Preserve the user's scroll position (unless they were at the bottom).
     const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
     const prevTop = messagesEl.scrollTop;
     messagesEl.innerHTML = '';
@@ -805,24 +805,24 @@
     if (visible.length === 0) {
       banner(t('Empty chat. Type below to start.') + '  ·  ' + t('Model:') + ' ' + (doc.model || '—'));
     }
-    // Mensajes ocultos (assistant intermedio con tool_calls, y los 'tool') no cuentan como
-    // "último": el último mostrable es el que recibe los botones de regenerar/generar.
+    // Hidden messages (intermediate assistant with tool_calls, and 'tool' messages) do not count
+    // as "last": the last displayable one is the one that receives the regenerate/generate buttons.
     const displayable = (mm) => !((mm.role === 'assistant' && Array.isArray(mm.toolCalls) && mm.toolCalls.length) || mm.role === 'tool');
     let lastDisplayable = -1;
     for (let k = visible.length - 1; k >= 0; k--) { if (displayable(visible[k])) { lastDisplayable = k; break; } }
     let lastThinking = '';
-    let pendingTools = []; // actividad de tools acumulada hasta el mensaje final del turno
-    // Resumen: mensajes [0..upTo) están compactados (no se reenvían). Marcamos el límite con un
-    // divisor (globo = texto del resumen) y atenuamos los mensajes previos.
+    let pendingTools = []; // tool activity accumulated up to the final message of the turn
+    // Summary: messages [0..upTo) are compacted (not resent). We mark the boundary with a
+    // divider (bubble = summary text) and dim the preceding messages.
     const upTo = doc.summary ? doc.summary.upTo : 0;
     const summaryText = doc.summary ? doc.summary.text : '';
     let summaryShown = false;
-    // "Últimos N mensajes": si está activo, GANA sobre el resumen (el resumen viejo no se envía).
+    // "Last N messages": if active, WINS over the summary (the old summary is not sent).
     const cmP = (doc.params && doc.params.contextMessages) || {};
-    const lastN = (cmP.enabled && cmP.value > 0) ? cmP.value : 0; // 0 = inactivo
-    const cut = lastN ? lastNStart(visible, lastN) : 0;   // inicio efectivo (gana el corte más cercano)
+    const lastN = (cmP.enabled && cmP.value > 0) ? cmP.value : 0; // 0 = inactive
+    const cut = lastN ? lastNStart(visible, lastN) : 0;   // effective start (nearest cut wins)
     let lastNShown = false;
-    // Editor inline del resumen (mismo patrón que startEditInline pero guarda en doc.summary).
+    // Inline editor for the summary (same pattern as startEditInline but saves to doc.summary).
     const startEditSummary = (el) => {
       if (el.querySelector('.edit-wrap')) return;
       el.classList.add('editing');
@@ -832,7 +832,7 @@
       wrap.className = 'edit-wrap';
       const ta = document.createElement('textarea');
       ta.className = 'edit-area';
-      ta.spellcheck = true; ta.lang = 'es';
+      ta.spellcheck = true; ta.lang = window.LangI18n.get();
       ta.value = summaryText;
       const bar = document.createElement('div');
       bar.className = 'edit-bar';
@@ -855,7 +855,7 @@
       ta.addEventListener('input', autosize);
       ta.focus({ preventScroll: true }); autosize();
     };
-    // Burbuja centrada con el resumen renderizado (markdown) + acciones.
+    // Centered bubble with the rendered summary (markdown) + actions.
     const summaryBubble = () => {
       const el = document.createElement('div');
       el.className = 'msg summary-msg';
@@ -871,7 +871,7 @@
         copyBtn.innerHTML = ICONS.check; setTimeout(() => { copyBtn.innerHTML = ICONS.copy; }, 1200);
       });
       actions.appendChild(copyBtn);
-      const readBtn = iconButton(ICONS.speaker, t('Read aloud'), () => tts.speak(summaryText, readBtn)); // sin msgId: no es un mensaje del historial
+      const readBtn = iconButton(ICONS.speaker, t('Read aloud'), () => tts.speak(summaryText, readBtn)); // no msgId: not a history message
       actions.appendChild(readBtn);
       actions.appendChild(iconButton(ICONS.edit, t('Edit summary'), () => startEditSummary(el)));
       actions.appendChild(iconButton(ICONS.branch,
@@ -900,7 +900,7 @@
       messagesEl.appendChild(d);
       if (summaryOpen) messagesEl.appendChild(summaryBubble());
     };
-    // Divisor de "últimos N": desde aquí en adelante es lo único que se envía.
+    // "Last N" divider: from here onward is the only content sent.
     const lastNDivider = () => {
       const d = document.createElement('div');
       d.className = 'lastn-divider';
@@ -910,7 +910,7 @@
       d.appendChild(s);
       messagesEl.appendChild(d);
     };
-    // Con "últimos N" activo, el resumen guardado NO se envía (queda obsoleto): se indica, atenuado.
+    // With "last N" active, the saved summary is NOT sent (it is stale): shown dimmed as an indicator.
     if (lastN && summaryText) {
       const d = document.createElement('div');
       d.className = 'summary-divider excluded';
@@ -923,7 +923,7 @@
     }
     for (let i = 0; i < visible.length; i++) {
       const m = visible[i];
-      // Mensajes internos de tools: NO se muestran como burbuja; van al panel.
+      // Internal tool messages: NOT shown as a bubble; they go to the panel.
       if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length) {
         for (const tc of m.toolCalls) pendingTools.push({ name: tc.name, args: tc.arguments });
         continue;
@@ -934,17 +934,17 @@
         else pendingTools.push({ name: m.toolName, result: m.content });
         continue;
       }
-      // Mensaje normal (user o respuesta final del asistente).
+      // Normal message (user or final assistant response).
       const canMerge = i > 0 && visible[i - 1].role === m.role;
-      const isLast = i === lastDisplayable; // último MOSTRABLE (ignora tool-calls/tool colgando)
+      const isLast = i === lastDisplayable; // last DISPLAYABLE (ignores dangling tool-calls/tool)
       const canRegenerate = m.role === 'assistant' && isLast;
-      // Último mensaje de usuario mostrable → regenerar respuesta (trunca lo que cuelgue tras él).
+      // Last displayable user message → regenerate response (truncates anything dangling after it).
       const canGenerate = m.role === 'user' && isLast;
-      // Mensaje de usuario cuya respuesta (el asistente que le sigue) es la última mostrable:
-      // permite re-rollar desde el prompt sin tener que borrar el asistente.
+      // User message whose response (the following assistant) is the last displayable:
+      // allows re-rolling from the prompt without having to delete the assistant message.
       const canRegenFromPrompt = m.role === 'user' && visible[i + 1] && visible[i + 1].role === 'assistant' && (i + 1) === lastDisplayable;
       const activity = (m.role === 'assistant' && pendingTools.length) ? pendingTools.slice() : null;
-      // Divisor antes del primer mensaje en/after el límite (last-N gana sobre el resumen).
+      // Divider before the first message at/after the boundary (last-N wins over the summary).
       if (lastN) {
         if (!lastNShown && i >= cut) { if (cut > 0) lastNDivider(); lastNShown = true; }
       } else if (upTo > 0 && !summaryShown && i >= upTo) {
@@ -960,27 +960,27 @@
         canRegenerate,
         canGenerate,
         canRegenFromPrompt,
-        preSummary: !lastN && upTo > 0 && i < upTo, // compactado en el resumen
-        dropped: lastN > 0 && i < cut,              // fuera de la ventana "últimos N"
+        preSummary: !lastN && upTo > 0 && i < upTo, // compacted into the summary
+        dropped: lastN > 0 && i < cut,              // outside the "last N" window
         variantCount: Array.isArray(m.variants) ? m.variants.length : 1,
         variantActive: m.active || 0,
       });
       if (m.role === 'assistant') lastThinking = m.thinking || '';
       pendingTools = [];
     }
-    // Todo el historial quedó resumido (sin mensajes recientes): divisor al final.
+    // The entire history was summarized (no recent messages): divider at the end.
     if (!lastN && upTo > 0 && !summaryShown) summaryDivider();
-    // Restaura el scroll: al final si ya estabas abajo; si no, donde estabas.
+    // Restore scroll: to the bottom if already there; otherwise to where it was.
     suppressScroll = false;
     if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
     else messagesEl.scrollTop = prevTop;
-    // Si el buscador está abierto, re-resalta sobre el DOM recién reconstruido.
+    // If the search bar is open, re-highlight over the freshly rebuilt DOM.
     if (typeof refreshFind === 'function') refreshFind();
-    // Muestra el razonamiento del último mensaje en el panel.
+    // Show the reasoning of the last message in the panel.
     showThinking(lastThinking);
   }
 
-  // ---- Exportar a PDF (HTML autocontenido + auto-impresión) ----
+  // ---- Export to PDF (self-contained HTML + auto-print) ----
   const EXPORT_CSS = `
     *{box-sizing:border-box;}
     body{font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:0 auto;padding:36px 22px 48px;color:#1a1a1a;background:#fff;line-height:1.6;}
@@ -1008,18 +1008,18 @@
   function buildExportHtml() {
     const msgs = (doc && doc.messages) || [];
     const visible = msgs.filter((m) => {
-      if (m.role !== 'user' && m.role !== 'assistant') return false; // fuera 'tool'
-      if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length) return false; // intermedio de tools
+      if (m.role !== 'user' && m.role !== 'assistant') return false; // exclude 'tool'
+      if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length) return false; // tool intermediate
       const hasImg = (m.attachments || []).some((a) => a.kind === 'image');
-      return (m.content && m.content.trim()) || hasImg; // fuera vacíos
+      return (m.content && m.content.trim()) || hasImg; // exclude empty
     });
     let body = '';
     for (const m of visible) {
       const who = m.role === 'user' ? t('You') : t('Assistant');
       let imgs = '';
       for (const a of (m.attachments || [])) {
-        // Escapa mime y data: un sidecar .attach manipulado a mano podría inyectar markup
-        // en el HTML exportado (se abre en el navegador externo).
+        // Escape mime and data: a hand-crafted .attach sidecar could inject markup
+        // into the exported HTML (opened in the external browser).
         if (a.kind === 'image') imgs += `<img src="data:${escapeHtml(a.mime)};base64,${escapeHtml(a.data)}"/>`;
       }
       const inner = (m.content ? renderMarkdown(m.content) : '') + imgs;
@@ -1033,7 +1033,7 @@
       '<script>window.onload=function(){setTimeout(function(){window.print()},300)}</scr' + 'ipt></body></html>';
   }
 
-  // ---- Patch de configuración ----
+  // ---- Configuration patch ----
   function patchConfig(patch) {
     if (doc) {
       if (patch.params) {
@@ -1044,21 +1044,21 @@
     }
     vscode.postMessage({ type: 'setConfig', patch });
     updateContextBar();
-    // Si cambió algo que mueve los divisores de contexto (últimos N / resumen / budget),
-    // re-renderiza la conversación para que el ✂️/🗜️ y el atenuado reflejen el estado nuevo.
+    // If something that shifts the context dividers changed (last N / summary / budget),
+    // re-render the conversation so the ✂️/🗜️ markers and dimming reflect the new state.
     if (patch.params && ('contextMessages' in patch.params || 'autoSummary' in patch.params)) {
       renderConversation();
     }
   }
   const patchParam = (key, value) => patchConfig({ params: { [key]: value } });
 
-  // ---- Render del panel de configuración ----
+  // ---- Configuration panel rendering ----
   function renderConfig() {
     if (!doc) return;
-    // Backend y modelo son estáticos en el HTML; aquí solo system prompt + parámetros.
+    // Backend and model are static in the HTML; here only system prompt + parameters.
     configFields.innerHTML = '';
 
-    // System prompt: referencia a un archivo .md, o inline.
+    // System prompt: reference to a .md file, or inline.
     if (doc.systemPromptFile) {
       const ref = document.createElement('div');
       ref.className = 'sysref';
@@ -1098,7 +1098,7 @@
       configFields.appendChild(fieldRow('System prompt', wrap));
     }
 
-    // Grupos de parámetros, filtrados por el backend activo (oculta grupos vacíos).
+    // Parameter groups, filtered by the active backend (hides empty groups).
     const provider = doc.provider;
     for (const section of SCHEMA) {
       const items = section.items.filter((it) => !it.only || it.only.includes(provider));
@@ -1110,11 +1110,11 @@
       for (const item of items) configFields.appendChild(paramRow(item));
     }
 
-    // Lectura en voz alta (motor del sistema o Piper neural).
+    // Read aloud (system engine or neural Piper).
     renderTtsConfig();
   }
 
-  // Sección de configuración de la lectura en voz alta.
+  // Read aloud configuration section.
   function renderTtsConfig() {
     const h = document.createElement('div');
     h.className = 'group-head';
@@ -1123,7 +1123,7 @@
 
     const engine = tts.prefs.engine || 'system';
 
-    // Selector de motor: voces del sistema vs Piper neural.
+    // Engine selector: system voices vs neural Piper.
     const eng = document.createElement('select');
     [['system', t('System (Web Speech)')], ['piper', t('Piper (neural, better quality)')]].forEach(([val, label]) => {
       const o = document.createElement('option');
@@ -1152,7 +1152,7 @@
         }
         return;
       }
-      // Selector de voz (español primero).
+      // Voice selector (Spanish first).
       const sel = document.createElement('select');
       for (const v of tts.sortedVoices()) {
         const o = document.createElement('option');
@@ -1164,16 +1164,16 @@
       sel.addEventListener('change', () => { tts.prefs.voiceURI = sel.value; tts.save(); });
       configFields.appendChild(fieldRow(t('Voice'), sel));
     } else {
-      // Piper: el selector ofrece SOLO las voces DESCARGADAS. La opción Custom solo aparece si hay
-      // una ruta .onnx configurada en Ajustes (o si es la selección actual) — para un usuario
-      // normal sin path custom, el combo muestra exclusivamente lo descargado.
+      // Piper: the selector offers ONLY DOWNLOADED voices. The Custom option appears only if there
+      // is a .onnx path configured in Settings (or if it is the current selection) — for a
+      // normal user without a custom path, the dropdown shows exclusively downloaded voices.
       const dl = tts.downloadedVoices;
       const showCustom = tts.customSet || tts.prefs.piperVoice === 'custom';
       const available = tts.piperVoices.filter((v) =>
         v.id === 'custom' ? showCustom : dl.has(v.id)
       );
       const realVoices = available.filter((v) => v.id !== 'custom');
-      // Si la voz seleccionada ya no está descargada, reasigna a una válida (1ª real, o Custom).
+      // If the selected voice is no longer downloaded, reassign to a valid one (1st real, or Custom).
       if (tts.prefs.piperVoice !== 'custom' && !dl.has(tts.prefs.piperVoice)) {
         tts.prefs.piperVoice = realVoices.length ? realVoices[0].id : 'custom';
         tts.save();
@@ -1199,7 +1199,7 @@
       configFields.appendChild(note);
     }
 
-    // Velocidad (común a ambos motores).
+    // Speed (shared by both engines).
     const rateWrap = document.createElement('div');
     rateWrap.className = 'tts-rate';
     const rate = document.createElement('input');
@@ -1213,7 +1213,7 @@
     rateWrap.appendChild(rate); rateWrap.appendChild(rateVal);
     configFields.appendChild(fieldRow(t('Speed'), rateWrap));
 
-    // Botones: probar y (solo Piper con voz curada) actualizar.
+    // Buttons: test and (Piper with curated voice only) update.
     const testRow = document.createElement('div');
     testRow.className = 'sysref-actions';
     const test = document.createElement('button');
@@ -1263,7 +1263,7 @@
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!p[item.key];
-      row.classList.toggle('disabled', !cb.checked); // atenuar cuando está apagado
+      row.classList.toggle('disabled', !cb.checked); // dim when off
       cb.addEventListener('change', () => {
         row.classList.toggle('disabled', !cb.checked);
         patchParam(item.key, cb.checked);
@@ -1281,7 +1281,7 @@
     const enabled = item.toggle ? !!(val && val.enabled) : true;
     const numValue = item.toggle ? (val ? val.value : item.min) : (typeof val === 'number' ? val : item.min);
 
-    // Cabecera: [checkbox] etiqueta ............ [caja numérica]
+    // Header: [checkbox] label ............ [numeric box]
     const head = document.createElement('div');
     head.className = 'param-head';
 
@@ -1398,13 +1398,13 @@
     return outer;
   }
 
-  // ---- Estado de conexión ----
+  // ---- Connection status ----
   let statusInfo = null, statusState = 'checking', statusDetail = '';
   function renderStatus(info, state, detail) {
     statusInfo = info; statusState = state; statusDetail = detail || '';
     paintStatus();
   }
-  // Compone el estado: proveedor · modelo activo (o el detalle si no hay modelo).
+  // Composes the status: provider · active model (or the detail if no model).
   function paintStatus() {
     if (!statusInfo) return;
     statusDot.className = statusState;
@@ -1416,7 +1416,7 @@
     statusText.title = statusInfo.label + ' — ' + statusInfo.endpoint + (statusDetail ? ' (' + statusDetail + ')' : '');
   }
 
-  // ---- Modelos ----
+  // ---- Models ----
   function fmtTokens(n) {
     if (!n) return '';
     if (n >= 1e6) return (n % 1e6 ? (n / 1e6).toFixed(1) : n / 1e6) + 'M';
@@ -1438,7 +1438,7 @@
     if (c.audio) caps.push(['audio', t('Audio')]);
     if (c.files) caps.push(['file', t('Files / documents')]);
     if (c.tools) caps.push(['tool', t('Tools / function calling')]);
-    // Tooltip tanto en el span (title) como dentro del SVG (<title>), para máxima compatibilidad.
+    // Tooltip on both the span (title) and inside the SVG (<title>), for maximum compatibility.
     modelCapsEl.innerHTML = caps.map((c) => {
       const svg = ICONS[c[0]].replace('>', '><title>' + c[1] + '</title>', 1);
       return '<span class="cap" title="' + c[1] + '">' + svg + '</span>';
@@ -1465,7 +1465,7 @@
       };
     }
 
-    // Agrupa por proveedor (el prefijo antes de '/', p. ej. openai/gpt-4o-mini).
+    // Group by provider (the prefix before '/', e.g. openai/gpt-4o-mini).
     const groups = new Map();
     for (const info of models) {
       const m = info.id;
@@ -1476,7 +1476,7 @@
     }
 
     const named = [...groups.keys()].filter((v) => v).sort((a, b) => a.localeCompare(b));
-    const order = groups.has('') ? [...named, ''] : named; // sin proveedor, al final
+    const order = groups.has('') ? [...named, ''] : named; // no provider prefix, goes last
 
     const addOption = (parent, m, label) => {
       const opt = document.createElement('option');
@@ -1490,7 +1490,7 @@
       if (vendor) {
         const og = document.createElement('optgroup');
         og.label = vendor;
-        // Dentro del grupo basta con el nombre del modelo (sin el prefijo del vendor).
+        // Inside the group, just the model name is enough (without the vendor prefix).
         for (const m of list) addOption(og, m, m.slice(vendor.length + 1));
         modelSelect.appendChild(og);
       } else {
@@ -1508,7 +1508,7 @@
     stopBtn.classList.toggle('hidden', !on);
   }
 
-  // Mientras se resume el contexto: bloquea el envío y deshabilita el compositor.
+  // While summarizing the context: block sending and disable the composer.
   let isSummarizing = false;
   function setSummarizing(on) {
     isSummarizing = on;
@@ -1517,13 +1517,13 @@
     if (inputBox) inputBox.classList.toggle('busy', on);
   }
 
-  // ---- Adjuntos ----
+  // ---- Attachments ----
   const IMG_RE = /^image\//;
   const TEXT_EXT = /\.(txt|md|json|csv|js|ts|tsx|jsx|py|java|c|cpp|h|go|rs|rb|php|html|css|scss|xml|yaml|yml|toml|ini|sh|sql|log|env)$/i;
   function isTextLike(file) {
     if (/^text\//.test(file.type)) return true;
     if (/(json|xml|javascript|yaml|csv|markdown|x-sh|x-python)/i.test(file.type)) return true;
-    if (!file.type) return TEXT_EXT.test(file.name || ''); // mime desconocido: por extensión
+    if (!file.type) return TEXT_EXT.test(file.name || ''); // unknown mime: fall back to extension
     return false;
   }
   function readBase64(file) {
@@ -1536,7 +1536,7 @@
   }
   async function fileToAttachment(file) {
     if (IMG_RE.test(file.type)) {
-      return { kind: 'image', name: file.name || 'imagen.png', mime: file.type || 'image/png', data: await readBase64(file) };
+      return { kind: 'image', name: file.name || 'image.png', mime: file.type || 'image/png', data: await readBase64(file) };
     }
     if (isTextLike(file)) {
       const text = await new Promise((resolve, reject) => {
@@ -1545,10 +1545,10 @@
         rd.onerror = () => reject(rd.error || new Error('read error'));
         rd.readAsText(file);
       });
-      return { kind: 'text', name: file.name || 'archivo.txt', mime: file.type || 'text/plain', data: text };
+      return { kind: 'text', name: file.name || 'file.txt', mime: file.type || 'text/plain', data: text };
     }
-    // PDF, docx, binarios… → documento en base64
-    return { kind: 'document', name: file.name || 'documento', mime: file.type || 'application/octet-stream', data: await readBase64(file) };
+    // PDF, docx, binaries… → base64 document
+    return { kind: 'document', name: file.name || 'document', mime: file.type || 'application/octet-stream', data: await readBase64(file) };
   }
 
   async function addFiles(files) {
@@ -1584,39 +1584,39 @@
     });
   }
 
-  // ---- Barra de uso de contexto (por tokens) ----
+  // ---- Context usage bar (by tokens) ----
   function estTokens(s) { return s ? Math.ceil(s.length / 4) : 0; }
   function msgTokens(m) {
     let t = estTokens(m.content) + 4;
     for (const a of (m.attachments || [])) t += a.kind === 'image' ? 1200 : estTokens(a.data);
     return t;
   }
-  // Token budget efectivo: auto = 75% de la ventana del modelo.
+  // Effective token budget: auto = 75% of the model window.
   function ctxBudget() {
     const modelCtx = modelContext[modelSelect.value];
     return modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
   }
-  // Índice de inicio efectivo de "últimos N": gana el corte MÁS CERCANO (N mensajes vs token budget).
-  // Réplica exacta del recorte del backend para que el divisor coincida con lo que se envía.
+  // Effective start index for "last N": the NEAREST cut wins (N messages vs token budget).
+  // Exact replica of the backend's trimming so the divider matches what is actually sent.
   function lastNStart(msgs, n) {
     const budget = ctxBudget();
     let acc = estTokens(doc ? doc.systemPrompt : '');
     let start = msgs.length;
     for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs.length - i > n) break;                       // tope: N mensajes
+      if (msgs.length - i > n) break;                       // cap: N messages
       const tk = msgTokens(msgs[i]);
-      if (acc + tk > budget && start < msgs.length) break;  // tope: token budget
+      if (acc + tk > budget && start < msgs.length) break;  // cap: token budget
       acc += tk;
       start = i;
     }
     return start;
   }
   function updateUsage() {
-    // Se calcula sumando el uso de los mensajes presentes (no un acumulador fijo).
+    // Calculated by summing the usage of the current messages (not a fixed accumulator).
     let pt = 0, ct = 0, tt = 0, cost = 0, has = false;
     const add = (u) => { if (u) { has = true; pt += u.promptTokens || 0; ct += u.completionTokens || 0; tt += u.totalTokens || 0; if (u.cost) cost += u.cost; } };
     for (const m of (doc && doc.messages) || []) {
-      // Si hay variantes (retries), suma TODAS (cada una fue una llamada pagada).
+      // If there are variants (retries), sum ALL of them (each was a paid call).
       if (Array.isArray(m.variants) && m.variants.length) {
         for (const v of m.variants) add(v.usage);
       } else {
@@ -1630,16 +1630,16 @@
   }
 
   function updateContextBar() {
-    // Aplica con resumen automático O con "últimos N" (ambos recortan lo que se envía).
+    // Applies with auto-summary OR "last N" (both trim what is sent).
     if (!doc || !doc.params) { ctxBar.classList.add('hidden'); return; }
     const cm = doc.params.contextMessages;
-    const lastN = (cm && cm.enabled && cm.value > 0) ? cm.value : 0; // gana sobre el resumen
+    const lastN = (cm && cm.enabled && cm.value > 0) ? cm.value : 0; // wins over the summary
     if (!lastN && !doc.params.autoSummary) { ctxBar.classList.add('hidden'); return; }
     const budget = ctxBudget();
     const msgs = doc.messages || [];
     let total = estTokens(doc.systemPrompt);
     if (lastN) {
-      // Solo la ventana efectiva de "últimos N" (acotada por el budget; sin resumen).
+      // Only the effective "last N" window (bounded by the budget; no summary).
       for (let i = lastNStart(msgs, lastN); i < msgs.length; i++) total += msgTokens(msgs[i]);
     } else {
       const upTo = doc.summary ? doc.summary.upTo : 0;
@@ -1653,26 +1653,26 @@
     ctxLabel.textContent = `${t('Context')} ${fmtTokens(total)}/${fmtTokens(budget)} (${pct}%)`;
   }
 
-  // ---- Enviar ----
+  // ---- Send ----
   function send() {
-    if (isStreaming || isSummarizing) return; // ignora envíos mientras se genera o se resume
+    if (isStreaming || isSummarizing) return; // ignore sends while generating or summarizing
     const text = inputEl.value.trim();
     if (!text && pending.length === 0) return;
     clearNotices();
-    stickToBottom = true; // al enviar, vuelve a pegarse al fondo
+    stickToBottom = true; // on send, stick to the bottom again
     const attachments = pending.slice();
     addMessage('user', text, { attachments });
     if (doc) doc.messages.push({ role: 'user', content: text, attachments });
     inputEl.value = '';
     inputEl.style.height = 'auto';
-    renderSpell(); // limpia el subrayado del overlay
+    renderSpell(); // clear the overlay underline
     pending = [];
     renderPending();
-    setStreaming(true); // bloquea reenvíos hasta streamEnd/error
+    setStreaming(true); // block resends until streamEnd/error
     vscode.postMessage({ type: 'send', text, attachments });
   }
 
-  // ---- Eventos UI ----
+  // ---- UI events ----
   sendBtn.addEventListener('click', send);
   stopBtn.addEventListener('click', () => vscode.postMessage({ type: 'stop' }));
   inputEl.addEventListener('keydown', (e) => {
@@ -1686,17 +1686,17 @@
   });
   inputEl.addEventListener('scroll', () => { if (inputBackdrop) inputBackdrop.scrollTop = inputEl.scrollTop; });
 
-  // ---- Corrector ortográfico (subrayado en vivo vía overlay; motor nspell en spell.js) ----
-  const WORD_RE = /[\p{L}\p{M}]+/gu; // palabras (letras + marcas/diacríticos); ignora números/símbolos
+  // ---- Spell checker (live underline via overlay; nspell engine in spell.js) ----
+  const WORD_RE = /[\p{L}\p{M}]+/gu; // words (letters + marks/diacritics); ignores numbers/symbols
   let spellTimer = null;
 
-  // Idioma efectivo del corrector según el selector per-chat: 'auto' → idioma del sistema.
+  // Effective spell-check language based on the per-chat selector: 'auto' → system language.
   function spellEffective() {
     const pref = spellSelect ? spellSelect.value : 'auto';
     if (pref === 'off') return null;
     if (pref === 'es' || pref === 'en') return pref;
     const sys = (navigator.language || '').toLowerCase();
-    return sys.startsWith('es') ? 'es' : sys.startsWith('en') ? 'en' : null; // otros idiomas: sin corrector
+    return sys.startsWith('es') ? 'es' : sys.startsWith('en') ? 'en' : null; // other languages: no spell checker
   }
 
   function applySpellLang() {
@@ -1704,7 +1704,7 @@
     renderSpell();
   }
 
-  // Reconstruye la capa de fondo con las palabras mal escritas subrayadas.
+  // Rebuilds the background layer with misspelled words underlined.
   function renderSpell() {
     if (!inputBackdrop) return;
     const text = inputEl.value;
@@ -1735,7 +1735,7 @@
     });
   }
 
-  // Palabra (rango) que contiene/toca el offset `pos` en `text`.
+  // Word (range) that contains/touches offset `pos` in `text`.
   function wordAt(text, pos) {
     WORD_RE.lastIndex = 0;
     let m;
@@ -1746,7 +1746,7 @@
     return null;
   }
 
-  // Menú flotante de sugerencias.
+  // Floating suggestions menu.
   let spellMenu = null;
   function closeSpellMenu() { if (spellMenu) { spellMenu.remove(); spellMenu = null; } }
   function showSpellMenu(x, y, word, suggestions) {
@@ -1784,23 +1784,23 @@
     add.textContent = '➕ ' + t('Add to dictionary');
     add.addEventListener('mousedown', (ev) => {
       ev.preventDefault();
-      const lang = window.LangSpell ? window.LangSpell.lang() : null; // idioma activo del corrector
-      if (window.LangSpell) window.LangSpell.add(word.text);   // efecto inmediato
-      vscode.postMessage({ type: 'spellAddWord', word: word.text, lang }); // persiste por idioma
+      const lang = window.LangSpell ? window.LangSpell.lang() : null; // active spell-checker language
+      if (window.LangSpell) window.LangSpell.add(word.text);   // immediate effect
+      vscode.postMessage({ type: 'spellAddWord', word: word.text, lang }); // persisted per language
       renderSpell();
       closeSpellMenu();
       inputEl.focus();
     });
     spellMenu.appendChild(add);
     document.body.appendChild(spellMenu);
-    // Encaja en pantalla.
+    // Fit within the screen.
     const r = spellMenu.getBoundingClientRect();
     spellMenu.style.left = Math.min(x, window.innerWidth - r.width - 8) + 'px';
     spellMenu.style.top = Math.min(y, window.innerHeight - r.height - 8) + 'px';
   }
 
   inputEl.addEventListener('contextmenu', (e) => {
-    if (!window.LangSpell || !window.LangSpell.ready()) return; // sin corrector: menú nativo
+    if (!window.LangSpell || !window.LangSpell.ready()) return; // no spell checker: native menu
     const word = wordAt(inputEl.value, inputEl.selectionStart);
     if (!word || window.LangSpell.correct(word.text)) { closeSpellMenu(); return; }
     e.preventDefault();
@@ -1808,7 +1808,7 @@
   });
   document.addEventListener('mousedown', (e) => { if (spellMenu && !spellMenu.contains(e.target)) closeSpellMenu(); });
   window.addEventListener('blur', closeSpellMenu);
-  // Pegar imágenes (Ctrl+V) directamente en el chat.
+  // Paste images (Ctrl+V) directly into the chat.
   inputEl.addEventListener('paste', (e) => {
     const items = (e.clipboardData && e.clipboardData.items) || [];
     const files = [];
@@ -1817,7 +1817,7 @@
     }
     if (files.length) { e.preventDefault(); addFiles(files); }
   });
-  // ---- Selector de emojis ----
+  // ---- Emoji picker ----
   const emojiBtn = $('emojiBtn');
   const emojiPicker = $('emojiPicker');
   const EMOJI_CATS = [
@@ -1849,7 +1849,7 @@
       for (const em of cat.emojis.split(' ').filter(Boolean)) {
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = em;
-        const tip = emojiTitle(em); // atajos :nombre asociados, si los hay
+        const tip = emojiTitle(em); // associated :name shortcuts, if any
         if (tip) b.title = tip;
         b.addEventListener('click', () => insertAtCursor(em));
         grid.appendChild(b);
@@ -1880,7 +1880,7 @@
     }
   });
 
-  // ---- Autocompletado de emojis al escribir :nombre (estilo WhatsApp/Slack) ----
+  // ---- Emoji autocomplete when typing :name (WhatsApp/Slack style) ----
   const EMOJI_SHORTCODES = {
     smile: '😄', smiley: '😃', grin: '😁', laughing: '😆', joy: '😂', risa: '😂', rofl: '🤣',
     blush: '😊', innocent: '😇', wink: '😉', heart_eyes: '😍', enamorado: '😍', kiss: '😘', beso: '😘',
@@ -1935,19 +1935,19 @@
     hospital: '🏥', school: '🏫', escuela: '🏫', earth: '🌍', tierra: '🌍', world: '🌍',
   };
   const SHORTCODE_ENTRIES = Object.entries(EMOJI_SHORTCODES);
-  // Mapa inverso emoji -> nombres (para tooltips en la rejilla).
+  // Inverse map emoji -> names (for tooltips in the grid).
   const EMOJI_TO_NAMES = {};
   for (const [name, em] of SHORTCODE_ENTRIES) (EMOJI_TO_NAMES[em] = EMOJI_TO_NAMES[em] || []).push(name);
   const emojiTitle = (em) => (EMOJI_TO_NAMES[em] ? EMOJI_TO_NAMES[em].slice(0, 4).map((n) => ':' + n).join('  ') : '');
 
-  // Popup de autocompletado, compartido y posicionado sobre el textarea activo.
+  // Autocomplete popup, shared and positioned above the active textarea.
   const emojiSuggest = document.createElement('div');
   emojiSuggest.id = 'emojiSuggest';
   emojiSuggest.className = 'hidden';
   document.body.appendChild(emojiSuggest);
   let suggestItems = [];
   let suggestActive = 0;
-  let suggestTa = null; // textarea en uso
+  let suggestTa = null; // textarea in use
   const suggestOpen = () => !emojiSuggest.classList.contains('hidden');
 
   function colonQuery(ta) {
@@ -2006,7 +2006,7 @@
     ta.focus();
     ta.dispatchEvent(new Event('input'));
   }
-  // true si la tecla fue consumida por el popup (navegación/aceptar/cerrar).
+  // true if the key was consumed by the popup (navigation/accept/close).
   function handleSuggestKeydown(e) {
     if (!suggestOpen()) return false;
     if (e.key === 'ArrowDown') { e.preventDefault(); moveSuggest(1); return true; }
@@ -2015,7 +2015,7 @@
     if (e.key === 'Escape') { e.preventDefault(); hideSuggest(); return true; }
     return false;
   }
-  // Conecta autocompletado a cualquier textarea.
+  // Connects autocomplete to any textarea.
   function setupEmojiAutocomplete(ta) {
     ta.addEventListener('input', () => updateSuggest(ta));
     ta.addEventListener('blur', () => setTimeout(hideSuggest, 150));
@@ -2027,10 +2027,10 @@
     if (fileInput.files && fileInput.files.length) addFiles([...fileInput.files]);
     fileInput.value = '';
   });
-  // Arrastrar y soltar archivos en cualquier parte del chat.
+  // Drag and drop files anywhere in the chat.
   const inputBox = $('inputBox');
-  // Resaltado de drag con contador: dragenter/leave se disparan al cruzar elementos hijos,
-  // así que un solo flag se queda pegado. El contador refleja si el puntero sigue dentro.
+  // Drag highlight with a counter: dragenter/leave fire when crossing child elements,
+  // so a single flag would get stuck. The counter reflects whether the pointer is still inside.
   let dragDepth = 0;
   document.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; inputBox.classList.add('dragover'); });
   document.addEventListener('dragover', (e) => { e.preventDefault(); });
@@ -2043,12 +2043,12 @@
     if (f && f.length) addFiles([...f]);
   });
 
-  // ---- Zoom propio del chat (independiente del zoom global de VS Code) ----
+  // ---- Chat-local zoom (independent of VS Code's global zoom) ----
   let zoom = LangZoom.clampZoom((vscode.getState() && vscode.getState().zoom) || 1);
   function applyZoom() {
-    // Zoom SOLO al historial (que tiene su propio scroll), no a todo el body: zoomear el body
-    // escalaba el layout 100vh y desbordaba/recortaba el composer (la barra de escribir).
-    document.body.style.zoom = '';                // limpia un zoom previo en body (estado antiguo)
+    // Zoom ONLY the history (which has its own scroll), not the whole body: zooming the body
+    // scaled the 100vh layout and overflowed/clipped the composer (the input bar).
+    document.body.style.zoom = '';                // clear any previous zoom on body (legacy state)
     if (messagesEl) messagesEl.style.zoom = String(zoom);
     const lbl = $('zoomResetBtn');
     if (lbl) lbl.textContent = Math.round(zoom * 100) + '%';
@@ -2058,21 +2058,21 @@
   }
   function setZoom(z) { zoom = LangZoom.clampZoom(z); applyZoom(); }
   applyZoom();
-  // Alt/Option + rueda → zoom (mismo modificador que el borrado en cascada; no choca con el +/- nativo de VS Code).
+  // Alt/Option + wheel → zoom (same modifier as cascading delete; does not conflict with VS Code's native +/-).
   window.addEventListener('wheel', (e) => {
     if (!e.altKey) return;
     e.preventDefault();
     zoom = LangZoom.stepZoom(zoom, e.deltaY);
     applyZoom();
   }, { passive: false });
-  // Alt/Option + 0 → resetear.
+  // Alt/Option + 0 → reset.
   window.addEventListener('keydown', (e) => {
     if (e.altKey && (e.key === '0')) { e.preventDefault(); setZoom(1); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) { e.preventDefault(); openFind(); }
     if (e.key === 'Escape' && findBar && !findBar.classList.contains('hidden')) { e.preventDefault(); closeFind(); }
-    // Ctrl/Cmd+Z (y redo): el .chat es un editor de texto, así que el undo del documento
-    // revierte/borra mensajes sin querer. Lo bloqueamos SIEMPRE; dentro de un campo editable
-    // mantenemos su propio undo con execCommand (no toca el documento).
+    // Ctrl/Cmd+Z (and redo): the .chat is a text editor, so document undo would inadvertently
+    // revert/delete messages. Block it ALWAYS; inside an editable field we keep its own
+    // undo via execCommand (does not touch the document).
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')) {
       e.preventDefault();
       e.stopPropagation();
@@ -2080,19 +2080,19 @@
       const editable = el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable);
       if (editable) {
         const redo = (e.key === 'y' || e.key === 'Y') || e.shiftKey;
-        try { document.execCommand(redo ? 'redo' : 'undo'); } catch (_) { /* sin undo nativo */ }
+        try { document.execCommand(redo ? 'redo' : 'undo'); } catch (_) { /* no native undo */ }
       }
     }
   });
-  // Controles de la barra: −, %, + (el % reestablece a 100%).
+  // Toolbar controls: −, %, + (% resets to 100%).
   $('zoomInBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, -1)));
   $('zoomOutBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, 1)));
   $('zoomResetBtn').addEventListener('click', () => setZoom(1));
   providerSelect.addEventListener('change', () => {
-    // Limpia el modelo de inmediato para no mostrar modelos del backend anterior.
+    // Clear the model immediately to avoid showing models from the previous backend.
     modelSelect.innerHTML = '<option>' + escapeHtml(t('Loading…')) + '</option>';
     patchConfig({ provider: providerSelect.value });
-    renderConfig(); // re-filtra los parámetros según el nuevo backend
+    renderConfig(); // re-filter parameters for the new backend
   });
   modelSelect.addEventListener('change', () => { updateModelCtx(); patchConfig({ model: modelSelect.value }); });
   $('refreshBtn').addEventListener('click', () => vscode.postMessage({ type: 'refreshModels' }));
@@ -2107,27 +2107,27 @@
   $('toolsBtn').addEventListener('click', () => { if (toolsPanel.classList.contains('hidden')) showTools(toolsLive); toolsPanel.classList.toggle('hidden'); updateSide(); });
   $('toolsClose').addEventListener('click', () => { toolsPanel.classList.add('hidden'); updateSide(); });
 
-  // ---- Buscador dentro del chat (Ctrl/Cmd+F) ----
+  // ---- In-chat search (Ctrl/Cmd+F) ----
   const findBar = $('findBar');
   const findInput = $('findInput');
   const findCount = $('findCount');
-  let findHits = [];   // <mark> resaltados, en orden de documento
-  let findIdx = -1;    // índice del hit "actual"
+  let findHits = [];   // <mark> highlights, in document order
+  let findIdx = -1;    // index of the "current" hit
 
-  // Quita todos los <mark> y reconstruye los nodos de texto originales.
+  // Removes all <mark> elements and reconstructs the original text nodes.
   function clearFindMarks() {
     const marks = messagesEl.querySelectorAll('mark.find-hit');
     marks.forEach((mk) => {
       const p = mk.parentNode;
       if (!p) return;
       p.replaceChild(document.createTextNode(mk.textContent), mk);
-      p.normalize(); // fusiona nodos de texto adyacentes
+      p.normalize(); // merge adjacent text nodes
     });
     findHits = [];
     findIdx = -1;
   }
 
-  // Envuelve cada coincidencia de `ql` (minúsculas) dentro de un nodo de texto en <mark>.
+  // Wraps each match of `ql` (lowercase) inside a text node in <mark>.
   function highlightInNode(node, ql) {
     const text = node.nodeValue;
     const lower = text.toLowerCase();
@@ -2158,8 +2158,8 @@
     }
   }
 
-  // Busca `query` en las burbujas. opts.keepPos preserva el hit actual y no hace scroll
-  // (se usa al re-renderizar mientras la barra está abierta, p. ej. tras un mensaje nuevo).
+  // Searches for `query` in the message bubbles. opts.keepPos preserves the current hit and skips scroll
+  // (used when re-rendering while the bar is open, e.g. after a new message arrives).
   function runFind(query, opts) {
     opts = opts || {};
     const prevIdx = findIdx;
@@ -2207,7 +2207,7 @@
     updateFindCount();
   }
 
-  // Re-aplica el resaltado tras un re-render si la barra sigue abierta (el innerHTML se rehace).
+  // Re-applies highlighting after a re-render if the bar is still open (innerHTML is rebuilt).
   function refreshFind() {
     if (findBar && !findBar.classList.contains('hidden') && findInput.value.trim()) {
       runFind(findInput.value, { keepPos: true });
@@ -2223,16 +2223,16 @@
   $('findNext').addEventListener('click', () => findNav(1));
   $('findClose').addEventListener('click', () => closeFind());
 
-  // Aplica un idioma: traduce el HTML estático y re-renderiza lo dinámico.
+  // Applies a language: translates static HTML and re-renders dynamic content.
   function applyLanguage(lang, pref) {
     window.LangI18n.set(lang);
     window.LangI18n.applyStatic(document);
     document.documentElement.lang = lang;
     if (doc) { renderConfig(); renderConversation(); updateUsage(); updateContextBar(); }
-    updateModelCtx(); // refresca tooltips de capacidades/contexto + estado
+    updateModelCtx(); // refresh capability/context tooltips + status
   }
 
-  // ---- Mensajes desde la extensión ----
+  // ---- Messages from the extension ----
   window.addEventListener('message', (event) => {
     const msg = event.data;
     switch (msg.type) {
@@ -2243,14 +2243,14 @@
         if (window.LangSpell) window.LangSpell.setWords(msg.words || []);
         break;
       case 'piperVoices':
-        // Voces Piper descargadas: el selector del chat solo ofrece estas (+ Custom).
+        // Downloaded Piper voices: the chat selector only offers these (+ Custom).
         tts.downloadedVoices = new Set(msg.ids || []);
         if (doc && !configPanel.classList.contains('hidden')) renderConfig();
         break;
       case 'doc':
         doc = msg.doc;
         providerSelect.value = doc.provider;
-        if (spellSelect) spellSelect.value = doc.spellLang || 'auto'; // idioma del corrector per-chat
+        if (spellSelect) spellSelect.value = doc.spellLang || 'auto'; // per-chat spell-checker language
         applySpellLang();
         renderConfig();
         renderConversation();
@@ -2261,7 +2261,7 @@
         renderStatus(msg.info, msg.state, msg.detail);
         break;
       case 'models':
-        // Ignora respuestas de un backend que ya no es el activo.
+        // Ignore responses from a backend that is no longer active.
         if (msg.provider && doc && msg.provider !== doc.provider) break;
         renderModels(msg.models, msg.current, msg.error);
         break;
@@ -2294,8 +2294,8 @@
         queueStreamRender();
         break;
       case 'streamEnd':
-        // Render final síncrono: garantiza que los últimos tokens (que pudieran no haber
-        // alcanzado a pintarse en el último frame) queden reflejados.
+        // Synchronous final render: ensures the last tokens (that may not have made it
+        // into the last frame) are reflected.
         pendingBody = false;
         pendingThink = false;
         rafQueued = false;
@@ -2310,17 +2310,17 @@
         setStreaming(false);
         break;
       case 'history':
-        // Historial autoritativo tras enviar/borrar/fusionar: re-renderiza con índices y acciones.
+        // Authoritative history after send/delete/merge: re-render with indices and actions.
         if (doc) {
-          doc.messages = msg.messages; // doc.usage no se usa: updateUsage() recalcula de los mensajes
-          if ('summary' in msg) doc.summary = msg.summary || undefined; // mantener el resumen sincronizado
+          doc.messages = msg.messages; // doc.usage is unused: updateUsage() recalculates from messages
+          if ('summary' in msg) doc.summary = msg.summary || undefined; // keep the summary in sync
         }
         renderConversation();
         updateContextBar();
         updateUsage();
         break;
       case 'summarizing':
-        setSummarizing(!!msg.active); // bloquea el envío mientras dura
+        setSummarizing(!!msg.active); // block sending for the duration
         if (msg.active) showSummarizing(msg.message); else hideSummarizing();
         break;
       case 'notice':
@@ -2328,16 +2328,16 @@
         break;
       case 'error':
         notice(msg.message, true);
-        // Cierra el turno en streaming a medias: quita el cursor y suelta la referencia,
-        // para que un delta tardío no escriba en la burbuja vieja.
+        // Close the mid-stream turn: remove the cursor and release the reference,
+        // so that a late delta does not write into the old bubble.
         pendingBody = false;
         pendingThink = false;
-        rafQueued = false; // cancela cualquier render coalescido pendiente
+        rafQueued = false; // cancel any pending coalesced render
         if (streamingEl) {
           const b = streamingEl.querySelector('.body');
           if (streamingText) b.innerHTML = renderMarkdownImpl(streamingText);
           b.classList.remove('cursor');
-          bindThinking(streamingEl, thinkingText); // conserva el badge de razonamiento parcial
+          bindThinking(streamingEl, thinkingText); // preserve the partial reasoning badge
           streamingEl = null;
         }
         setStreaming(false);
@@ -2351,7 +2351,7 @@
         break;
       case 'ttsError':
         ttsLog('recv ttsError', { id: msg.id, current: tts.reqId, message: msg.message });
-        if (msg.id === undefined || msg.id === tts.reqId) { // ignora errores de peticiones obsoletas
+        if (msg.id === undefined || msg.id === tts.reqId) { // ignore errors from stale requests
           tts.stop();
           notice(msg.message, true);
         }

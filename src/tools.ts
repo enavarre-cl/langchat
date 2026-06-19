@@ -7,67 +7,67 @@ import { ToolSchema } from './providers';
 import { ipIsPrivate } from './net';
 import { httpFetch } from './http';
 
-/** Rechaza un host que resuelva a una IP interna/privada (anti-SSRF). Comprueba TODAS sus IPs. */
+/** Rejects a host that resolves to an internal/private IP (anti-SSRF). Checks ALL its IPs. */
 async function assertSafeHost(hostname: string): Promise<void> {
   let addrs: { address: string }[];
   try { addrs = await dns.promises.lookup(hostname, { all: true }); }
-  catch { throw new Error('No se pudo resolver el host.'); }
-  for (const a of addrs) if (ipIsPrivate(a.address)) throw new Error('Host interno/privado bloqueado (SSRF).');
+  catch { throw new Error('Could not resolve host.'); }
+  for (const a of addrs) if (ipIsPrivate(a.address)) throw new Error('Internal/private host blocked (SSRF).');
 }
 
 function workspaceRoot(): string {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!root) throw new Error('No hay ninguna carpeta de workspace abierta.');
+  if (!root) throw new Error('No workspace folder is open.');
   return root;
 }
 
-/** Comprueba que la ruta REAL (resuelta vía realpath) queda dentro del root real. Evita escapes por symlink. */
+/** Checks that the REAL path (resolved via realpath) stays inside the real root. Prevents symlink escapes. */
 function assertRealWithin(abs: string, root: string): void {
   let realRoot: string;
   try { realRoot = fs.realpathSync(root); } catch { realRoot = root; }
-  // Resuelve el ancestro existente más profundo (la ruta puede no existir aún, p. ej. fs_write).
+  // Resolves the deepest existing ancestor (the path may not exist yet, e.g. fs_write).
   let probe = abs;
   while (!fs.existsSync(probe) && probe !== path.dirname(probe)) probe = path.dirname(probe);
   let realProbe: string;
   try { realProbe = fs.realpathSync(probe); } catch { realProbe = probe; }
   if (realProbe !== realRoot && !realProbe.startsWith(realRoot + path.sep)) {
-    throw new Error('Ruta fuera del workspace (symlink).');
+    throw new Error('Path outside the workspace (symlink).');
   }
 }
 
 /**
- * Resuelve una ruta dentro de ALGUNA carpeta del workspace (multi-root): prueba cada carpeta y
- * usa aquella donde la ruta resuelta exista; si en ninguna existe, la primera carpeta válida
- * (p. ej. para fs_write). Nunca escapa de las carpetas (ni por `..` ni por symlink).
+ * Resolves a path within ANY workspace folder (multi-root): tries each folder and uses the one
+ * where the resolved path exists; if none exists, uses the first valid folder (e.g. for fs_write).
+ * Never escapes the folders (neither via `..` nor symlink).
  */
 function resolveInWorkspace(p: string): string {
   const folders = vscode.workspace.workspaceFolders ?? [];
-  if (!folders.length) throw new Error('No hay ninguna carpeta de workspace abierta.');
+  if (!folders.length) throw new Error('No workspace folder is open.');
   let chosen: { abs: string; root: string } | null = null;
   for (const f of folders) {
     const root = f.uri.fsPath;
     const abs = path.resolve(root, p || '.');
-    if (abs !== root && !abs.startsWith(root + path.sep)) continue; // fuera de ESTA carpeta
-    if (!chosen) chosen = { abs, root };          // primer candidato válido
-    if (fs.existsSync(abs)) { chosen = { abs, root }; break; } // prioriza donde exista
+    if (abs !== root && !abs.startsWith(root + path.sep)) continue; // outside THIS folder
+    if (!chosen) chosen = { abs, root };          // first valid candidate
+    if (fs.existsSync(abs)) { chosen = { abs, root }; break; } // prefer where it exists
   }
-  if (!chosen) throw new Error(`Ruta fuera del workspace: ${p}`);
-  assertRealWithin(chosen.abs, chosen.root); // nada de symlinks que escapen
+  if (!chosen) throw new Error(`Path outside the workspace: ${p}`);
+  assertRealWithin(chosen.abs, chosen.root); // no symlinks escaping
   return chosen.abs;
 }
 
-/** Rutas a las que NO se permite escribir (ejecución / config sensible). */
+/** Paths that are NOT allowed to be written to (execution / sensitive config). */
 function assertWritable(abs: string, root: string): void {
   const rel = path.relative(root, abs).split(path.sep);
   const top = rel[0];
   if (top === '.git' || top === '.vscode') {
-    throw new Error(`Escritura no permitida en ${top}/ (ruta sensible).`);
+    throw new Error(`Writing not allowed in ${top}/ (sensitive path).`);
   }
 }
 
 const EXCLUDE = '**/{node_modules,.git,out,dist,build,.vscode-test,.next,coverage}/**';
 
-/** Convierte HTML a texto legible (quita scripts/estilos/tags y decodifica entidades básicas). */
+/** Converts HTML to readable text (strips scripts/styles/tags and decodes basic entities). */
 function htmlToText(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -88,44 +88,44 @@ function htmlToText(html: string): string {
 
 const DEFAULT_MAX_READ = 100_000; // bytes
 
-/** Límite de lectura de fs_read (ajuste global, con fallback robusto si está roto). */
+/** Read limit for fs_read (global setting, with a robust fallback if broken). */
 function maxReadBytes(): number {
   const v = vscode.workspace.getConfiguration('langChat').get<number>('tools.maxReadBytes', DEFAULT_MAX_READ);
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : DEFAULT_MAX_READ;
 }
 
-/** Tools nativas de filesystem del workspace (prefijo fs_). */
+/** Native workspace filesystem tools (fs_ prefix). */
 const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
   {
     schema: {
       name: 'fs_list',
-      description: 'Lista archivos y carpetas de una ruta del workspace.',
-      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Ruta relativa (vacío = raíz)' } } },
+      description: 'Lists files and folders at a workspace path.',
+      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Relative path (empty = root)' } } },
     },
     run: async (a) => {
       const dir = resolveInWorkspace(a?.path ?? '.');
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      return entries.map((e) => (e.isDirectory() ? `📁 ${e.name}/` : `📄 ${e.name}`)).join('\n') || '(vacío)';
+      return entries.map((e) => (e.isDirectory() ? `📁 ${e.name}/` : `📄 ${e.name}`)).join('\n') || '(empty)';
     },
   },
   {
     schema: {
       name: 'fs_read',
-      description: 'Lee el contenido de un archivo de texto del workspace.',
+      description: 'Reads the contents of a text file in the workspace.',
       parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
     },
     run: async (a) => {
       const file = resolveInWorkspace(a?.path ?? '');
       const limit = maxReadBytes();
       const size = fs.statSync(file).size;
-      // Lee como mucho `limit` bytes: nunca carga un archivo gigante entero en memoria.
+      // Read at most `limit` bytes: never loads a giant file entirely into memory.
       const toRead = Math.min(size, limit);
       const fd = fs.openSync(file, 'r');
       try {
         const buf = Buffer.alloc(toRead);
         fs.readSync(fd, buf, 0, toRead, 0);
         const text = buf.toString('utf8');
-        return size > limit ? text + `\n… (truncado, ${size} bytes)` : text;
+        return size > limit ? text + `\n… (truncated, ${size} bytes)` : text;
       } finally {
         fs.closeSync(fd);
       }
@@ -134,7 +134,7 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
   {
     schema: {
       name: 'fs_write',
-      description: 'Escribe (crea o sobrescribe) un archivo de texto en el workspace.',
+      description: 'Writes (creates or overwrites) a text file in the workspace.',
       parameters: {
         type: 'object',
         properties: { path: { type: 'string' }, content: { type: 'string' } },
@@ -142,33 +142,33 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       },
     },
     run: async (a) => {
-      if (!vscode.workspace.isTrusted) throw new Error('Escritura deshabilitada: el workspace no es de confianza.');
+      if (!vscode.workspace.isTrusted) throw new Error('Writing disabled: the workspace is not trusted.');
       const file = resolveInWorkspace(a?.path ?? '');
-      assertWritable(file, workspaceRoot()); // no .git/ ni .vscode/
+      assertWritable(file, workspaceRoot()); // no .git/ or .vscode/
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, String(a?.content ?? ''), 'utf8');
-      return `Escrito: ${a.path} (${Buffer.byteLength(String(a?.content ?? ''))} bytes)`;
+      return `Written: ${a.path} (${Buffer.byteLength(String(a?.content ?? ''))} bytes)`;
     },
   },
   {
     schema: {
       name: 'get_datetime',
-      description: 'Fecha y hora actuales del sistema (con zona horaria).',
+      description: 'Current system date and time (with timezone).',
       parameters: { type: 'object', properties: {} },
     },
     run: async () => {
       const now = new Date();
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      return `ISO: ${now.toISOString()}\nLocal: ${now.toString()}\nZona horaria: ${tz}`;
+      return `ISO: ${now.toISOString()}\nLocal: ${now.toString()}\nTimezone: ${tz}`;
     },
   },
   {
     schema: {
       name: 'fs_glob',
-      description: 'Lista archivos del workspace que coinciden con un patrón glob (p. ej. **/*.ts).',
+      description: 'Lists workspace files matching a glob pattern (e.g. **/*.ts).',
       parameters: {
         type: 'object',
-        properties: { pattern: { type: 'string', description: 'Patrón glob' } },
+        properties: { pattern: { type: 'string', description: 'Glob pattern' } },
         required: ['pattern'],
       },
     },
@@ -176,19 +176,19 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       const root = workspaceRoot();
       const uris = await vscode.workspace.findFiles(a?.pattern || '**/*', EXCLUDE, 500);
       const list = uris.map((u) => path.relative(root, u.fsPath)).sort();
-      return list.length ? list.join('\n') : 'Sin archivos.';
+      return list.length ? list.join('\n') : 'No files.';
     },
   },
   {
     schema: {
       name: 'fs_search',
-      description: 'Busca texto (o regex) en los archivos del workspace. Devuelve coincidencias como ruta:línea.',
+      description: 'Searches text (or regex) in workspace files. Returns matches as path:line.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'Texto o expresión regular a buscar' },
-          glob: { type: 'string', description: 'Patrón de archivos a incluir (por defecto **/*)' },
-          regex: { type: 'boolean', description: 'Tratar query como regex' },
+          query: { type: 'string', description: 'Text or regular expression to search' },
+          glob: { type: 'string', description: 'File pattern to include (default **/*)' },
+          regex: { type: 'boolean', description: 'Treat query as regex' },
           maxResults: { type: 'number' },
         },
         required: ['query'],
@@ -200,16 +200,16 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       const uris = await vscode.workspace.findFiles(a?.glob || '**/*', EXCLUDE, 3000);
       let re: RegExp | null = null;
       if (a?.regex) {
-        try { re = new RegExp(a.query, 'i'); } catch (e: any) { return 'Regex inválida: ' + e.message; }
+        try { re = new RegExp(a.query, 'i'); } catch (e: any) { return 'Invalid regex: ' + e.message; }
       }
       const needle = String(a?.query ?? '').toLowerCase();
       const matches: string[] = [];
       for (const uri of uris) {
         if (matches.length >= max) break;
-        try { if (fs.statSync(uri.fsPath).size > 2_000_000) continue; } catch { continue; } // omite enormes sin leerlos
+        try { if (fs.statSync(uri.fsPath).size > 2_000_000) continue; } catch { continue; } // skip huge files without reading them
         let buf: Buffer;
         try { buf = fs.readFileSync(uri.fsPath); } catch { continue; }
-        if (buf.includes(0)) continue; // omite binarios
+        if (buf.includes(0)) continue; // skip binaries
         const lines = buf.toString('utf8').split('\n');
         for (let i = 0; i < lines.length; i++) {
           const hit = re ? re.test(lines[i]) : lines[i].toLowerCase().includes(needle);
@@ -219,33 +219,33 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
           }
         }
       }
-      return matches.length ? matches.join('\n') : 'Sin coincidencias.';
+      return matches.length ? matches.join('\n') : 'No matches.';
     },
   },
   {
     schema: {
       name: 'web_fetch',
-      description: 'Descarga una URL (http/https) y devuelve su contenido como texto. Útil para leer webs, RSS o APIs.',
+      description: 'Downloads a URL (http/https) and returns its content as text. Useful for reading websites, RSS, or APIs.',
       parameters: {
         type: 'object',
         properties: {
           url: { type: 'string' },
-          raw: { type: 'boolean', description: 'Devolver el cuerpo sin limpiar el HTML' },
+          raw: { type: 'boolean', description: 'Return the body without cleaning the HTML' },
         },
         required: ['url'],
       },
     },
     run: async (a) => {
       let url = String(a?.url ?? '');
-      if (!/^https?:\/\//i.test(url)) throw new Error('Solo se permiten URLs http/https.');
+      if (!/^https?:\/\//i.test(url)) throw new Error('Only http/https URLs are allowed.');
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 20000);
       try {
-        // Sigue redirects a mano validando el host de CADA salto (evita bypass público→interno).
+        // Follows redirects manually, validating the host at EACH hop (prevents public→internal bypass).
         let res: Response | null = null;
         for (let hop = 0; hop < 6; hop++) {
           const u = new URL(url);
-          if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Solo se permiten URLs http/https.');
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Only http/https URLs are allowed.');
           await assertSafeHost(u.hostname);
           res = await httpFetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (LangChat)', Accept: '*/*' },
@@ -254,16 +254,16 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
           });
           const loc = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
           if (!loc) break;
-          url = new URL(loc, url).toString(); // valida el siguiente salto en la próxima vuelta
+          url = new URL(loc, url).toString(); // validates the next hop on the next iteration
         }
-        if (!res) throw new Error('Sin respuesta.');
-        if (!res.ok) return `Error HTTP ${res.status} ${res.statusText} al obtener ${url}`;
+        if (!res) throw new Error('No response.');
+        if (!res.ok) return `HTTP error ${res.status} ${res.statusText} fetching ${url}`;
         const ctype = res.headers.get('content-type') || '';
         let text = await res.text();
         if (!a?.raw && /html/i.test(ctype)) text = htmlToText(text);
         const limit = maxReadBytes();
-        if (text.length > limit) text = text.slice(0, limit) + `\n… (truncado, ${text.length} caracteres)`;
-        return text || '(vacío)';
+        if (text.length > limit) text = text.slice(0, limit) + `\n… (truncated, ${text.length} characters)`;
+        return text || '(empty)';
       } finally {
         clearTimeout(timer);
       }
@@ -272,7 +272,7 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
   {
     schema: {
       name: 'editor_context',
-      description: 'Archivo activo en el editor y la selección actual del usuario.',
+      description: 'Active file in the editor and the current user selection.',
       parameters: { type: 'object', properties: {} },
     },
     run: async () => {
@@ -280,12 +280,12 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       const rel = (uri: vscode.Uri) =>
         uri.scheme === 'file' ? path.relative(root, uri.fsPath) : uri.toString();
 
-      // Pestañas abiertas (incluye archivos aunque el foco esté en el chat).
+      // Open tabs (includes files even if focus is in the chat).
       const tabs: string[] = [];
       for (const g of vscode.window.tabGroups.all) {
         for (const t of g.tabs) {
           const uri = (t.input as any)?.uri as vscode.Uri | undefined;
-          if (uri) tabs.push(rel(uri) + (t.isActive ? ' (pestaña activa)' : ''));
+          if (uri) tabs.push(rel(uri) + (t.isActive ? ' (active tab)' : ''));
         }
       }
 
@@ -294,20 +294,20 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       if (ed) {
         const sel = ed.selection;
         const selText = ed.document.getText(sel);
-        out += `Archivo de texto activo: ${rel(ed.document.uri)}\nLenguaje: ${ed.document.languageId}\nLíneas: ${ed.document.lineCount}`;
+        out += `Active text file: ${rel(ed.document.uri)}\nLanguage: ${ed.document.languageId}\nLines: ${ed.document.lineCount}`;
         out += selText
-          ? `\nSelección (líneas ${sel.start.line + 1}-${sel.end.line + 1}):\n${selText.slice(0, 4000)}`
-          : '\n(sin selección)';
+          ? `\nSelection (lines ${sel.start.line + 1}-${sel.end.line + 1}):\n${selText.slice(0, 4000)}`
+          : '\n(no selection)';
       } else {
-        out += 'No hay ningún editor de texto enfocado (puede que el foco esté en el chat u otra vista).';
+        out += 'No text editor is focused (focus may be in the chat or another view).';
       }
-      if (tabs.length) out += `\n\nPestañas abiertas:\n${tabs.join('\n')}`;
+      if (tabs.length) out += `\n\nOpen tabs:\n${tabs.join('\n')}`;
       return out;
     },
   },
 ];
 
-/** Agrega las tools nativas (filesystem) y las de los servidores MCP, y enruta su ejecución. */
+/** Aggregates native (filesystem) tools and MCP server tools, and routes their execution. */
 export class ToolHub {
   readonly mcp = new McpManager();
 
@@ -322,9 +322,9 @@ export class ToolHub {
   async call(name: string, args: any): Promise<string> {
     const builtin = BUILTIN.find((b) => b.schema.name === name);
     if (builtin) return builtin.run(args);
-    // Las tools MCP llevan separador `server__tool`. Sin él (p. ej. el modelo inventa `fs_//read`),
-    // damos un error CLARO con las tools disponibles para que el modelo se autocorrija (no un
-    // "servidor MCP vacío" inútil que además puede romper el siguiente turno).
+    // MCP tools use the `server__tool` separator. Without it (e.g. the model invents `fs_//read`),
+    // we give a CLEAR error with the available tools so the model can self-correct (not a useless
+    // "empty MCP server" that could also break the next turn).
     if (!name.includes('__')) {
       const avail = this.schemas().map((s) => s.name).join(', ');
       throw new Error(`Unknown tool "${name}". Available tools: ${avail}`);

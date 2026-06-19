@@ -5,8 +5,8 @@ import { readLines } from './stream';
 import { imageAttachments, documentAttachments } from './multimodal';
 
 /**
- * Provider para la API de Google Gemini (Generative Language API).
- * Streaming vía streamGenerateContent?alt=sse.
+ * Provider for the Google Gemini API (Generative Language API).
+ * Streaming via streamGenerateContent?alt=sse.
  */
 export class GeminiProvider implements LLMProvider {
   readonly id = 'gemini';
@@ -29,7 +29,7 @@ export class GeminiProvider implements LLMProvider {
   async listModels(): Promise<ModelInfo[]> {
     const res = await httpFetch(`${this.base()}/models`, { headers: this.headers() });
     if (!res.ok) {
-      throw new Error(`No se pudieron listar los modelos de Gemini (${res.status} ${res.statusText})`);
+      throw new Error(`Could not list Gemini models (${res.status} ${res.statusText})`);
     }
     const json: any = await res.json();
     const models = Array.isArray(json?.models) ? json.models : [];
@@ -49,10 +49,10 @@ export class GeminiProvider implements LLMProvider {
     p: GenerationParams,
     cb: StreamCallbacks
   ): Promise<ChatResult> {
-    // Gemini separa el system en systemInstruction y usa roles user/model.
+    // Gemini separates system into systemInstruction and uses user/model roles.
     const systemTexts: string[] = [];
     const contents: any[] = [];
-    // Las respuestas de tools consecutivas se agrupan en un único content 'user'.
+    // Consecutive tool responses are grouped into a single 'user' content.
     let pendingFnResponses: any[] = [];
     const flushFns = () => {
       if (pendingFnResponses.length) {
@@ -77,7 +77,7 @@ export class GeminiProvider implements LLMProvider {
         if (m.content) parts.push({ text: m.content });
         for (const tc of m.toolCalls) {
           let args: any = {};
-          try { args = JSON.parse(tc.arguments || '{}'); } catch { /* vacío */ }
+          try { args = JSON.parse(tc.arguments || '{}'); } catch { /* empty */ }
           parts.push({ functionCall: { name: tc.name, args } });
         }
         contents.push({ role: 'model', parts });
@@ -148,9 +148,9 @@ export class GeminiProvider implements LLMProvider {
       try {
         json = JSON.parse(payload);
       } catch {
-        return; // Línea parcial o no-JSON: se ignora.
+        return; // Partial or non-JSON line: ignored.
       }
-      // Error embebido en el stream (no se traga: trunca silenciosamente si no).
+      // Error embedded in the stream (not silently swallowed: would truncate quietly otherwise).
       if (json?.error) {
         throw new Error(`Gemini (stream): ${json.error?.message ?? JSON.stringify(json.error)}`);
       }
@@ -186,7 +186,7 @@ export class GeminiProvider implements LLMProvider {
   }
 }
 
-/** Limpia un JSON Schema para Gemini (no admite $schema, additionalProperties, etc.). */
+/** Strips a JSON Schema for Gemini (does not accept $schema, additionalProperties, etc.). */
 function sanitizeSchema(schema: any): any {
   if (Array.isArray(schema)) return schema.map(sanitizeSchema);
   if (!schema || typeof schema !== 'object') return schema;

@@ -4,8 +4,8 @@
 models and keys, keep every conversation as a versionable file, and use tools, embedded model
 management and neural text‑to‑speech without leaving the editor.
 
-<!-- Imágenes alojadas en GitHub público (solo assets; el código vive en Azure DevOps).
-     Sube el GIF/PNG a https://github.com/enavarre-cl/langchat (carpeta media/) y descomenta:
+<!-- Images hosted on a public GitHub repo (assets only; the code lives on Azure DevOps).
+     Upload the GIF/PNG to https://github.com/enavarre-cl/langchat (media/ folder) and uncomment:
 ![Lang Chat in action](https://raw.githubusercontent.com/enavarre-cl/langchat/main/media/demo.gif)
 -->
 > 📷 _Demo GIF & screenshots: pending — see `plan-publish.md`._

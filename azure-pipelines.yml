@@ -1,5 +1,5 @@
-# Pipeline de CI para Azure DevOps. Equivalente al antiguo .github/workflows/ci.yml.
-# npm ci → lint → compile (typecheck) → tests → empaquetar .vsix → publicar artefacto.
+# CI pipeline for Azure DevOps. Equivalent to the old .github/workflows/ci.yml.
+# npm ci → lint → compile (typecheck) → tests → package .vsix → publish artifact.
 
 trigger:
   branches:
@@ -16,13 +16,13 @@ pool:
 
 steps:
   - task: UseNode@1
-    displayName: 'Instalar Node.js 20'
+    displayName: 'Install Node.js 20'
     inputs:
       version: '20.x'
 
-  # Cachea ~/.npm entre ejecuciones (clave = hash de package-lock.json).
+  # Cache ~/.npm between runs (key = hash of package-lock.json).
   - task: Cache@2
-    displayName: 'Caché de npm'
+    displayName: 'npm cache'
     inputs:
       key: 'npm | "$(Agent.OS)" | package-lock.json'
       restoreKeys: |
@@ -30,25 +30,25 @@ steps:
       path: $(Pipeline.Workspace)/.npm
 
   - script: npm config set cache "$(Pipeline.Workspace)/.npm" --global
-    displayName: 'Apuntar npm a la caché'
+    displayName: 'Point npm to the cache'
 
   - script: npm ci
-    displayName: 'Instalar dependencias (npm ci)'
+    displayName: 'Install dependencies (npm ci)'
 
   - script: npm run lint
     displayName: 'Lint (ESLint)'
 
   - script: npm run compile
-    displayName: 'Compilar (typecheck)'
+    displayName: 'Compile (typecheck)'
 
   - script: npm test
     displayName: 'Tests (node:test)'
 
   - script: npx --yes @vscode/vsce package -o lang-chat.vsix
-    displayName: 'Empaquetar (.vsix)'
+    displayName: 'Package (.vsix)'
 
   - task: PublishPipelineArtifact@1
-    displayName: 'Publicar el .vsix'
+    displayName: 'Publish the .vsix'
     inputs:
       targetPath: lang-chat.vsix
       artifact: vsix

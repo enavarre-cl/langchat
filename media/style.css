@@ -54,7 +54,7 @@ body {
 }
 #modelCtx:empty { display: none; }
 
-/* ---- Status (dot + texto + chips, en el topbar) ---- */
+/* ---- Status (dot + text + chips, in the topbar) ---- */
 #statusDot {
   width: 8px;
   height: 8px;
@@ -98,11 +98,11 @@ body {
   min-width: 38px;
   padding: 4px 4px;
 }
-/* Iconos de línea en cabeceras de panel */
+/* Line icons in panel headers */
 .panel-head span { display: inline-flex; align-items: center; gap: 6px; }
 .panel-head span svg { width: 15px; height: 15px; }
 
-/* ---- Config panel (lateral) ---- */
+/* ---- Config panel (side) ---- */
 #configBody {
   flex: 1;
   overflow-y: auto;
@@ -129,7 +129,7 @@ body {
 }
 .sysref button:hover, .sysref-actions button:hover { background: var(--vscode-toolbar-hoverBackground); }
 .sysref-actions { display: flex; gap: 6px; margin-top: 6px; }
-.sysref-actions button { flex: 1; } /* mismo ancho, repartido */
+.sysref-actions button { flex: 1; } /* equal width, distributed */
 
 .group-head {
   font-size: 11px;
@@ -216,7 +216,7 @@ textarea {
   resize: vertical;
 }
 
-/* System prompt inline: ancho completo y crece con el contenido (autosize en JS). */
+/* System prompt inline: full width, grows with content (autosize in JS). */
 .sys-area {
   width: 100%;
   min-height: 58px;
@@ -233,7 +233,7 @@ textarea {
   outline-offset: -1px;
 }
 
-/* ---- Workspace: chat + paneles laterales (config + razonamiento) ---- */
+/* ---- Workspace: chat + side panels (config + reasoning) ---- */
 #workspace {
   flex: 1;
   display: flex;
@@ -244,10 +244,10 @@ textarea {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  position: relative; /* ancla la barra de búsqueda flotante */
+  position: relative; /* anchors the floating search bar */
 }
 
-/* ---- Buscador en el chat (Ctrl/Cmd+F) ---- */
+/* ---- Chat search bar (Ctrl/Cmd+F) ---- */
 #findBar {
   position: absolute;
   top: 8px;
@@ -286,7 +286,7 @@ mark.find-hit.current {
   outline: 1px solid var(--vscode-editor-findMatchBorder, transparent);
 }
 
-/* Columna lateral derecha que aloja config y razonamiento. */
+/* Right side column hosting config and reasoning panels. */
 #sidepanels {
   display: flex;
   flex-direction: column;
@@ -303,7 +303,7 @@ mark.find-hit.current {
   flex-direction: column;
   overflow: hidden;
 }
-/* Separa con una línea los paneles abiertos consecutivos. */
+/* Separates consecutive open panels with a line. */
 #sidepanels > :not(.hidden) ~ :not(.hidden) { border-top: 1px solid var(--vscode-panel-border); }
 
 .panel-head {
@@ -328,7 +328,7 @@ mark.find-hit.current {
 }
 #thinkContent.empty { font-style: italic; opacity: .7; }
 
-/* Panel de herramientas */
+/* Tools panel */
 #toolsContent { flex: 1; overflow-y: auto; padding: 8px 10px; font-size: 12px; }
 #toolsContent.empty { font-style: italic; opacity: .7; color: var(--vscode-descriptionForeground); }
 .tool-item { border: 1px solid var(--vscode-panel-border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
@@ -413,7 +413,7 @@ mark.find-hit.current {
   margin-bottom: 3px;
   letter-spacing: .04em;
 }
-/* Atenúa solo la etiqueta del rol (Tú/Asistente), no los iconos. */
+/* Dims only the role label (You/Assistant), not the icons. */
 .msg .role > span:first-child { opacity: .6; }
 .variant-nav { display: inline-flex; align-items: center; gap: 2px; }
 .variant-nav button:not(.icon-act) {
@@ -424,7 +424,7 @@ mark.find-hit.current {
 .variant-nav button:disabled { opacity: .3; cursor: default; }
 .variant-count { font-size: 11px; opacity: .85; min-width: 30px; text-align: center; }
 
-/* Botones de acción con icono SVG monocromo (heredan el color del texto). */
+/* Action buttons with monochrome SVG icon (inherit text color). */
 .msg-actions { margin-left: auto; display: inline-flex; gap: 1px; opacity: .45; transition: opacity .12s; }
 .msg:hover .msg-actions, .msg.editing .msg-actions { opacity: 1; }
 .icon-act {
@@ -482,7 +482,7 @@ mark.find-hit.current {
 .msg code { font-family: var(--vscode-editor-font-family, monospace); font-size: .92em; }
 .msg pre code { display: block; }
 
-/* Markdown en burbujas y panel de razonamiento */
+/* Markdown in bubbles and reasoning panel */
 .msg .body p, #thinkContent p { margin: .4em 0; }
 .msg .body p:first-child, #thinkContent p:first-child { margin-top: 0; }
 .msg .body p:last-child, #thinkContent p:last-child { margin-bottom: 0; }
@@ -557,7 +557,7 @@ mark.find-hit.current {
 }
 #fileInput { display: none; }
 
-/* Caja de entrada redondeada */
+/* Rounded input box */
 #inputBox {
   display: flex;
   flex-direction: column;
@@ -577,7 +577,7 @@ mark.find-hit.current {
   border-style: dashed;
   background: var(--vscode-list-dropBackground, rgba(80,120,255,.12));
 }
-/* El textarea y el backdrop comparten EXACTAMENTE métricas para que el subrayado calce. */
+/* The textarea and backdrop share EXACTLY the same metrics so the underline aligns. */
 #inputWrap { position: relative; width: 100%; }
 #input {
   position: relative;
@@ -592,7 +592,7 @@ mark.find-hit.current {
   resize: none;
 }
 #input:focus { outline: none; }
-/* Capa de fondo que dibuja los subrayados de error, alineada bajo el texto del textarea. */
+/* Background layer that draws the error underlines, aligned beneath the textarea text. */
 #inputBackdrop {
   position: absolute;
   inset: 0;
@@ -616,7 +616,7 @@ mark.find-hit.current {
   text-decoration-skip-ink: none;
   text-underline-offset: 2px;
 }
-/* Menú flotante de sugerencias (clic derecho sobre una palabra mal escrita). */
+/* Floating suggestions menu (right-click on a misspelled word). */
 #spellMenu {
   position: fixed;
   z-index: 1000;
@@ -680,7 +680,7 @@ mark.find-hit.current {
 }
 #emojiGrid button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25)); }
 
-/* Autocompletado de emojis (:nombre) */
+/* Emoji autocomplete (:name) */
 #emojiSuggest {
   position: fixed;
   min-width: 200px;
@@ -709,12 +709,12 @@ mark.find-hit.current {
 #inputToolbar .grow { flex: 1; }
 #attachBtn { font-size: 16px; border-radius: 8px; }
 
-/* Avisos persistentes */
+/* Persistent notices */
 #notices { display: flex; flex-direction: column; gap: 4px; }
 #notices:empty { display: none; }
 #notices .banner { max-width: 100%; }
 
-/* Barra de uso de contexto */
+/* Context usage bar */
 #ctxBar { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--vscode-descriptionForeground); }
 #ctxTrack { flex: 1; height: 4px; border-radius: 3px; background: var(--vscode-panel-border); overflow: hidden; }
 #ctxFill { height: 100%; width: 0; background: #3fb950; transition: width .2s; }
@@ -722,7 +722,7 @@ mark.find-hit.current {
 #ctxFill.high { background: var(--vscode-errorForeground, #f85149); }
 #ctxLabel { white-space: nowrap; }
 
-/* Adjuntos pendientes */
+/* Pending attachments */
 #attachments { display: flex; flex-wrap: wrap; gap: 6px; }
 .attach-chip {
   display: inline-flex; align-items: center; gap: 4px;
@@ -732,7 +732,7 @@ mark.find-hit.current {
 .attach-chip img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
 .attach-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; }
 
-/* Adjuntos dentro del mensaje */
+/* Attachments inside the message */
 .msg-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .msg-attachments img { max-width: 220px; max-height: 220px; border-radius: 8px; border: 1px solid var(--vscode-panel-border); }
 .file-chip { font-size: 11px; background: var(--vscode-textCodeBlock-background, rgba(127,127,127,.15)); padding: 3px 7px; border-radius: 10px; }
@@ -787,7 +787,7 @@ mark.find-hit.current {
 #sendBtn:hover, #stopBtn:hover { background: var(--vscode-button-hoverBackground); }
 #stopBtn { background: var(--vscode-errorForeground, #f85149); }
 
-/* ---- Exportar a PDF (impresión): solo la conversación, legible ---- */
+/* ---- Export to PDF (print): conversation only, readable ---- */
 @media print {
   html, body, #app, #workspace, #chat {
     height: auto !important;
@@ -825,7 +825,7 @@ mark.find-hit.current {
   .msg-attachments img { max-width: 320px !important; }
 }
 
-/* ── Resumen de contexto: divisor (globo con el texto) + mensajes previos atenuados ── */
+/* ── Context summary: divider (bubble with text) + dimmed previous messages ── */
 .summary-divider { display: flex; align-items: center; justify-content: center; margin: 14px 4px; position: relative; }
 .summary-divider::before {
   content: ''; position: absolute; left: 0; right: 0; top: 50%;
@@ -843,7 +843,7 @@ mark.find-hit.current {
 .msg.pre-summary:hover, .msg.dropped:hover { opacity: .9; }
 .pre-summary-mark { margin-left: 6px; font-size: 11px; cursor: help; opacity: .85; }
 
-/* Divisor "últimos N mensajes" (azul) — desde aquí es lo único que se envía */
+/* "Last N messages" divider (blue) — only what's below this is sent */
 .lastn-divider { display: flex; align-items: center; justify-content: center; margin: 14px 4px; position: relative; }
 .lastn-divider::before {
   content: ''; position: absolute; left: 0; right: 0; top: 50%;
@@ -855,11 +855,11 @@ mark.find-hit.current {
   color: var(--vscode-charts-blue, #4daafc);
   border: 1px solid var(--vscode-charts-blue, #4daafc); border-radius: 11px;
 }
-/* Resumen excluido (last-N activo): atenuado y tenue */
+/* Excluded summary (last-N active): dimmed and faint */
 .summary-divider.excluded { opacity: .5; margin-top: 8px; }
 .summary-divider.excluded .summary-divider-label { cursor: help; text-decoration: line-through; }
 
-/* Burbuja centrada del resumen (al expandir el divisor): markdown renderizado + acciones */
+/* Centered summary bubble (when expanding the divider): rendered markdown + actions */
 .msg.summary-msg { align-items: center; margin: 4px auto 12px; max-width: 88%; }
 .msg.summary-msg .role { justify-content: center; color: var(--vscode-charts-yellow, #d7a900); }
 .msg.summary-msg .body {
@@ -869,11 +869,11 @@ mark.find-hit.current {
   border-left: 3px solid var(--vscode-charts-yellow, #d7a900);
 }
 
-/* Compositor deshabilitado mientras se resume */
+/* Composer disabled while summarizing */
 #inputBox.busy { opacity: .55; }
 #inputBox.busy textarea { cursor: not-allowed; }
 
-/* Indicador persistente "resumiendo…" con spinner (no se auto-cierra) */
+/* Persistent "summarizing…" indicator with spinner (does not auto-close) */
 .banner.summarizing { display: flex; align-items: center; gap: 8px; }
 .banner-spin {
   width: 12px; height: 12px; flex: none; border-radius: 50%;

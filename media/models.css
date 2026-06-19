@@ -1,4 +1,4 @@
-/* Explorador de modelos (estilo LM Studio): dos columnas, lista + detalle. */
+/* Model browser (LM Studio style): two columns, list + detail. */
 body.models-browser { padding: 0; margin: 0; height: 100vh; overflow: hidden; }
 #mb { display: flex; height: 100vh; }
 #mb-left {
@@ -26,7 +26,7 @@ body.models-browser { padding: 0; margin: 0; height: 100vh; overflow: hidden; }
 
 #mb-right { flex: 1; overflow-y: auto; padding: 16px 20px; }
 #mb-detail.empty { opacity: .6; display: flex; align-items: center; justify-content: center; height: 80%; }
-/* Limita el ancho del contenido para que no se estire en pantallas anchas. */
+/* Limits content width so it doesn't stretch on wide screens. */
 .mb-content { max-width: 820px; }
 .mb-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .mb-head h2 { margin: 0; font-size: 18px; word-break: break-all; }
@@ -49,7 +49,7 @@ body.models-browser { padding: 0; margin: 0; height: 100vh; overflow: hidden; }
   font-weight: 600; opacity: .6; text-transform: uppercase; font-size: 10px;
   letter-spacing: .05em; margin-right: 4px;
 }
-/* Cabecera enriquecida (estilo LM Studio) */
+/* Enriched header (LM Studio style) */
 .mb-stats { display: flex; gap: 16px; flex-wrap: wrap; margin: 8px 0; font-size: 13px; opacity: .85; }
 .mb-stat-upd { opacity: .7; }
 .mb-desc-box {
@@ -134,7 +134,7 @@ body.models-browser { padding: 0; margin: 0; height: 100vh; overflow: hidden; }
 .mb-readme table { border-collapse: collapse; }
 .mb-readme td, .mb-readme th { border: 1px solid var(--vscode-panel-border); padding: 4px 8px; }
 
-/* Barra de filtros */
+/* Filter bar */
 #mb-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 10px 6px; }
 .mb-select-sm {
   padding: 4px 8px; border-radius: 6px; font-size: 12px;

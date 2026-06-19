@@ -1,119 +1,105 @@
 # Lang Chat
 
-A VS Code extension for chatting with local (and remote) LLMs — **LM Studio style** — right inside the editor.
+**Chat with local (and remote) LLMs right inside VS Code — LM Studio style.** Bring your own
+models and keys, keep every conversation as a versionable file, and use tools, embedded model
+management and neural text‑to‑speech without leaving the editor.
 
-Supports five configurable backends:
+<!-- Imágenes alojadas en GitHub público (solo assets; el código vive en Azure DevOps).
+     Sube el GIF/PNG a https://github.com/enavarre-cl/langchat (carpeta media/) y descomenta:
+![Lang Chat in action](https://raw.githubusercontent.com/enavarre-cl/langchat/main/media/demo.gif)
+-->
+> 📷 _Demo GIF & screenshots: pending — see `plan-publish.md`._
 
-- **OpenAI-compatible**: LM Studio, llama.cpp server, vLLM, LocalAI… (default `http://localhost:1234/v1`)
-- **Ollama**: a local Ollama server (`http://localhost:11434`), or the extension's own managed server
-- **OpenRouter**: hosted models via `https://openrouter.ai/api/v1`
-- **Google Gemini**: the Generative Language API
-- **Anthropic Claude**: the Messages API
+## Why Lang Chat
 
-## `.chat` files
+- 🔒 **Local‑first & private** — runs against your own LLM (LM Studio, Ollama…), your keys live in
+  VS Code SecretStorage, the managed server binds to `127.0.0.1`, and there is **no telemetry**.
+- 🧩 **Five backends, one UI** — OpenAI‑compatible, Ollama, OpenRouter, Google Gemini and
+  Anthropic Claude, switchable per conversation.
+- 📄 **Conversations as files** — each chat is a human‑readable `.chat` (config + history) you can
+  diff, version and share.
+- 🦙 **Models, batteries included** — manage an embedded Ollama and browse/download GGUF models
+  from Hugging Face without installing anything.
+- 🔧 **Agentic tools** — workspace filesystem + MCP servers (function calling) on every backend.
+- 🗣️ **Read aloud** — system voices or self‑contained neural **Piper** TTS.
 
-Each conversation is a **`.chat`** file (human-readable JSON) that stores **the inference
-configuration + the full history**. Opening it in VS Code shows the chat UI; everything you
-type and configure is persisted in the file itself, so it is git-versionable.
+## Features
 
-```json
-{
-  "version": 2,
-  "title": "My conversation",
-  "provider": "openai",
-  "model": "llama-3.1-8b-instruct",
-  "systemPrompt": "You are a helpful assistant.",
-  "params": {
-    "temperature": 0.7,
-    "maxTokens": { "enabled": false, "value": 2048 },
-    "thinking": false,
-    "tools": false
-  },
-  "messages": [
-    { "role": "user", "content": "Hi" },
-    { "role": "assistant", "content": "Hello! How can I help?" }
-  ]
-}
-```
+<!-- TODO: una captura por feature clave (chat, explorador de modelos, TTS, vistas laterales). -->
 
-A `.chat` may reference its system prompt from an external **`.md`** file (`systemPromptFile`,
-confined to the `.chat`'s directory) instead of inlining it.
+- 💬 **Streaming** responses, token by token, with a **Stop** button and auto‑save after each turn.
+- 🧠 **Reasoning / thinking** panel for models that expose it.
+- 🦙 **Embedded Ollama** + **Hugging Face GGUF explorer**: capability badges, quantization options
+  and **downloads with progress** (shows size and free disk space first; retry/cancel).
+- 🔧 **Tools (function calling)**: native **workspace filesystem** + **MCP servers** — agentic loop.
+- 🗣️ **Read aloud (TTS)**: system voices (Web Speech) or neural **Piper** (local, managed daemon).
+- 🔎 **Search in chat** (`Ctrl/Cmd+F`), 🔍 **zoom** (`Alt`/`Option` + wheel), 🌳 **fork**,
+  🕓 **compare versions**, ♻️ **regenerate / continue / merge / edit / delete** messages.
+- 🖼️ **Attachments** (images & documents), 🧾 **export** to standalone HTML / PDF.
+- 🧮 **Context management**: auto‑summarize when context fills up, or send only the last *N*
+  messages — both shown visually in the chat.
+- 🔤 **Spell‑check** with a personal dictionary, and **internationalization** (English / Spanish).
 
-## Tools (function calling)
+## Backends
 
-With the **"Tools"** toggle on (in ⚙, available on every backend: OpenAI-compatible,
-OpenRouter, Gemini, Anthropic and Ollama), the model can call tools in an agentic loop:
+Configure any of these per conversation (in the ⚙ panel) or as the default in Settings:
 
-- **Workspace filesystem** (native, no setup): `fs_list`, `fs_read`, `fs_write`, scoped to the
-  workspace folder.
-- **MCP servers**: define servers in a **`.mcp/`** folder (one `*.json` per server) or a
-  **`.mcp.json`** at the workspace root. Accepted formats:
+| Backend | Endpoint / notes |
+| --- | --- |
+| **OpenAI‑compatible** | LM Studio, llama.cpp server, vLLM, LocalAI… (default `http://localhost:1234/v1`) |
+| **Ollama** | A local Ollama server (`http://localhost:11434`) **or the extension's own managed server** |
+| **OpenRouter** | Hosted models via `https://openrouter.ai/api/v1` |
+| **Google Gemini** | Generative Language API |
+| **Anthropic Claude** | Messages API |
 
-  ```jsonc
-  // .mcp.json (standard format)
-  {
-    "mcpServers": {
-      "filesystem": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"] },
-      "git": { "command": "uvx", "args": ["mcp-server-git"] }
-    }
-  }
-  ```
-  ```jsonc
-  // .mcp/myserver.json (one server per file)
-  { "name": "myserver", "command": "node", "args": ["server.js"], "env": { "API_KEY": "..." } }
-  ```
+## Quick start
 
-Each MCP server's tools are exposed as `server__tool`. Calls and results are shown in the chat
-and stored in the `.chat`. MCP servers and `fs_write` only run in a **trusted workspace**.
+1. Install **Lang Chat** from the Marketplace.
+2. Command palette (`Cmd/Ctrl+Shift+P`) → **“Lang Chat: New chat”** → choose where to save the
+   `.chat` file.
+3. Pick a backend in the ⚙ panel and start chatting.
+
+> Have **LM Studio** (local server enabled) or **Ollama** running first — or use a hosted backend
+> (OpenRouter / Gemini / Anthropic) with an API key.
+>
+> API keys are best stored securely: run **“Lang Chat: Set API Key (secure)”** to keep them in VS
+> Code SecretStorage instead of plain settings.
 
 ## Local models (embedded Ollama)
 
 Lang Chat can manage its **own Ollama server** without you installing anything:
 
-- The **sidebar** (Lang Chat icon) has a **Models** view: server status and your local models
-  (use in chat, show info, delete).
-- The **Add** button opens an **LM Studio-style explorer**: it searches **GGUF** models on
-  Hugging Face, shows capability badges and quantization options, and **downloads with progress**
-  (it tells you the size and free disk space first).
-- On first use it downloads the Ollama binary (SHA256-verified, fail-closed) into your global
-  storage; the server runs only on `127.0.0.1`. Configurable under *Settings → Lang Chat → Ollama*
-  (`managed`, `port`, `modelsPath`).
+- The **Lang Chat** sidebar groups everything into sections: **Engines** (Ollama / Piper, with
+  run/stop/install), **Models** (local models + downloads), **Voices** and **Dictionary**.
+- The **＋** button opens an **LM Studio‑style explorer**: searches **GGUF** models on Hugging
+  Face, shows capability badges and quantization options, and **downloads with progress**.
+- On first use it downloads the Ollama binary (SHA256‑verified, fail‑closed) into your global
+  storage; the server runs only on `127.0.0.1`. Configure under *Settings → Lang Chat → Ollama*.
 
-## Features
+## `.chat` files
 
-- 📄 Conversations as **`.chat` files** (inference config + history, editable and versionable).
-- 🦙 **Embedded Ollama** + Hugging Face GGUF model explorer (download with progress, retry/cancel).
-- 💬 **Streaming** responses, token by token.
-- 🧠 **Reasoning / thinking** panel for models that expose it.
-- 🔧 **Tools** (function calling): workspace filesystem + MCP servers.
-- 🗣️ **Read aloud (TTS)**: system voices (Web Speech) or neural **Piper** (local, self-contained).
-- 🔎 **Search in chat** (`Ctrl/Cmd+F`): highlight matches and jump between them.
-- 🔍 **Chat zoom** (`Alt/Option` + wheel, `Alt/Option+0` to reset) with toolbar controls.
-- 🌳 **Fork** a conversation: normal = clone up to a message; **⌥/Alt** = clone from there to the end.
-- 🕓 **Compare versions**: render two versions of a `.chat` side by side (from the Timeline, the
-  editor title bar, or the command palette).
-- ♻️ **Regenerate** (as variants), **continue**, **merge**, **edit** and **delete** messages
-  (with confirmation; **Shift** skips it, **⌥/Alt** deletes from a message to the end).
-- 🖼️ **Attachments**: images and documents.
-- 🧾 **Export** the conversation to a standalone HTML / PDF (print).
-- 🌐 **Internationalization** (English / Spanish) with a selector and auto-detection.
-- ⛔ **Stop** button for in-flight generation, and auto-save after each response.
+Each conversation is a **`.chat`** file (human‑readable JSON) storing the **inference config + full
+history**. Opening it shows the chat UI; everything is persisted in the file, so it is
+git‑versionable. A `.chat` may reference its system prompt from an external **`.md`** file
+(`systemPromptFile`, confined to the `.chat`'s directory).
 
-## Trying it out
+## Tools (function calling)
 
-1. Install dependencies and compile:
-   ```bash
-   npm install
-   npm run compile
-   ```
-2. Open the folder in VS Code and press **F5** (the "Run Extension" launch config). A
-   *Extension Development Host* window opens.
-3. Create a chat: command palette (`Cmd/Ctrl+Shift+P`) → **"Lang Chat: New chat"**, choose where
-   to save the `.chat` file and start chatting. (You can also create a file with the `.chat`
-   extension by hand and open it.)
+With **Tools** on (⚙, available on every backend), the model can call tools in an agentic loop:
 
-> Make sure LM Studio (with its local server enabled) or Ollama is running before sending
-> messages — or use a hosted backend (OpenRouter / Gemini / Anthropic) with an API key.
+- **Workspace filesystem** (native, no setup): `fs_list`, `fs_read`, `fs_write`, scoped to the
+  workspace folder.
+- **MCP servers**: define them in a **`.mcp/`** folder (one `*.json` per server) or a **`.mcp.json`**
+  at the workspace root. Each server's tools are exposed as `server__tool`.
+
+> MCP servers and `fs_write` only run in a **trusted workspace**.
+
+## Privacy
+
+- Your **API keys** can be stored in VS Code **SecretStorage** (not plain settings).
+- The managed Ollama server and the Piper TTS daemon bind to **`127.0.0.1`** only.
+- **No telemetry** — Lang Chat does not phone home. Network traffic goes only to the LLM backend
+  you configure and, on demand, to Hugging Face / PyPI to download models and the TTS engine.
 
 ## Configuration
 
@@ -122,7 +108,7 @@ Settings under `Settings → Lang Chat`:
 | Setting | Default | Description |
 | --- | --- | --- |
 | `langChat.provider` | `openai` | Default backend: `openai`, `ollama`, `openrouter`, `gemini` or `anthropic` |
-| `langChat.openai.baseUrl` | `http://localhost:1234/v1` | OpenAI-compatible endpoint |
+| `langChat.openai.baseUrl` | `http://localhost:1234/v1` | OpenAI‑compatible endpoint |
 | `langChat.openai.apiKey` | _(empty)_ | Optional API key |
 | `langChat.ollama.baseUrl` | `http://localhost:11434` | Ollama server URL (used when `managed` is off) |
 | `langChat.ollama.managed` | `true` | Use the extension's own downloaded Ollama server |
@@ -138,15 +124,26 @@ Settings under `Settings → Lang Chat`:
 | `langChat.temperature` | `0.7` | Sampling temperature |
 | `langChat.maxTokens` | `2048` | Max tokens (`-1` = unlimited) |
 
-> API keys are best stored securely: run **"Lang Chat: Set API Key (secure)"** from the command
-> palette to keep them in VS Code SecretStorage instead of plain settings.
+## Third‑party components & licenses
 
-## Packaging (optional)
+Lang Chat is **MIT** licensed. It bundles or downloads third‑party components under their own terms:
 
-```bash
-npm install -g @vscode/vsce
-vsce package
-```
+| Component | When | License |
+| --- | --- | --- |
+| Spanish Hunspell dictionary (`media/dict/es.*`) | bundled | tri‑licensed; used here under **MPL 1.1+** (see `media/dict/es.LICENSE`) |
+| English Hunspell dictionary (`media/dict/en.*`) | bundled | Hunspell dictionary license (see `media/dict/en.LICENSE`) |
+| [`nspell`](https://github.com/wooorm/nspell) | bundled (spell engine) | MIT |
+| [Piper](https://github.com/OHF-Voice/piper1-gpl) (`piper-tts`) | **downloaded at runtime** for neural TTS | **GPL** |
+| [Ollama](https://ollama.com) | **downloaded at runtime** (managed server) | MIT |
+| Python (astral‑sh build‑standalone) | downloaded at runtime (for Piper) | PSF / per upstream |
 
-Produces an installable `.vsix` — **Extensions → Install from VSIX…**. CI (Azure DevOps,
-`azure-pipelines.yml`) also builds and publishes the `.vsix` as an artifact.
+> The neural TTS engine (Piper) is GPL and is fetched on demand from PyPI; it is **not** shipped
+> inside the extension package.
+
+## Contributing
+
+Build, run and packaging instructions are in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## License
+
+[MIT](LICENSE).

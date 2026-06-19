@@ -5,8 +5,11 @@ out/test/**
 tsconfig.json
 .gitignore
 .eslintrc*
-plan.md
-plan-incremento.md
+.claude/**
+resumen.md
+plan-*.md
+CONTRIBUTING.md
+SECURITY.md
 azure-pipelines.yml
 **/*.map
 **/*.ts

@@ -583,12 +583,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/enavarre/lang-chat"
+    "url": "https://github.com/enavarre-cl/langchat"
   },
   "bugs": {
-    "url": "https://github.com/enavarre/lang-chat/issues"
+    "url": "https://github.com/enavarre-cl/langchat/issues"
   },
-  "homepage": "https://github.com/enavarre/lang-chat#readme",
+  "homepage": "https://github.com/enavarre-cl/langchat#readme",
   "dependencies": {
     "undici": "^6.26.0"
   }

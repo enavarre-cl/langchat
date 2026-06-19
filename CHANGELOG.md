@@ -6,6 +6,14 @@ All notable changes to Lang Chat. Format based on
 ## [Unreleased]
 
 ### Added
+- **Voices manager**: download/remove neural Piper voices from a panel (**＋** in the sidebar),
+  verified against a pinned checksum. The chat voice picker lists only downloaded voices.
+- **Context management, visualized**: when auto-summarize compacts the history it shows a summary
+  divider + an expandable bubble (view / copy / edit / play / fork / delete); each message has a
+  **"summarize up to here"**; and the **"last N messages"** window is drawn with its cut-off marker.
+- **Spell-checker** with a per-language personal dictionary and a dictionary manager.
+- **Sidebar split into sections** with native headers — **Engines** (Ollama & Piper with
+  run/stop/install/delete), **Models** (local models + downloads), **Voices**, **Dictionary**.
 - **Local models (embedded Ollama + LM Studio-style explorer)**:
   - **Managed Ollama server**: downloads its own binary (pinned SHA256, fail-closed) and runs it
     on `127.0.0.1` (independent of any system Ollama).
@@ -35,11 +43,16 @@ All notable changes to Lang Chat. Format based on
 - `SECURITY.md` with the threat model.
 
 ### Changed
+- **Piper TTS runs as a persistent HTTP daemon** (model stays resident) instead of one process per
+  sentence — near-instant after the first synthesis; the daemon auto-stops on inactivity.
+- The **model explorer** respects the UI language (no more hardcoded strings).
 - **Delete now asks for confirmation** (modal); hold **Shift** to skip it.
 - Reasoning panel renders LaTeX escape sequences (e.g. `\rightarrow`) as Unicode.
 - While streaming, the view sticks to the bottom only if you have not scrolled up.
 
 ### Fixed
+- **Context bar counted the whole history** after an automatic summary — the summary is now synced
+  to the chat view, so the bar reflects only what is actually sent.
 - **Tool calls no longer break the conversation**: malformed/truncated tool-call arguments are
   repaired (`safeToolArgs`) both when received and when re-sent, fixing a perpetual `400` that
   locked the chat. Unknown tool names now return a clear "Unknown tool" error so the model can
@@ -51,6 +64,11 @@ All notable changes to Lang Chat. Format based on
 - **Chat zoom** is applied only to the message history, so zooming no longer pushed the composer
   (the input bar) off-screen.
 - OpenRouter error messages now surface the real upstream cause instead of a generic string.
+
+### Removed
+- **"Summary token budget"** setting — the token budget is now always automatic (75% of the
+  model's context window).
+- **"Update engine"** button — the engine version is pinned, so it was effectively a no-op.
 
 ### Security
 - **Workspace Trust**: MCP and `fs_write` only run in trusted workspaces.

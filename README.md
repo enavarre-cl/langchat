@@ -140,10 +140,6 @@ Lang Chat is **MIT** licensed. It bundles or downloads third‑party components 
 > The neural TTS engine (Piper) is GPL and is fetched on demand from PyPI; it is **not** shipped
 > inside the extension package.
 
-## Contributing
-
-Build, run and packaging instructions are in **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
 ## License
 
-[MIT](LICENSE).
+MIT — the full text ships in the extension's `LICENSE` file (see the License tab above).

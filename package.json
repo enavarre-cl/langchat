@@ -158,19 +158,23 @@
       "langChat": [
         {
           "id": "langChat.engines",
-          "name": "%view.engines.name%"
+          "name": "%view.engines.name%",
+          "icon": "media/icon.svg"
         },
         {
           "id": "langChat.models",
-          "name": "%view.models.name%"
+          "name": "%view.models.name%",
+          "icon": "media/icon.svg"
         },
         {
           "id": "langChat.voices",
-          "name": "%view.voices.name%"
+          "name": "%view.voices.name%",
+          "icon": "media/icon.svg"
         },
         {
           "id": "langChat.dictionary",
-          "name": "%view.dictionary.name%"
+          "name": "%view.dictionary.name%",
+          "icon": "media/icon.svg"
         }
       ]
     },

@@ -590,6 +590,8 @@ mark.find-hit.current {
   margin: 0;
   line-height: 1.5;
   resize: none;
+  /* Same long-word wrapping as #inputBackdrop, so a long URL/token wraps identically in both. */
+  overflow-wrap: break-word;
 }
 #input:focus { outline: none; }
 /* Background layer that draws the error underlines, aligned beneath the textarea text. */
@@ -600,8 +602,11 @@ mark.find-hit.current {
   padding: 2px 0;
   margin: 0;
   border: none;
+  /* Match #input EXACTLY. Use font-family/font-size (NOT the `font` shorthand): `font: inherit`
+   * also sets line-height, which would override the 1.5 below and drift the underline per line. */
+  font-family: inherit;
+  font-size: inherit;
   line-height: 1.5;
-  font: inherit;
   color: transparent;
   white-space: pre-wrap;
   word-wrap: break-word;

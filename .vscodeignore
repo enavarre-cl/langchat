@@ -17,6 +17,8 @@ azure-pipelines.yml
 .vscode-test/**
 ejemplo.chat
 media/icon-src.svg
+media/img*.png
+media/vid*.gif
 **/*.chat
 **/*.attach
 **/*.sysprompt

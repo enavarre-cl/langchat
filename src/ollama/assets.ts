@@ -1,16 +1,16 @@
 /** Ollama binary assets (GitHub release). Pure, testable. */
 
 // Pinned release version. Bump deliberately after reviewing the changelog.
-export const OLLAMA_VERSION = 'v0.30.8';
+export const OLLAMA_VERSION = 'v0.30.10';
 
 // Pinned SHA256 for each asset (from the `digest` field of the GitHub release, immutable bytes).
 // Verifying before extracting/executing protects against corruption and tampered origin (fail-closed).
 export const OLLAMA_ASSET_SHA256: Record<string, string> = {
-  'ollama-darwin.tgz': '52acbca4e89c53db9abc586a22b5633fd101db293177264b9a0fe5d64a42a064',
-  'ollama-linux-amd64.tar.zst': 'ffe2b2c2f2f5f5b30c081ec353c2e0bb2d9ead516064a8e22663b24b8fd8dca0',
-  'ollama-linux-arm64.tar.zst': '668a6f934b0b0455128bb4a76c9e50b9e5f274f9dc7710a066b7073e5bd36588',
-  'ollama-windows-amd64.zip': 'c2d26d97e698027329c252629d7113bbc05d874b49960cbb03e93a39ae9fd95c',
-  'ollama-windows-arm64.zip': '487fa170d6eedc3ce12fbf144a39970d8322c4c6efbaa9a366ad7aa8769f5713',
+  'ollama-darwin.tgz': 'ad8a4d2918ed09480b8160419570602b4f49e48c9e3792efb601c0f54619e48e',
+  'ollama-linux-amd64.tar.zst': '046d8f28e58d58477a49558d8d1bcb2e81ca8b287f93c44b12ff919c10d178dd',
+  'ollama-linux-arm64.tar.zst': 'b626aef722ddb9d64dd20a76eeba9267abc5e9494faabb97839db85462b707d7',
+  'ollama-windows-amd64.zip': '9606cee7501703a0969682667def313130f99ed73f44a88a7a8efe82d4b565f0',
+  'ollama-windows-arm64.zip': 'fe9e06480417c4ca651d1b010a3fe6654f8740ad076632a46ef3d638773888d3',
 };
 
 export type ArchiveFormat = 'gz' | 'zst' | 'zip';

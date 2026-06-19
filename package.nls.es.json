@@ -287,6 +287,7 @@
   "Text generation": "Generación de texto",
   "Text to speech": "Texto a voz",
   "The .chat file has invalid JSON: ": "El archivo .chat tiene JSON inválido: ",
+  "The model probably did not fit in your GPU/RAM. Try a smaller quantization or model, or force CPU by setting the environment variable OLLAMA_NUM_GPU=0.": "Probablemente el modelo no entró en tu GPU/RAM. Prueba una cuantización o un modelo más pequeño, o fuerza CPU con la variable de entorno OLLAMA_NUM_GPU=0.",
   "The model put the whole response in its reasoning 🧠 — turn off «Reasoning / thinking» in ⚙ to see it here.": "El modelo puso toda la respuesta en el razonamiento 🧠 — desactiva «Razonamiento / thinking» en ⚙ para verla aquí.",
   "The model returned no content. Try another model; on OpenRouter, check the key's credits/limits.": "El modelo no devolvió contenido. Prueba con otro modelo; en OpenRouter, revisa créditos/límites de la key.",
   "The model's reasoning will appear here.": "El razonamiento del modelo aparecerá aquí.",

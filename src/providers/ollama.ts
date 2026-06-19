@@ -4,6 +4,25 @@ import { formatHttpError } from './httpError';
 import { httpFetch } from '../http';
 import { readLines, safeToolArgs } from './stream';
 import { imageAttachments } from './multimodal';
+import { tr } from '../i18n';
+
+/**
+ * When the llama-server child of Ollama crashes (GGML assert, Windows stack-overrun 0xc0000409,
+ * GPU/host OOM…), the raw message is a scary C++ stacktrace. Detect that signature and append an
+ * actionable hint — the usual cause is the model not fitting in VRAM/RAM. Returns '' if it does not
+ * look like a runtime crash, so normal API errors keep their original message untouched.
+ */
+function llamaCrashHint(detail: string): string {
+  const d = (detail || '').toLowerCase();
+  const looksLikeCrash =
+    d.includes('llama-server') || d.includes('llamarunner') || d.includes('process has terminated') ||
+    d.includes('ggml_assert') || d.includes('0xc0000409') ||
+    d.includes('out of memory') || d.includes('failed to allocate') ||
+    d.includes('cudamalloc') || d.includes('cuda error') || d.includes('vk_error_device_lost');
+  return looksLikeCrash
+    ? '\n\n' + tr('The model probably did not fit in your GPU/RAM. Try a smaller quantization or model, or force CPU by setting the environment variable OLLAMA_NUM_GPU=0.')
+    : '';
+}
 
 /**
  * Provider for the Ollama server (native /api/chat API, NDJSON streaming).
@@ -87,7 +106,7 @@ export class OllamaProvider implements LLMProvider {
 
     if (!res.ok || !res.body) {
       const detail = await res.text().catch(() => '');
-      throw new Error(formatHttpError('Ollama', res.status, res.statusText, detail));
+      throw new Error(formatHttpError('Ollama', res.status, res.statusText, detail) + llamaCrashHint(detail));
     }
 
     const reader = res.body.getReader();
@@ -110,7 +129,8 @@ export class OllamaProvider implements LLMProvider {
       }
       // Error embedded in the stream (Ollama sends it as a string).
       if (obj?.error) {
-        throw new Error(`Ollama (stream): ${typeof obj.error === 'string' ? obj.error : JSON.stringify(obj.error)}`);
+        const err = typeof obj.error === 'string' ? obj.error : JSON.stringify(obj.error);
+        throw new Error(`Ollama (stream): ${err}` + llamaCrashHint(err));
       }
       if (obj?.done && (obj.prompt_eval_count || obj.eval_count)) {
         const p0 = obj.prompt_eval_count || 0;

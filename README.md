@@ -4,11 +4,7 @@
 models and keys, keep every conversation as a versionable file, and use tools, embedded model
 management and neural text‑to‑speech without leaving the editor.
 
-<!-- Images hosted on a public GitHub repo (assets only; the code lives on Azure DevOps).
-     Upload the GIF/PNG to https://github.com/enavarre-cl/langchat (media/ folder) and uncomment:
-![Lang Chat in action](https://raw.githubusercontent.com/enavarre-cl/langchat/main/media/demo.gif)
--->
-> 📷 _Demo GIF & screenshots: pending — see `plan-publish.md`._
+![Lang Chat in action](https://raw.githubusercontent.com/enavarre-cl/langchat/master/media/vid1.gif)
 
 ## Why Lang Chat
 
@@ -25,7 +21,11 @@ management and neural text‑to‑speech without leaving the editor.
 
 ## Features
 
-<!-- TODO: one screenshot per key feature (chat, model explorer, TTS, sidebar views). -->
+| Sidebar — Engines · Models · Voices · Dictionary, with a `.chat` open | Chat with the **Reasoning** & **Tools** panels |
+|:---:|:---:|
+| ![Lang Chat sidebar](https://raw.githubusercontent.com/enavarre-cl/langchat/master/media/img3.png) | ![Reasoning and Tools panels](https://raw.githubusercontent.com/enavarre-cl/langchat/master/media/img2.png) |
+| **Per‑conversation settings (⚙)** — backend, model, sampling, read‑aloud | **Lang Chat settings** in VS Code |
+| ![Per-conversation settings panel](https://raw.githubusercontent.com/enavarre-cl/langchat/master/media/img1.png) | ![Lang Chat settings in VS Code](https://raw.githubusercontent.com/enavarre-cl/langchat/master/media/img4.png) |
 
 - 💬 **Streaming** responses, token by token, with a **Stop** button and auto‑save after each turn.
 - 🧠 **Reasoning / thinking** panel for models that expose it.

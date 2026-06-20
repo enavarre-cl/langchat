@@ -1,30 +1,43 @@
-/** Backend i18n (extension host). English is the key; the Spanish bundle is the single source of
- *  truth in package.nls.es.json — the VS Code-mandated manifest bundle, reused at runtime so there
- *  is ONE language file. The same bundle is injected into the webviews. */
+/** Backend i18n (extension host). English is the key; each non-English language has a
+ *  package.nls.<lang>.json bundle (English key → translation), which is also VS Code's manifest
+ *  bundle. The active bundle is injected into the webviews. Falls back to English on any miss. */
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-/** Effective language: respects langChat.language ('auto'|'en'|'es') or VS Code's locale. */
-export function resolvedLang(): 'en' | 'es' {
+export type Lang = 'en' | 'es' | 'pt' | 'fr' | 'de' | 'it';
+/** Supported UI languages. English is the source (no bundle); the rest have package.nls.<lang>.json. */
+export const SUPPORTED_LANGS: Lang[] = ['en', 'es', 'pt', 'fr', 'de', 'it'];
+
+/** Effective language: respects langChat.language ('auto'|code) or VS Code's locale when 'auto'. */
+export function resolvedLang(): Lang {
   const pref = vscode.workspace.getConfiguration('langChat').get<string>('language', 'auto');
-  if (pref === 'en' || pref === 'es') return pref;
-  return vscode.env.language.toLowerCase().startsWith('es') ? 'es' : 'en';
+  if (pref && pref !== 'auto' && (SUPPORTED_LANGS as string[]).includes(pref)) return pref as Lang;
+  const loc = vscode.env.language.toLowerCase();
+  return SUPPORTED_LANGS.find((l) => l !== 'en' && loc.startsWith(l)) ?? 'en';
 }
 
-/** Spanish bundle (English key → Spanish), loaded once. From out/i18n.js, ../package.nls.es.json
- *  resolves to <extension>/package.nls.es.json (shipped in the .vsix; also read natively by VS Code
- *  for the manifest). Manifest keys (dotted) coexist harmlessly with runtime keys (English text).
- *  Falls back to English on error. */
-export const ES_BUNDLE: Record<string, string> = (() => {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.nls.es.json'), 'utf8'));
-  } catch {
-    return {};
+/** Loads (once, lazily) the bundle for a language. English has none (it IS the key). */
+const _bundles: Partial<Record<Lang, Record<string, string>>> = {};
+function loadBundle(lang: Lang): Record<string, string> {
+  if (lang === 'en') return {};
+  if (!_bundles[lang]) {
+    try {
+      // From out/i18n.js, ../package.nls.<lang>.json resolves to the shipped manifest bundle.
+      _bundles[lang] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', `package.nls.${lang}.json`), 'utf8'));
+    } catch {
+      _bundles[lang] = {};
+    }
   }
-})();
+  return _bundles[lang]!;
+}
+
+/** The translation bundle for the active language (injected into webviews). */
+export function activeBundle(): Record<string, string> {
+  return loadBundle(resolvedLang());
+}
 
 /** Translates a backend string to the effective language (English is the key). */
 export function tr(s: string): string {
-  return resolvedLang() === 'es' ? (ES_BUNDLE[s] ?? s) : s;
+  return activeBundle()[s] ?? s;
 }

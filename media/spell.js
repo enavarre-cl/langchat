@@ -7,7 +7,7 @@
   let loadToken = null;   // identifies the in-flight load (avoids races when switching language)
   const cache = {};       // lang -> nspell (avoid reloading the same dictionary)
   const listeners = [];
-  let customWords = { es: [], en: [] }; // user-defined words PER LANGUAGE
+  let customWords = {}; // user-defined words PER LANGUAGE (lang -> words[])
   const applied = {};                   // lang -> words currently injected into cache[lang]
 
   function emitReady() { listeners.forEach((f) => { try { f(); } catch (_) { /* nothing */ } }); }
@@ -30,9 +30,9 @@
     return r.text();
   }
 
-  // Activates the spell-checker for `lang` ('es'|'en'); any other value disables it.
+  // Activates the spell-checker for `lang` if it has a bundled dictionary; any other value disables it.
   async function setLang(lang) {
-    if (lang !== 'es' && lang !== 'en') { speller = null; activeLang = null; loadToken = null; emitReady(); return; }
+    if (!lang || !(window.SPELL_DICTS || {})[lang]) { speller = null; activeLang = null; loadToken = null; emitReady(); return; }
     if (activeLang === lang && speller) return;
     if (cache[lang]) { speller = cache[lang]; activeLang = lang; syncCustom(lang); emitReady(); return; }
     const d = (window.SPELL_DICTS || {})[lang];
@@ -52,10 +52,11 @@
     }
   }
 
-  // Replaces custom words (map {es,en} from the backend) and applies them to each dictionary.
+  // Replaces custom words (map {lang: words[]} from the backend) and applies them to each dictionary.
   function setWords(map) {
     const clean = (a) => (Array.isArray(a) ? a.filter((w) => typeof w === 'string' && w) : []);
-    customWords = { es: clean(map && map.es), en: clean(map && map.en) };
+    customWords = {};
+    if (map) for (const k of Object.keys(map)) customWords[k] = clean(map[k]);
     for (const k in cache) syncCustom(k); // reconcile (add new, remove deleted)
     emitReady();
   }
@@ -65,7 +66,9 @@
     setWords,
     add(w) {
       const l = activeLang;
-      if (w && l && customWords[l] && customWords[l].indexOf(w) === -1) {
+      if (!w || !l) return;
+      if (!customWords[l]) customWords[l] = [];
+      if (customWords[l].indexOf(w) === -1) {
         customWords[l].push(w);
         syncCustom(l);
       }

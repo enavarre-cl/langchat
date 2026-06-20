@@ -56,10 +56,14 @@ const PIPER_VOICE_SHA256: Record<string, string> = {
   'en_US-amy-medium': 'b3a6e47b57b8c7fbe6a0ce2518161a50f59a9cdd8a50835c02cb02bdd6206c18',
   'en_US-hfc_female-medium': '914c473788fc1fa8b63ace1cdcdb44588f4ae523d3ab37df1536616835a140b7',
   'en_GB-jenny_dioco-medium': '469c630d209e139dd392a66bf4abde4ab86390a0269c1e47b4e5d7ce81526b01',
+  'pt_BR-faber-medium': '858555e3a064209c57088fe6bd70c4c3dc54d03eaa00c45d5ecaf43a33f95aa7',
+  'fr_FR-siwis-medium': '641d1ab097da2b81128c076810edb052b385decc8be3381814802a64a73baf99',
+  'de_DE-thorsten-medium': '7e64762d8e5118bb578f2eea6207e1a35a8e0c30595010b666f983fc87bb7819',
+  'it_IT-paola-medium': '6fc918b5a0ea6137382833dddfa567bffbe6a5060c02043c87192ee59c04210c',
 };
 /** Catalog of curated voices available for download (id + label + language). The ids MUST
  *  match the keys in PIPER_VOICE_SHA256 (fail-closed) and media/main.js. */
-export interface PiperVoiceInfo { id: string; label: string; lang: 'es' | 'en'; }
+export interface PiperVoiceInfo { id: string; label: string; lang: 'es' | 'en' | 'pt' | 'fr' | 'de' | 'it'; }
 export const PIPER_VOICE_CATALOG: PiperVoiceInfo[] = [
   { id: 'es_MX-claude-high', label: 'Claude — Spanish 🇲🇽 (female)', lang: 'es' },
   { id: 'es_AR-daniela-high', label: 'Daniela — Spanish 🇦🇷 (female)', lang: 'es' },
@@ -67,6 +71,10 @@ export const PIPER_VOICE_CATALOG: PiperVoiceInfo[] = [
   { id: 'en_US-amy-medium', label: 'Amy — English 🇺🇸 (female)', lang: 'en' },
   { id: 'en_US-hfc_female-medium', label: 'HFC — English 🇺🇸 (female)', lang: 'en' },
   { id: 'en_GB-jenny_dioco-medium', label: 'Jenny — English 🇬🇧 (female)', lang: 'en' },
+  { id: 'pt_BR-faber-medium', label: 'Faber — Portuguese 🇧🇷 (male)', lang: 'pt' },
+  { id: 'fr_FR-siwis-medium', label: 'Siwis — French 🇫🇷 (female)', lang: 'fr' },
+  { id: 'de_DE-thorsten-medium', label: 'Thorsten — German 🇩🇪 (male)', lang: 'de' },
+  { id: 'it_IT-paola-medium', label: 'Paola — Italian 🇮🇹 (female)', lang: 'it' },
 ];
 
 /** HuggingFace URLs for a Piper voice given its id (lang_REGION-name-quality). */

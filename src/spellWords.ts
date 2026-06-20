@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
-export type SpellLang = 'es' | 'en';
+export type SpellLang = 'es' | 'en' | 'pt' | 'fr' | 'de' | 'it';
+/** Spell-check languages with a bundled hunspell dictionary. Single source of truth. */
+export const SPELL_LANGS: SpellLang[] = ['es', 'en', 'pt', 'fr', 'de', 'it'];
+export const SPELL_LANG_NAMES: Record<SpellLang, string> = {
+  es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano',
+};
 export type SpellWordsMap = Record<SpellLang, string[]>;
 
 function cleanList(v: any): string[] {
@@ -29,13 +34,16 @@ export class SpellWordsStore {
     try {
       const buf = await vscode.workspace.fs.readFile(this.uri());
       const raw = JSON.parse(Buffer.from(buf).toString('utf8'));
-      this.data = { es: cleanList(raw.es), en: cleanList(raw.en) };
-    } catch { this.data = { es: [], en: [] }; }
+      this.data = Object.fromEntries(SPELL_LANGS.map((l) => [l, cleanList(raw[l])])) as unknown as SpellWordsMap;
+    } catch { this.data = Object.fromEntries(SPELL_LANGS.map((l) => [l, [] as string[]])) as unknown as SpellWordsMap; }
     return this.data;
   }
 
   async list(lang: SpellLang): Promise<string[]> { return (await this.load())[lang].slice(); }
-  async all(): Promise<SpellWordsMap> { const d = await this.load(); return { es: d.es.slice(), en: d.en.slice() }; }
+  async all(): Promise<SpellWordsMap> {
+    const d = await this.load();
+    return Object.fromEntries(SPELL_LANGS.map((l) => [l, d[l].slice()])) as unknown as SpellWordsMap;
+  }
 
   private async persist(): Promise<void> {
     try { await vscode.workspace.fs.createDirectory(this.context.globalStorageUri); } catch { /* already exists */ }

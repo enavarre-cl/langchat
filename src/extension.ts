@@ -22,9 +22,9 @@ import {
 import { ToolHub } from './tools';
 import { wavData, concatWavs, splitForTTS } from './audio';
 import { initProxy } from './http';
-import { tr, resolvedLang, ES_BUNDLE } from './i18n';
+import { tr, resolvedLang, activeBundle } from './i18n';
 import { registerCompare } from './compareView';
-import { SpellWordsStore, SpellLang } from './spellWords';
+import { SpellWordsStore, SpellLang, SPELL_LANGS } from './spellWords';
 import { openDictionaryPanel } from './dictionaryPanel';
 import { openVoicesPanel } from './voicesPanel';
 import { removePiperVoice, listPiperVoices } from './piperVoices';
@@ -373,10 +373,10 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (doc) webview.postMessage({ type: 'doc', doc: resolveDocForView(doc) });
     };
 
-    // Sends the effective language + raw preference to the webview.
+    // Sends the effective language + its translation bundle to the webview (so a live change to any
+    // locale re-translates without a reload — the webview can't carry every language's bundle).
     const pushLang = (): void => {
-      const pref = vscode.workspace.getConfiguration('langChat').get<string>('language', 'auto');
-      webview.postMessage({ type: 'lang', lang: resolvedLang(), pref });
+      webview.postMessage({ type: 'lang', lang: resolvedLang(), bundle: activeBundle() });
     };
 
     // Neural TTS with Piper: splits the text into sentences and sends each chunk as base64 WAV.
@@ -1187,7 +1187,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         case 'spellAddWord':
           // Adds to the active spell-checker language list. The store fires onDidChange →
           // all webviews + the sidebar view are updated.
-          if (typeof msg.word === 'string' && (msg.lang === 'es' || msg.lang === 'en')) {
+          if (typeof msg.word === 'string' && (SPELL_LANGS as string[]).includes(msg.lang)) {
             await this.spellWords.add(msg.lang as SpellLang, msg.word);
           }
           break;
@@ -1676,6 +1676,10 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
                 <option value="off" data-i18n="Off">Off</option>
                 <option value="en">English</option>
                 <option value="es">Español</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="it">Italiano</option>
               </select>
             </div>
             <div id="configFields"></div>
@@ -1702,11 +1706,16 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
   </div>
   <script nonce="${nonce}">window.SPELL_DICTS = {
     es: { aff: '${uri('dict/es.aff')}', dic: '${uri('dict/es.dic')}' },
-    en: { aff: '${uri('dict/en.aff')}', dic: '${uri('dict/en.dic')}' }
+    en: { aff: '${uri('dict/en.aff')}', dic: '${uri('dict/en.dic')}' },
+    pt: { aff: '${uri('dict/pt.aff')}', dic: '${uri('dict/pt.dic')}' },
+    fr: { aff: '${uri('dict/fr.aff')}', dic: '${uri('dict/fr.dic')}' },
+    de: { aff: '${uri('dict/de.aff')}', dic: '${uri('dict/de.dic')}' },
+    it: { aff: '${uri('dict/it.aff')}', dic: '${uri('dict/it.dic')}' }
   };
   window.DOWNLOADED_VOICES = ${JSON.stringify(this.downloadedVoiceIds())};
   window.PIPER_CUSTOM_SET = ${JSON.stringify(!!vscode.workspace.getConfiguration('langChat').get<string>('tts.piperModel', ''))};
-  window.I18N_ES = ${JSON.stringify(ES_BUNDLE)};</script>
+  window.I18N_LANG = ${JSON.stringify(resolvedLang())};
+  window.I18N_BUNDLE = ${JSON.stringify(activeBundle())};</script>
   <script nonce="${nonce}" src="${uri('zoom.js')}"></script>
   <script nonce="${nonce}" src="${uri('i18n.js')}"></script>
   <script nonce="${nonce}" src="${uri('spell-engine.js')}"></script>
@@ -1777,7 +1786,7 @@ function applyPatch(doc: ChatDoc, patch: any): void {
   }
   if (typeof patch.model === 'string') doc.model = patch.model;
   if (typeof patch.systemPrompt === 'string') doc.systemPrompt = patch.systemPrompt;
-  if (['auto', 'off', 'es', 'en'].includes(patch.spellLang)) doc.spellLang = patch.spellLang;
+  if (['auto', 'off', ...SPELL_LANGS].includes(patch.spellLang)) doc.spellLang = patch.spellLang;
 
   const p = patch.params;
   if (p && typeof p === 'object') {

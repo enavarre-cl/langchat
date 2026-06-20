@@ -288,6 +288,10 @@
     { id: 'en_US-amy-medium', label: 'Amy — English 🇺🇸 (female)' },
     { id: 'en_US-hfc_female-medium', label: 'HFC — English 🇺🇸 (female)' },
     { id: 'en_GB-jenny_dioco-medium', label: 'Jenny — English 🇬🇧 (female)' },
+    { id: 'pt_BR-faber-medium', label: 'Faber — Portuguese 🇧🇷 (male)' },
+    { id: 'fr_FR-siwis-medium', label: 'Siwis — French 🇫🇷 (female)' },
+    { id: 'de_DE-thorsten-medium', label: 'Thorsten — German 🇩🇪 (male)' },
+    { id: 'it_IT-paola-medium', label: 'Paola — Italian 🇮🇹 (female)' },
     { id: 'custom', label: '⚙ ' },
   ];
 
@@ -1719,12 +1723,14 @@
   let spellTimer = null;
 
   // Effective spell-check language based on the per-chat selector: 'auto' → system language.
+  // Any language with a bundled dictionary (window.SPELL_DICTS) is valid; others → no spell checker.
   function spellEffective() {
     const pref = spellSelect ? spellSelect.value : 'auto';
     if (pref === 'off') return null;
-    if (pref === 'es' || pref === 'en') return pref;
-    const sys = (navigator.language || '').toLowerCase();
-    return sys.startsWith('es') ? 'es' : sys.startsWith('en') ? 'en' : null; // other languages: no spell checker
+    const dicts = window.SPELL_DICTS || {};
+    if (pref !== 'auto' && dicts[pref]) return pref;
+    const sys = (navigator.language || '').toLowerCase().slice(0, 2);
+    return dicts[sys] ? sys : null;
   }
 
   function applySpellLang() {
@@ -2251,9 +2257,11 @@
   $('findNext').addEventListener('click', () => findNav(1));
   $('findClose').addEventListener('click', () => closeFind());
 
-  // Applies a language: translates static HTML and re-renders dynamic content.
-  function applyLanguage(lang, pref) {
+  // Applies a language: translates static HTML and re-renders dynamic content. `bundle` is the
+  // active language's translations (sent fresh on a live change so any locale works, not just es).
+  function applyLanguage(lang, bundle) {
     window.LangI18n.set(lang);
+    if (bundle) window.LangI18n.setBundle(bundle);
     window.LangI18n.applyStatic(document);
     document.documentElement.lang = lang;
     if (doc) { renderConfig(); renderConversation(); updateUsage(); updateContextBar(); }
@@ -2265,7 +2273,7 @@
     const msg = event.data;
     switch (msg.type) {
       case 'lang':
-        applyLanguage(msg.lang, msg.pref);
+        applyLanguage(msg.lang, msg.bundle);
         break;
       case 'spellWords':
         if (window.LangSpell) window.LangSpell.setWords(msg.words || []);

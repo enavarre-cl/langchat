@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { SpellWordsStore, SpellLang } from './spellWords';
+import { SpellWordsStore, SpellLang, SPELL_LANG_NAMES } from './spellWords';
 import { tr } from './i18n';
 
 const openPanels: Partial<Record<SpellLang, vscode.WebviewPanel>> = {};
@@ -10,7 +10,7 @@ export function openDictionaryPanel(context: vscode.ExtensionContext, store: Spe
   const existing = openPanels[lang];
   if (existing) { existing.reveal(); return; }
 
-  const langName = lang === 'es' ? 'Español' : 'English';
+  const langName = SPELL_LANG_NAMES[lang] || lang;
   const panel = vscode.window.createWebviewPanel(
     'langChat.dictionary',
     `${tr('Dictionary')}: ${langName}`,

@@ -2,7 +2,7 @@
   "name": "lang-chat",
   "displayName": "Lang Chat",
   "description": "%ext.description%",
-  "version": "1.0.20",
+  "version": "1.1.0",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {
@@ -339,12 +339,20 @@
             "enum": [
               "auto",
               "en",
-              "es"
+              "es",
+              "pt",
+              "fr",
+              "de",
+              "it"
             ],
             "enumDescriptions": [
               "%config.language.enum.auto%",
               "English",
-              "Español"
+              "Español",
+              "Português",
+              "Français",
+              "Deutsch",
+              "Italiano"
             ],
             "default": "auto",
             "description": "%config.language.desc%"
@@ -558,8 +566,12 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^8.61.0",
     "@typescript-eslint/parser": "^8.61.0",
+    "dictionary-de": "^3.0.0",
     "dictionary-en": "^4.0.0",
     "dictionary-es": "^4.0.0",
+    "dictionary-fr": "^3.0.0",
+    "dictionary-it": "^2.0.0",
+    "dictionary-pt": "^4.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
     "nspell": "^2.1.5",

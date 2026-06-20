@@ -6,7 +6,7 @@ import { OllamaManager } from './ollama/manager';
 import { listLocal, LocalModel } from './ollama/registry';
 import { DownloadManager, DownloadItem } from './ollama/downloads';
 import { formatBytes } from './ollama/parse';
-import { SpellWordsStore } from './spellWords';
+import { SpellWordsStore, SPELL_LANGS, SPELL_LANG_NAMES } from './spellWords';
 import { listPiperVoices } from './piperVoices';
 import { PiperManager } from './piper/manager';
 import { tr } from './i18n';
@@ -200,7 +200,9 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
   // ── Dictionary ──
   private async dictItems(): Promise<ModelsTreeItem[]> {
     const all = await this.spell.all();
-    return [this.dictLang('es', 'Español', all.es.length), this.dictLang('en', 'English', all.en.length)];
+    return [...SPELL_LANGS]
+      .sort((a, b) => SPELL_LANG_NAMES[a].localeCompare(SPELL_LANG_NAMES[b]))
+      .map((l) => this.dictLang(l, SPELL_LANG_NAMES[l], all[l].length));
   }
 
   private dictLang(lang: string, label: string, count: number): ModelsTreeItem {

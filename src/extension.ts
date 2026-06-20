@@ -64,13 +64,19 @@ export function activate(context: vscode.ExtensionContext) {
   // the chat's voice selector only shows downloaded ones.
   const voicesChanged = new vscode.EventEmitter<void>();
   context.subscriptions.push(voicesChanged);
-  const provider = new ChatEditorProvider(context, spellWords, piper, voicesChanged.event);
+  // Notifies open chats when langChat.language changes, so the UI re-translates live (no reload).
+  const langChanged = new vscode.EventEmitter<void>();
+  context.subscriptions.push(langChanged);
+  const provider = new ChatEditorProvider(context, spellWords, piper, voicesChanged.event, langChanged.event);
 
   registerCompare(context); // version comparison command (Timeline / palette)
 
   initProxy(); // configures the proxy (http.proxy / env) for all requests
   context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => { if (e.affectsConfiguration('http')) initProxy(); })
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('http')) initProxy();
+      if (e.affectsConfiguration('langChat.language')) langChanged.fire();
+    })
   );
   void loadApiKeys(context); // populate overrides from SecretStorage on startup
   // If secrets change (another window, or the command), reload.
@@ -276,7 +282,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly context: vscode.ExtensionContext,
     private readonly spellWords: SpellWordsStore,
     private readonly piper: PiperManager,
-    private readonly onVoicesChanged: vscode.Event<void>
+    private readonly onVoicesChanged: vscode.Event<void>,
+    private readonly onLangChanged: vscode.Event<void>
   ) {}
 
   /** Downloaded Piper voice ids, so the chat only offers those in its selector. */
@@ -1544,6 +1551,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     const onSpell = this.spellWords.onDidChange(async () => webview.postMessage({ type: 'spellWords', words: await this.spellWords.all() }));
     // Change in downloaded voices (voices panel, tree) → re-filters the chat selector.
     const onVoices = this.onVoicesChanged(() => webview.postMessage({ type: 'piperVoices', ids: this.downloadedVoiceIds() }));
+    // langChat.language changed in settings → re-translate the UI live (no reload needed).
+    const onLang = this.onLangChanged(() => pushLang());
     panel.onDidDispose(() => {
       abort?.abort();
       onMsg.dispose();
@@ -1551,6 +1560,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       onState.dispose();
       onSpell.dispose();
       onVoices.dispose();
+      onLang.dispose();
       if (ChatEditorProvider.activeApply === applyConfig) ChatEditorProvider.activeApply = undefined;
     });
   }

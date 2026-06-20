@@ -550,12 +550,8 @@
       actions.appendChild(readBtn);
       actions.appendChild(iconButton(ICONS.edit, t('Edit message'), () => startEditInline(el, opts.index)));
       if (opts.canRegenerate) {
-        actions.appendChild(iconButton(ICONS.retry, t('Reprocess (regenerate as a new variant)'), () => {
-          clearNotices();
-          const last = messagesEl.querySelector('.msg.assistant:last-child');
-          if (last) last.remove();
-          vscode.postMessage({ type: 'regenerate' });
-        }));
+        // Regenerate lives on the USER bubble ("regenerate the response to this message"): it re-rolls
+        // the answer to a prompt, so it belongs with the prompt — not duplicated here. Continue stays.
         actions.appendChild(iconButton(ICONS.forward, t('Continue / keep developing this response'),
           () => { clearNotices(); vscode.postMessage({ type: 'continue' }); }));
       }

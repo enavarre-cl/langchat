@@ -89,7 +89,7 @@
   "config.title.general": "Général",
   "config.title.tools": "Outils",
   "config.title.tts": "Lecture à voix haute",
-  "config.tools.maxReadBytes.desc": "Nombre maximal d'octets renvoyés par l'outil natif `fs_read` (le reste est tronqué). Évite de déverser des fichiers énormes dans le contexte du modèle. Une valeur invalide revient à 100000.",
+  "config.tools.maxReadBytes.desc": "Nombre maximal d'octets renvoyés par l'outil natif `fs_read` (le reste est tronqué). Évite de déverser des fichiers énormes dans le contexte du modèle. **`0` = illimité** (sans troncature). Une valeur invalide revient à 100000.",
   "config.tools.maxIterations.desc": "Nombre maximal d'itérations de la boucle d'outils agentique par tour (le modèle appelle des outils, voit les résultats et continue). **`0` = illimité** — la boucle ne s'arrête alors que lorsque le modèle cesse de demander des outils ou que vous appuyez sur Stop. Par défaut : `8`.",
   "config.tts.debug.desc": "Écrit les traces de débogage du TTS dans la console et un fichier journal dans le dossier temporaire. Désactivé par défaut.",
   "config.tts.piperModel.desc": "Chemin vers un fichier de modèle de voix Piper `.onnx` (son `.onnx.json` doit se trouver à côté), ou un nom de voix si vous utilisez le paquet pip `piper-tts` (téléchargement automatique). Voix françaises sur https://huggingface.co/rhasspy/piper-voices.",

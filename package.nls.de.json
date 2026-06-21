@@ -89,7 +89,7 @@
   "config.title.general": "Allgemein",
   "config.title.tools": "Tools",
   "config.title.tts": "Vorlesen",
-  "config.tools.maxReadBytes.desc": "Maximale Anzahl Bytes, die das native `fs_read`-Tool zurückgibt (der Rest wird abgeschnitten). Verhindert, dass riesige Dateien in den Kontext des Modells geladen werden. Ein ungültiger Wert fällt auf 100000 zurück.",
+  "config.tools.maxReadBytes.desc": "Maximale Anzahl Bytes, die das native `fs_read`-Tool zurückgibt (der Rest wird abgeschnitten). Verhindert, dass riesige Dateien in den Kontext des Modells geladen werden. **`0` = unbegrenzt** (keine Kürzung). Ein ungültiger Wert fällt auf 100000 zurück.",
   "config.tools.maxIterations.desc": "Maximale Iterationen der agentischen Tool-Schleife pro Zug (das Modell ruft Tools auf, sieht die Ergebnisse und macht weiter). **`0` = unbegrenzt** — die Schleife endet dann nur, wenn das Modell keine Tools mehr anfordert oder Sie auf Stop drücken. Standard: `8`.",
   "config.tts.debug.desc": "Schreibt TTS-Debug-Traces in die Konsole und eine Logdatei im Temp-Verzeichnis. Standardmäßig deaktiviert.",
   "config.tts.piperModel.desc": "Pfad zu einer Piper-Sprachmodelldatei `.onnx` (die zugehörige `.onnx.json` muss daneben liegen), oder ein Stimmenname bei Verwendung des pip-Pakets `piper-tts` (lädt automatisch herunter). Spanische Stimmen unter https://huggingface.co/rhasspy/piper-voices.",

@@ -139,7 +139,7 @@ Settings under `Settings → Parley`:
 | `parley.temperature` | `0.7` | Sampling temperature |
 | `parley.maxTokens` | `2048` | Max tokens (`-1` = unlimited) |
 | `parley.tools.maxIterations` | `8` | Max agentic tool-loop rounds per turn (`0` = unlimited) |
-| `parley.tools.maxReadBytes` | `100000` | Max bytes returned by the native `fs_read` tool |
+| `parley.tools.maxReadBytes` | `100000` | Max bytes returned by the native `fs_read` tool (`0` = unlimited) |
 
 ## Third‑party components & licenses
 

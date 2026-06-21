@@ -88,9 +88,10 @@ function htmlToText(html: string): string {
 
 const DEFAULT_MAX_READ = 100_000; // bytes
 
-/** Read limit for fs_read (global setting, with a robust fallback if broken). */
+/** Read limit for fs_read (global setting, with a robust fallback if broken). 0 = unlimited. */
 function maxReadBytes(): number {
   const v = vscode.workspace.getConfiguration('parley').get<number>('tools.maxReadBytes', DEFAULT_MAX_READ);
+  if (v === 0) return Infinity; // 0 = unlimited (no truncation); Math.min(size, ∞) = size
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : DEFAULT_MAX_READ;
 }
 

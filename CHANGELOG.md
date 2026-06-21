@@ -5,6 +5,13 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-06-21
+
+### Changed
+- **`parley.tools.maxReadBytes`** now accepts **`0` = unlimited** (no truncation of `fs_read` /
+  `web_fetch` output); its minimum dropped from 1000 to 0. Default unchanged (100000). Localized in
+  all six languages.
+
 ## [1.2.1] - 2026-06-21
 
 ### Added

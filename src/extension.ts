@@ -894,8 +894,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       // iterations and before executing the next tool (not only during chat()).
       const ac = new AbortController();
       abort = ac;
-      const MAX_ITERS = 8;
-      for (let iter = 0; iter < MAX_ITERS; iter++) {
+      // Max agentic tool-loop iterations (configurable). 0 = unlimited: the loop still ends when the
+      // model stops requesting tools or the user presses Stop (the AbortController breaks it).
+      const cfgIters = vscode.workspace.getConfiguration('parley').get<number>('tools.maxIterations', 8);
+      const MAX_ITERS = Number.isFinite(cfgIters) && cfgIters >= 0 ? Math.floor(cfgIters) : 8;
+      for (let iter = 0; MAX_ITERS === 0 || iter < MAX_ITERS; iter++) {
         if (ac.signal.aborted) { aborted = true; break; }
         const id = `m_${Date.now().toString(36)}_${iter}`;
         webview.postMessage({ type: 'streamStart', id });

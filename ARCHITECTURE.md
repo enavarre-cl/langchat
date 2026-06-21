@@ -209,7 +209,7 @@ sequenceDiagram
   R->>R: trim context (last-N / auto-summary)
   R->>R: resolveSystemPrompt (file or inline)
   R->>R: build wire = [system, summary?, history]
-  loop agentic loop (≤ 8 iters, one AbortController)
+  loop agentic loop (≤ parley.tools.maxIterations, 0=∞, one AbortController)
     R->>P: chat(model, wire, params, callbacks)
     P->>LLM: stream request
     LLM-->>P: deltas (content / reasoning / tool_calls / images)

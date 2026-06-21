@@ -55,6 +55,7 @@
   "config.title.tools": "Tools",
   "config.title.tts": "Read aloud",
   "config.tools.maxReadBytes.desc": "Maximum bytes returned by the native `fs_read` tool (the rest is truncated). Prevents dumping huge files into the model's context. An invalid value falls back to 100000.",
+  "config.tools.maxIterations.desc": "Maximum agentic tool-loop iterations per turn (the model calls tools, sees the results, and continues). **`0` = unlimited** — the loop then ends only when the model stops requesting tools or you press Stop. Default: `8`.",
   "config.tts.debug.desc": "Write TTS debug traces to the console and a log file in the temp dir. Off by default.",
   "config.tts.piperModel.desc": "Path to a Piper voice model `.onnx` file (its `.onnx.json` must sit next to it), or a voice name if using the `piper-tts` pip package (auto-downloads). Spanish voices at https://huggingface.co/rhasspy/piper-voices.",
   "config.tts.piperPath.desc": "Path to the `piper` binary (or just `piper` if it's on your PATH). Used for the neural \"Piper\" voice engine. Download from https://github.com/rhasspy/piper/releases.",

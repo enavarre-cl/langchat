@@ -100,6 +100,9 @@ With **Tools** on (⚙, available on every backend), the model can call tools in
 - **MCP servers**: define them in a **`.mcp/`** folder (one `*.json` per server) or a **`.mcp.json`**
   at the workspace root. Each server's tools are exposed as `server__tool`.
 
+The loop runs up to `parley.tools.maxIterations` rounds per turn (default **8**; **`0` = unlimited**,
+ending only when the model stops requesting tools or you press Stop).
+
 > MCP servers and `fs_write` only run in a **trusted workspace**.
 
 ## Privacy
@@ -135,6 +138,8 @@ Settings under `Settings → Parley`:
 | `parley.anthropic.baseUrl` | `https://api.anthropic.com/v1` | Anthropic Messages API endpoint |
 | `parley.temperature` | `0.7` | Sampling temperature |
 | `parley.maxTokens` | `2048` | Max tokens (`-1` = unlimited) |
+| `parley.tools.maxIterations` | `8` | Max agentic tool-loop rounds per turn (`0` = unlimited) |
+| `parley.tools.maxReadBytes` | `100000` | Max bytes returned by the native `fs_read` tool |
 
 ## Third‑party components & licenses
 

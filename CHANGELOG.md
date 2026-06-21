@@ -5,6 +5,13 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-06-21
+
+### Added
+- **`parley.tools.maxIterations`** — configurable cap on the agentic tool-loop (the model calls
+  tools, sees results, continues). Default **8**; **`0` = unlimited** (the loop still ends when the
+  model stops requesting tools or you press Stop). Localized in all six languages.
+
 ## [1.2.0] - 2026-06-21
 
 ### Added

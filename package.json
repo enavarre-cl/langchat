@@ -2,7 +2,7 @@
   "name": "parley-io",
   "displayName": "Parley.IO",
   "description": "%ext.description%",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {
@@ -529,6 +529,12 @@
             "default": 100000,
             "minimum": 1000,
             "markdownDescription": "%config.tools.maxReadBytes.desc%"
+          },
+          "parley.tools.maxIterations": {
+            "type": "number",
+            "default": 8,
+            "minimum": 0,
+            "markdownDescription": "%config.tools.maxIterations.desc%"
           }
         }
       },

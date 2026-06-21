@@ -1386,6 +1386,38 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           }
           break;
         }
+        // Find/Replace (webview's replace row). `replaceOne` targets one occurrence (by ordinal
+        // within a message); `replaceAll` rewrites every occurrence across the conversation. Both
+        // operate on the raw message source (case-insensitive, matching the find highlight).
+        case 'replaceOne':
+        case 'replaceAll': {
+          if (busy) break;
+          const doc = getDoc();
+          if (!doc) break;
+          const query = msg.query, replacement = msg.replacement;
+          if (typeof query !== 'string' || query === '' || typeof replacement !== 'string') break;
+          const fopts: FindOpts = (msg.opts && typeof msg.opts === 'object') ? msg.opts : {};
+          const editActive = (m: ChatMessage, nth: number): number => {
+            const hasVar = Array.isArray(m.variants) && typeof m.active === 'number' && m.variants[m.active];
+            const cur = hasVar ? m.variants![m.active!].content : m.content;
+            const r = replaceInString(typeof cur === 'string' ? cur : '', query, replacement, nth, fopts);
+            if (r.count) {
+              m.content = r.content;
+              if (hasVar) m.variants![m.active!].content = r.content;
+            }
+            return r.count;
+          };
+          let total = 0;
+          if (msg.type === 'replaceOne') {
+            const i = msg.index;
+            const nth = Number.isInteger(msg.ordinal) && msg.ordinal >= 1 ? msg.ordinal : 1;
+            if (Number.isInteger(i) && i >= 0 && i < doc.messages.length) total = editActive(doc.messages[i], nth);
+          } else {
+            for (const m of doc.messages) total += editActive(m, 0); // 0 = all occurrences
+          }
+          if (total) { doc.summary = undefined; await writeDoc(doc); sendHistory(); }
+          break;
+        }
         case 'regenerate':
           if (busy) break;
           busy = true;
@@ -1648,12 +1680,33 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     <div id="workspace">
       <div id="chat">
         <div id="findBar" class="hidden">
-          <span class="find-ico">🔎</span>
-          <input id="findInput" type="text" spellcheck="false" data-i18n-ph="Search in chat…" placeholder="Search in chat…" />
-          <span id="findCount"></span>
-          <button id="findPrev" class="icon-btn" data-i18n-title="Previous match (Shift+Enter)" title="Previous match (Shift+Enter)">▲</button>
-          <button id="findNext" class="icon-btn" data-i18n-title="Next match (Enter)" title="Next match (Enter)">▼</button>
-          <button id="findClose" class="icon-btn" data-i18n-title="Close (Esc)" title="Close (Esc)">×</button>
+          <button id="findToggleReplace" class="find-toggle" aria-expanded="false" data-i18n-title="Toggle Replace" title="Toggle Replace">›</button>
+          <div class="find-rows">
+            <div class="find-row">
+              <div class="find-field">
+                <input id="findInput" type="text" spellcheck="false" data-i18n-ph="Find" placeholder="Find" />
+                <div class="find-field-opts">
+                  <button id="optMatchCase" class="find-opt" aria-pressed="false" data-i18n-title="Match Case" title="Match Case">Aa</button>
+                  <button id="optWholeWord" class="find-opt" aria-pressed="false" data-i18n-title="Match Whole Word" title="Match Whole Word"><u>ab</u></button>
+                  <button id="optRegex" class="find-opt" aria-pressed="false" data-i18n-title="Use Regular Expression" title="Use Regular Expression">.*</button>
+                </div>
+              </div>
+              <span id="findCount"></span>
+              <button id="findPrev" class="icon-btn" data-i18n-title="Previous match (Shift+Enter)" title="Previous match (Shift+Enter)">▲</button>
+              <button id="findNext" class="icon-btn" data-i18n-title="Next match (Enter)" title="Next match (Enter)">▼</button>
+              <button id="findClose" class="icon-btn" data-i18n-title="Close (Esc)" title="Close (Esc)">×</button>
+            </div>
+            <div id="findReplaceRow" class="find-row hidden">
+              <div class="find-field">
+                <input id="replaceInput" type="text" spellcheck="false" data-i18n-ph="Replace" placeholder="Replace" />
+                <div class="find-field-opts">
+                  <button id="optPreserveCase" class="find-opt" aria-pressed="false" data-i18n-title="Preserve Case" title="Preserve Case">AB</button>
+                </div>
+              </div>
+              <button id="replaceOne" class="icon-btn" data-i18n-title="Replace (Enter)" title="Replace (Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5v5a3 3 0 0 0 3 3h7"/><polyline points="12 9 16 13 12 17"/></svg></button>
+              <button id="replaceAll" class="icon-btn" data-i18n-title="Replace All (⌘/Ctrl+Enter)" title="Replace All (⌘/Ctrl+Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v4a3 3 0 0 0 3 3h8"/><polyline points="12 8 15 11 12 14"/><path d="M4 14v2a3 3 0 0 0 3 3h8"/><polyline points="12 16 15 19 12 22"/></svg></button>
+            </div>
+          </div>
         </div>
         <main id="messages"></main>
         <footer id="composer">
@@ -1862,6 +1915,62 @@ function errMsg(err: any): string {
     return 'Could not connect to the backend. Is LM Studio / Ollama running? Check the URL in settings (🔧).';
   }
   return m;
+}
+
+interface FindOpts { matchCase?: boolean; wholeWord?: boolean; regex?: boolean; preserveCase?: boolean; }
+
+/** Build the same regex the webview uses, so host replace matches the on-screen highlight. */
+function buildFindRegex(query: string, o: FindOpts): RegExp | null {
+  if (query === '') return null;
+  let pattern = o.regex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (o.wholeWord) pattern = `\\b${pattern}\\b`;
+  try { return new RegExp(pattern, `g${o.matchCase ? '' : 'i'}`); } catch { return null; }
+}
+
+/** Expand $&, $1…$9 in a regex-mode replacement against the match. */
+function expandRefs(repl: string, m: RegExpExecArray): string {
+  return repl.replace(/\$(\$|&|\d{1,2})/g, (_, k: string) => {
+    if (k === '$') return '$';
+    if (k === '&') return m[0];
+    const i = parseInt(k, 10);
+    return m[i] != null ? m[i] : '';
+  });
+}
+
+/** Mirror the casing of `matched` onto `repl` (ALL CAPS → upper, Capitalized → capitalize). */
+function applyCase(matched: string, repl: string): string {
+  if (matched && matched === matched.toUpperCase() && matched !== matched.toLowerCase()) return repl.toUpperCase();
+  if (matched && matched[0] === matched[0].toUpperCase() && matched.slice(1) === matched.slice(1).toLowerCase()) {
+    return repl.charAt(0).toUpperCase() + repl.slice(1);
+  }
+  return repl;
+}
+
+/**
+ * Replace matches of `query` (with the find options) in `src`. `nth` = 0 replaces every occurrence;
+ * `nth >= 1` replaces only that 1-based occurrence. Returns the new string and the replacement count.
+ */
+function replaceInString(src: string, query: string, replacement: string, nth: number, o: FindOpts): { content: string; count: number } {
+  const re = buildFindRegex(query, o);
+  if (!re) return { content: src, count: 0 };
+  let out = '', last = 0, occ = 0, count = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    if (m[0].length === 0) { re.lastIndex++; continue; } // guard zero-width matches
+    occ++;
+    out += src.slice(last, m.index);
+    if (nth === 0 || occ === nth) {
+      let rep = o.regex ? expandRefs(replacement, m) : replacement;
+      if (o.preserveCase) rep = applyCase(m[0], rep);
+      out += rep; count++;
+    } else {
+      out += m[0];
+    }
+    last = m.index + m[0].length;
+    if (nth !== 0 && occ === nth) break;
+  }
+  out += src.slice(last);
+  return { content: out, count };
 }
 
 // Line icons (monochrome, inherit currentColor) for the toolbar and headers.

@@ -296,7 +296,7 @@ sentence chunks and plays the returned WAV.
 
 | Webview | Script | Role |
 |---|---|---|
-| Chat editor | `main.js` (+ `style.css`) | messages, Markdown + Mermaid rendering, composer, `@file` & emoji autocomplete, spell overlay, TTS, tooltips, two-step delete |
+| Chat editor | `main.js` (+ `style.css`) | messages, Markdown + Mermaid rendering, find/replace, composer, `@file` & emoji autocomplete, spell overlay, TTS, tooltips, two-step delete |
 | Model browser | `models.js` (+ `models.css`) | search HF, pick quant, download |
 | Voices / Dictionary / Compare | `voices.js` · `dictionary.js` · `compare.js` | small panels |
 | Shared | `i18n.js` · `spell.js` + `spell-engine.js` · `zoom.js` | translation · nspell spell-check · zoom |

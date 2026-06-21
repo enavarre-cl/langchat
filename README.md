@@ -36,7 +36,7 @@ management and neural text‑to‑speech without leaving the editor.
   and **downloads with progress** (shows size and free disk space first; retry/cancel).
 - 🔧 **Tools (function calling)**: native **workspace filesystem** + **MCP servers** — agentic loop.
 - 🗣️ **Read aloud (TTS)**: system voices (Web Speech) or neural **Piper** (local, managed daemon).
-- 🔎 **Search in chat** (`Ctrl/Cmd+F`), 🔍 **zoom** (`Alt`/`Option` + wheel), 🌳 **fork**,
+- 🔎 **Find & replace in chat** (`Ctrl/Cmd+F` find · `Ctrl/Cmd+H` replace), 🔍 **zoom** (`Alt`/`Option` + wheel), 🌳 **fork**,
   🕓 **compare versions**, ♻️ **regenerate / continue / merge / edit / delete** messages.
 - 🖼️ **Attachments** (images & documents) and **image generation** — image‑output models like
   Gemini *flash‑image* ("nano‑banana") render their images inline (copy / save to disk).

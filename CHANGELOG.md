@@ -5,6 +5,22 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-21
+
+### Added
+- **Find & replace in chat, VS Code-style.** The find bar now matches VS Code's widget:
+  - **`Ctrl/Cmd+F`** opens find collapsed (search only); **`Ctrl/Cmd+H`** opens with the replace row
+    expanded (toggle chevron on the left to switch).
+  - A **replace** row with **Replace** (Enter) and **Replace All** (`Ctrl/Cmd+Enter`). Replace edits
+    the raw message source, persists to the `.chat` and re-renders; single replace targets exactly
+    the current match, then **advances and scrolls to the next** — even when the replacement still
+    matches (e.g. expanding `approx` → `approximately`).
+  - Search-option toggles inside the fields: **`Aa`** match case, **`ab`** whole word, **`.*`** regular
+    expression (with `$1` group refs in the replacement), and **`AB`** preserve case. Invalid regex
+    shows a red field; the counter reads "*n* of *m*" / "No results".
+  - The query is now used **verbatim — no trimming**, so you can search/replace text with leading or
+    trailing spaces (e.g. `" ab "`).
+
 ## [1.1.4] - 2026-06-21
 
 ### Added

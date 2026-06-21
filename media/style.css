@@ -505,6 +505,84 @@ mark.find-hit.current {
 .msg code { font-family: var(--vscode-editor-font-family, monospace); font-size: .92em; }
 .msg pre code { display: block; }
 
+/* Mermaid diagrams */
+.mermaid-diagram { margin: 8px 0; }
+.mermaid-diagram.rendered {
+  position: relative;
+  background: var(--vscode-textCodeBlock-background, rgba(0,0,0,.25));
+  border: 1px solid var(--vscode-panel-border, rgba(127,127,127,.25));
+  border-radius: 6px;
+  overflow: hidden;
+}
+.mermaid-viewport {
+  overflow: hidden;
+  /* No height cap: at rest the viewport fits the SVG's natural height for the full bubble width
+     (proportional, whole diagram readable). Zooming transforms past these bounds → pan to reveal. */
+  cursor: grab;
+  touch-action: none; /* pointer drag = pan, not page scroll */
+}
+.mermaid-viewport.grabbing { cursor: grabbing; }
+.mermaid-canvas {
+  transform-origin: 0 0;
+  display: block;
+  padding: 10px;
+  /* No will-change/translateZ here: promoting the layer caches the SVG as a bitmap at base
+     size, so scale() would blur it. Without it the browser re-rasterizes the vector at each
+     zoom step → crisp. */
+}
+/* Fill the bubble width at base (override Mermaid's inline max-width:<intrinsic>px so it isn't
+   a tiny thumbnail), then zoom from there. */
+.mermaid-canvas svg {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+/* Hover toolbar (also always visible in fullscreen) */
+.mermaid-toolbar {
+  position: absolute;
+  top: 6px; right: 6px;
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity .15s ease;
+  z-index: 2;
+}
+.mermaid-diagram.rendered:hover .mermaid-toolbar,
+.mermaid-modal .mermaid-toolbar { opacity: 1; }
+.mermaid-btn {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--vscode-panel-border, rgba(127,127,127,.3));
+  background: var(--vscode-editor-background, #1e1e1e);
+  color: var(--vscode-foreground);
+  border-radius: 4px;
+  font-size: 15px; line-height: 1;
+  cursor: pointer;
+}
+.mermaid-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2)); }
+.mermaid-error {
+  margin: 6px 10px;
+  font-size: .85em;
+  color: var(--vscode-errorForeground, #f48771);
+}
+/* Fullscreen lightbox */
+.mermaid-modal {
+  position: fixed; inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+}
+.mermaid-modal-inner {
+  position: relative;
+  width: 90vw; height: 88vh;
+  background: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, rgba(127,127,127,.3));
+  border-radius: 8px;
+  overflow: hidden;
+}
+.mermaid-modal .mermaid-viewport { max-height: none; height: 100%; }
+
 /* Markdown in bubbles and reasoning panel */
 .msg .body p, #thinkContent p { margin: .4em 0; }
 .msg .body p:first-child, #thinkContent p:first-child { margin-top: 0; }

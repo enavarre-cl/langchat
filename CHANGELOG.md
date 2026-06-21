@@ -5,6 +5,24 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-06-21
+
+### Added
+- **Mermaid diagrams in chat bubbles** — ` ```mermaid ` blocks render as diagrams on top of the
+  existing Markdown. The library (`media/mermaid.min.js`) is **lazy-loaded** only when a chat
+  actually contains a diagram, so webviews without one pay nothing at startup. Rendered with
+  `securityLevel: 'strict'` and the VS Code light/dark theme. Diagrams render at settled points
+  (final message / `streamEnd` / history), never mid-stream — a half-written block reads as a code
+  block until it completes, and a syntax error degrades to the code plus a discreet note.
+- **GitHub-style pan/zoom viewer** for each diagram: wheel-to-zoom (toward the cursor),
+  drag-to-pan, double-click to reset, a hover toolbar (− / reset / + / fullscreen) and a fullscreen
+  lightbox (Esc / click-outside to close). Diagrams fill the bubble width at their natural
+  proportional height and stay crisp at any zoom (vector re-rasterized, no cached layer).
+
+### Security
+- Webview CSP `style-src` now allows `'unsafe-inline'` (required for the `<style>` Mermaid embeds
+  inside its SVG). Scripts stay nonce-locked; the lazy Mermaid `<script>` carries the page nonce.
+
 ## [1.1.2] - 2026-06-20
 
 ### Docs

@@ -223,11 +223,19 @@
 
       // Code block ```
       if (/^```/.test(line)) {
+        const lang = line.replace(/^`+/, '').trim().toLowerCase();
         const buf = [];
         i++;
         while (i < lines.length && !/^```/.test(lines[i])) { buf.push(lines[i]); i++; }
         i++;
-        out.push('<pre><code>' + escapeHtml(buf.join('\n')) + '</code></pre>');
+        const code = buf.join('\n');
+        // Mermaid: emit a pending placeholder that LOOKS like a code block (so a half-written
+        // diagram reads sensibly mid-stream), upgraded to an SVG by processMermaid() once settled.
+        if (lang === 'mermaid') {
+          out.push('<div class="mermaid-diagram" data-mermaid-pending="1"><pre class="mermaid-pre"><code class="mermaid-src">' + escapeHtml(code) + '</code></pre></div>');
+        } else {
+          out.push('<pre><code>' + escapeHtml(code) + '</code></pre>');
+        }
         continue;
       }
       // Blank line
@@ -276,6 +284,174 @@
       out.push('<p>' + inlineMd(para.join('\n')).replace(/\n/g, '<br/>') + '</p>');
     }
     return out.join('');
+  }
+
+  // ── Mermaid diagrams ───────────────────────────────────────────────────────
+  // The library (~3MB) is loaded lazily the first time a chat actually contains a
+  // ```mermaid block, so webviews without diagrams pay nothing.
+  let _mermaidPromise = null;
+  let _mermaidSeq = 0;
+  function ensureMermaid() {
+    if (_mermaidPromise) return _mermaidPromise;
+    _mermaidPromise = new Promise((resolve) => {
+      const init = () => {
+        try {
+          // VS Code adds vscode-light / vscode-dark / vscode-high-contrast to <body>.
+          const theme = document.body.classList.contains('vscode-light') ? 'default' : 'dark';
+          window.mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: 'strict', // sanitizes input; no script/click execution from diagrams
+            theme,
+            fontFamily: 'var(--vscode-editor-font-family, monospace)',
+          });
+          resolve(window.mermaid);
+        } catch (e) { resolve(null); }
+      };
+      if (window.mermaid) { init(); return; }
+      const src = window.MERMAID_SRC;
+      if (!src) { resolve(null); return; }
+      const s = document.createElement('script');
+      s.src = src;
+      if (window.PARLEY_NONCE) s.setAttribute('nonce', window.PARLEY_NONCE); // pass the CSP
+      s.onload = init;
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+    return _mermaidPromise;
+  }
+
+  // Upgrade any pending ```mermaid placeholders inside `root` into rendered SVG. Called only at
+  // settled points (final message render / streamEnd), never per streaming frame.
+  async function processMermaid(root) {
+    if (!root) return;
+    const blocks = root.querySelectorAll('.mermaid-diagram[data-mermaid-pending]');
+    if (!blocks.length) return;
+    const mermaid = await ensureMermaid();
+    for (const el of blocks) {
+      el.removeAttribute('data-mermaid-pending'); // claim it: never re-process the same node
+      const srcEl = el.querySelector('.mermaid-src');
+      const code = (srcEl ? srcEl.textContent : el.textContent) || '';
+      if (!mermaid) { el.classList.add('error'); continue; } // load failed → leave the code block
+      try {
+        const { svg } = await mermaid.render('mmd-' + (_mermaidSeq++), code);
+        mountMermaid(el, svg);
+      } catch (e) {
+        // Keep the source visible and append a discreet error note.
+        el.classList.add('error');
+        const note = document.createElement('div');
+        note.className = 'mermaid-error';
+        note.textContent = t('Could not render this Mermaid diagram') + ': ' + ((e && e.message) || e);
+        el.appendChild(note);
+      }
+    }
+  }
+
+  // Build the interactive viewer (GitHub-style): a clipped viewport with the SVG, a hover toolbar
+  // (zoom −/reset/+ and fullscreen), drag-to-pan, wheel-to-zoom and double-click-to-reset.
+  function mountMermaid(el, svg) {
+    el.classList.add('rendered');
+    el.innerHTML = '';
+    const viewport = document.createElement('div');
+    viewport.className = 'mermaid-viewport';
+    const canvas = document.createElement('div');
+    canvas.className = 'mermaid-canvas';
+    canvas.innerHTML = svg;
+    viewport.appendChild(canvas);
+    const pz = makePanZoom(viewport, canvas);
+    el.appendChild(makeMermaidToolbar(pz, () => openMermaidFullscreen(svg)));
+    el.appendChild(viewport);
+  }
+
+  function makeMermaidBtn(label, title, fn) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'mermaid-btn';
+    b.innerHTML = label;
+    b.title = title;
+    b.dataset.tip = title;
+    b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+    return b;
+  }
+
+  function makeMermaidToolbar(pz, onFull) {
+    const bar = document.createElement('div');
+    bar.className = 'mermaid-toolbar';
+    bar.appendChild(makeMermaidBtn('&minus;', t('Zoom out'), pz.zoomOut));
+    bar.appendChild(makeMermaidBtn('&#8635;', t('Reset zoom'), pz.reset));
+    bar.appendChild(makeMermaidBtn('+', t('Zoom in'), pz.zoomIn));
+    if (onFull) bar.appendChild(makeMermaidBtn('&#9974;', t('Fullscreen'), onFull));
+    return bar;
+  }
+
+  // Pan/zoom controller over `canvas` (CSS transform) inside the clipped `viewport`.
+  function makePanZoom(viewport, canvas) {
+    let scale = 1, tx = 0, ty = 0;
+    const MIN = 0.2, MAX = 8;
+    const clamp = (v) => Math.min(MAX, Math.max(MIN, v));
+    const apply = () => { canvas.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + scale + ')'; };
+    function zoomAt(cx, cy, factor) {
+      const ns = clamp(scale * factor);
+      const k = ns / scale;
+      tx = cx - (cx - tx) * k; // keep the point under the cursor fixed
+      ty = cy - (cy - ty) * k;
+      scale = ns;
+      apply();
+    }
+    const zoomCenter = (factor) => {
+      const r = viewport.getBoundingClientRect();
+      zoomAt(r.width / 2, r.height / 2, factor);
+    };
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault(); e.stopPropagation(); // own the wheel: don't scroll the chat or app-zoom
+      const r = viewport.getBoundingClientRect();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+    }, { passive: false });
+    let dragging = false, sx = 0, sy = 0;
+    viewport.addEventListener('pointerdown', (e) => {
+      dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
+      try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
+      viewport.classList.add('grabbing');
+    });
+    viewport.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      tx = e.clientX - sx; ty = e.clientY - sy; apply();
+    });
+    const endDrag = (e) => {
+      if (!dragging) return;
+      dragging = false; viewport.classList.remove('grabbing');
+      try { viewport.releasePointerCapture(e.pointerId); } catch (_) {}
+    };
+    viewport.addEventListener('pointerup', endDrag);
+    viewport.addEventListener('pointercancel', endDrag);
+    viewport.addEventListener('dblclick', (e) => { e.preventDefault(); reset(); });
+    function reset() { scale = 1; tx = 0; ty = 0; apply(); }
+    apply();
+    return { zoomIn: () => zoomCenter(1.25), zoomOut: () => zoomCenter(1 / 1.25), reset };
+  }
+
+  // Fullscreen lightbox with its own pan/zoom. Esc or click-outside closes it.
+  function openMermaidFullscreen(svg) {
+    const overlay = document.createElement('div');
+    overlay.className = 'mermaid-modal';
+    const inner = document.createElement('div');
+    inner.className = 'mermaid-modal-inner';
+    const viewport = document.createElement('div');
+    viewport.className = 'mermaid-viewport';
+    const canvas = document.createElement('div');
+    canvas.className = 'mermaid-canvas';
+    canvas.innerHTML = svg;
+    viewport.appendChild(canvas);
+    const pz = makePanZoom(viewport, canvas);
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const bar = makeMermaidToolbar(pz, null);
+    bar.appendChild(makeMermaidBtn('&times;', t('Close'), close));
+    inner.appendChild(bar);
+    inner.appendChild(viewport);
+    overlay.appendChild(inner);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
   }
 
   // Monochrome SVG icons (inherit currentColor → good contrast on any background).
@@ -700,6 +876,7 @@
       el.classList.toggle('has-tools', !!(opts.toolActivity && opts.toolActivity.length));
     }
     messagesEl.appendChild(el);
+    processMermaid(body); // upgrade any ```mermaid blocks to SVG (no-op if there are none)
     scrollDown();
     return el;
   }
@@ -2486,6 +2663,7 @@
           body.innerHTML = renderMarkdownImpl(streamingText);
           body.classList.remove('cursor');
           bindThinking(streamingEl, thinkingText);
+          processMermaid(body); // render diagrams now that the turn is complete
           scrollDown();
         }
         streamingEl = null;
@@ -2517,7 +2695,7 @@
         rafQueued = false; // cancel any pending coalesced render
         if (streamingEl) {
           const b = streamingEl.querySelector('.body');
-          if (streamingText) b.innerHTML = renderMarkdownImpl(streamingText);
+          if (streamingText) { b.innerHTML = renderMarkdownImpl(streamingText); processMermaid(b); }
           b.classList.remove('cursor');
           bindThinking(streamingEl, thinkingText); // preserve the partial reasoning badge
           streamingEl = null;

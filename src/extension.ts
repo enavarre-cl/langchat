@@ -1606,7 +1606,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', f));
     const csp = [
       `default-src 'none'`,
-      `style-src ${webview.cspSource}`,
+      // 'unsafe-inline' is required by Mermaid: it embeds a <style> element inside the rendered
+      // SVG (which carries no nonce). Scripts stay nonce-locked, so this only loosens styling.
+      `style-src ${webview.cspSource} 'unsafe-inline'`,
       `script-src 'nonce-${nonce}'`,
       `font-src ${webview.cspSource}`,
       `img-src ${webview.cspSource} data: blob:`,
@@ -1750,7 +1752,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
   window.DOWNLOADED_VOICES = ${JSON.stringify(this.downloadedVoiceIds())};
   window.PIPER_CUSTOM_SET = ${JSON.stringify(!!vscode.workspace.getConfiguration('parley').get<string>('tts.piperModel', ''))};
   window.I18N_LANG = ${JSON.stringify(resolvedLang())};
-  window.I18N_BUNDLE = ${JSON.stringify(activeBundle())};</script>
+  window.I18N_BUNDLE = ${JSON.stringify(activeBundle())};
+  window.MERMAID_SRC = '${uri('mermaid.min.js')}'; // lazy-loaded on first Mermaid block
+  window.PARLEY_NONCE = '${nonce}';                // so the lazy <script> passes the CSP</script>
   <script nonce="${nonce}" src="${uri('zoom.js')}"></script>
   <script nonce="${nonce}" src="${uri('i18n.js')}"></script>
   <script nonce="${nonce}" src="${uri('spell-engine.js')}"></script>

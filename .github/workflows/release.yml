@@ -1,6 +1,6 @@
 # CI/CD for GitHub Actions — equivalent to the old azure-pipelines.yml.
 # Manual only: runs ONLY when triggered from the Actions tab ("Run workflow"). Never on push/PR.
-# Jobs: compile → test → package (→ .vsix artifact) → publish-marketplace ∥ publish-openvsx.
+# Jobs: build (lint · compile · test · package → .vsix artifact) → publish-marketplace ∥ publish-openvsx.
 #   - Run it on `master` to publish; both publish jobs are gated by MANUAL APPROVAL and run in
 #     PARALLEL, so a failure in one is retried on its own (re-run that job) without re-approving or
 #     touching the other registry.
@@ -32,8 +32,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  compile:
-    name: Compile (lint + typecheck)
+  # A single sequential build pipeline shares one runner + one `npm ci` (lint → compile → test →
+  # package). They run on the same environment with no parallelism between them, so they belong in
+  # one job as steps, not three separate jobs (which would triple the runner spin-up and npm ci).
+  build:
+    name: Build (lint · compile · test · package)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -44,43 +47,19 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run compile
-
-  test:
-    name: Test
-    needs: compile
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
       - run: npm test
-
-  package:
-    name: Package (.vsix)
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 20
-          cache: npm
-      - run: npm ci
       - run: npx --yes @vscode/vsce package -o lang-chat.vsix
       - uses: actions/upload-artifact@v7
         with:
           name: vsix
           path: lang-chat.vsix
 
-  # The two publishes are SEPARATE, PARALLEL jobs (both `needs: package`), each behind its OWN
+  # The two publishes are SEPARATE, PARALLEL jobs (both `needs: build`), each behind its OWN
   # environment gate and its OWN token. If one fails, re-run just that job — no re-approval, and the
   # other registry is untouched. Both publishes are idempotent (skip if the version already exists).
   publish-marketplace:
     name: Publish · VS Code Marketplace
-    needs: package
+    needs: build
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: marketplace # approval gate + VSCE_PAT
@@ -110,7 +89,7 @@ jobs:
 
   publish-openvsx:
     name: Publish · Open VSX
-    needs: package
+    needs: build
     if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment: open-vsx # approval gate + OVSX_PAT

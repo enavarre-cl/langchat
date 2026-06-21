@@ -1157,9 +1157,19 @@
     if (tts.busy() && tts.msgId && doc && !(doc.messages || []).some((m) => m.id === tts.msgId)) {
       tts.stop();
     }
-    // Preserve the user's scroll position (unless they were at the bottom).
+    // Preserve the user's scroll position (unless they were at the bottom). Anchor to the message
+    // nearest the top of the viewport + its on-screen offset, so a height change in the rebuild
+    // (e.g. an edit textarea collapsing back to rendered text) doesn't make the scroll jump.
     const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 60;
     const prevTop = messagesEl.scrollTop;
+    let scrollAnchor = null;
+    if (!atBottom) {
+      const viewTop = messagesEl.getBoundingClientRect().top;
+      for (const a of messagesEl.querySelectorAll('.msg[data-msg-index]')) {
+        const r = a.getBoundingClientRect();
+        if (r.bottom > viewTop + 1) { scrollAnchor = { index: a.dataset.msgIndex, offset: r.top - viewTop }; break; }
+      }
+    }
     messagesEl.innerHTML = '';
     if (!doc) return;
     suppressScroll = true;
@@ -1334,8 +1344,20 @@
     if (!lastN && upTo > 0 && !summaryShown) summaryDivider();
     // Restore scroll: to the bottom if already there; otherwise to where it was.
     suppressScroll = false;
-    if (atBottom) messagesEl.scrollTop = messagesEl.scrollHeight;
-    else messagesEl.scrollTop = prevTop;
+    if (atBottom) {
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    } else if (scrollAnchor) {
+      // Re-pin the anchor message to the same on-screen offset it had before the rebuild.
+      const a = messagesEl.querySelector('.msg[data-msg-index="' + scrollAnchor.index + '"]');
+      if (a) {
+        const viewTop = messagesEl.getBoundingClientRect().top;
+        messagesEl.scrollTop += (a.getBoundingClientRect().top - viewTop) - scrollAnchor.offset;
+      } else {
+        messagesEl.scrollTop = prevTop;
+      }
+    } else {
+      messagesEl.scrollTop = prevTop;
+    }
     // If the search bar is open, re-highlight over the freshly rebuilt DOM.
     if (typeof refreshFind === 'function') refreshFind();
     // Show the reasoning of the last message in the panel.

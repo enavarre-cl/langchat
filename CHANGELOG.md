@@ -5,6 +5,15 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-06-21
+
+### Fixed
+- **Scroll jumped on saving an edit.** Editing a message (especially the penultimate one) made the
+  view jump several messages up on save: the open textarea inflated the bubble, and the re-render
+  restored a now-stale absolute `scrollTop`. Scroll restoration is now **anchored to the top-most
+  visible message** (re-pinned to the same on-screen offset), so a height change in the rebuild no
+  longer moves the view — this also steadies the scroll on delete/merge re-renders.
+
 ## [1.2.4] - 2026-06-21
 
 ### Fixed

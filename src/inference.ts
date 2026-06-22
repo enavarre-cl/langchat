@@ -162,8 +162,9 @@ export async function runInference(
         webview.postMessage({ type: 'streamEnd', id });
         if (res.usage) usage = addUsage(usage, res.usage);
         if (res.images?.length) images = images.concat(res.images);
-        answer = res.answer;
-        thinking = res.thinking;
+        // Only adopt the text of a chat() that actually completed. On failure/abort `res` is the
+        // empty default, so overwriting here would wipe a non-empty answer from a prior iteration.
+        if (!failed && !aborted) { answer = res.answer; thinking = res.thinking; }
 
         if (failed || aborted || !res.toolCalls || !res.toolCalls.length) break;
 

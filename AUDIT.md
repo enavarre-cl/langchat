@@ -40,7 +40,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🔴 Críticos — seguridad y pérdida de datos
 
-> **Progreso de correcciones: 3 / 10 del Top 10 (faltan 7).** Marcados con ✅ los corregidos.
+> **Progreso de correcciones: 4 / 10 del Top 10 (faltan 6).** Marcados con ✅ los corregidos.
 
 | Id | archivo:línea | Problema |
 |----|---------------|----------|
@@ -50,7 +50,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 | C4 | `src/webviewHtml.ts:200-203` | `JSON.stringify(bundle/voices)` interpolado en un `<script>` inline **sin escapar `</script>`**. Un voice id (de nombre de archivo en `globalStorage`) con `</script><script>` → XSS dentro del webview. |
 | C5 | `src/messageRouter.ts:133` | **Path traversal**: el regex de validación de `voice` no está anclado al final → `en_US-../../../etc` pasa el `test` y llega a `removePiperVoice`. |
 | C6 | `src/download.ts:41` | **Redirects sin validación SSRF**: `downloadFile` sigue 6 redirects sin comprobar host/IP (a diferencia de `safeWebFetch`). Un `Location:` a `169.254.169.254` o red interna se sigue. |
-| C7 | `src/inference.ts:165-168` | **Pérdida de datos**: si una iteración del loop falla, `answer = res.answer` (vacío) **sobrescribe la respuesta acumulada** de iteraciones previas. El texto bueno se pierde. |
+| ✅ C7 | `src/inference.ts:163-166` | **CORREGIDO** — `answer`/`thinking` solo se actualizan desde un `chat()` que completó (`!failed && !aborted`); un fallo/abort ya no pisa la respuesta acumulada con el `res` vacío por defecto. |
 | C8 | `src/chatDocument.ts:147-176` | `parseDoc` **revienta con un `.chat` que sea JSON `null`** (`raw.summary` → TypeError) y **descarta campos desconocidos en el round-trip** → edición manual o versión futura pierde datos silenciosamente. |
 | C9 | `src/attachmentStore.ts:43-92` | Escritura "atómica" usa **`.tmp` de nombre fijo** → dos ventanas con el mismo `.chat` se corrompen; y el **cache nunca se invalida** → sirve blobs obsoletos. |
 
@@ -148,7 +148,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 1. ✅ **C1** XSS de control-char en links (markdown.js:41) — **HECHO**.
 2. ✅ **C3** `fs_write` puede sobrescribir `.mcp.json` → RCE diferido — **HECHO**.
 3. ✅ **C2** `fs_search`/`fs_glob` sin `assertRealWithin` (symlink traversal) — **HECHO**.
-4. **C7** `inference.ts:165` descarta la respuesta parcial en error.
+4. ✅ **C7** `inference.ts:165` descarta la respuesta parcial en error — **HECHO**.
 5. **C4** `</script>` sin escapar en script inline (webviewHtml.ts).
 6. **stream.ts:32** sin flush final → se pierde el chunk de usage/done.
 7. **stream.ts:26** reader nunca liberado + abort no corta el stream.

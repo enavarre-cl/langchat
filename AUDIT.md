@@ -40,14 +40,14 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🔴 Críticos — seguridad y pérdida de datos
 
-> **Progreso de correcciones: 4 / 10 del Top 10 (faltan 6).** Marcados con ✅ los corregidos.
+> **Progreso de correcciones: 5 / 10 del Top 10 (faltan 5).** Marcados con ✅ los corregidos.
 
 | Id | archivo:línea | Problema |
 |----|---------------|----------|
 | ✅ C1 | `media/render/markdown.js:41` | **CORREGIDO** — **XSS**: control-char inicial bypassa el allowlist de esquema → `javascript:` ejecutable desde un link del modelo. (verificado y testeado) |
 | ✅ C2 | `src/tools.ts:206-221` | **CORREGIDO** — `fs_search`/`fs_glob` ahora filtran con `withinAnyFolder` (realpath dentro de algún folder); un symlink que escapa el workspace se omite. (verificado con symlink real) |
 | ✅ C3 | `src/tools.ts:60-74` | **CORREGIDO** — `assertWritable` ahora bloquea `.mcp.json` y `.mcp/` (además de `.git`/`.vscode`), contra cada folder en multi-root → cierra el RCE diferido vía `loadServerConfigs`. |
-| C4 | `src/webviewHtml.ts:200-203` | `JSON.stringify(bundle/voices)` interpolado en un `<script>` inline **sin escapar `</script>`**. Un voice id (de nombre de archivo en `globalStorage`) con `</script><script>` → XSS dentro del webview. |
+| ✅ C4 | `src/webviewHtml.ts:214-217` | **CORREGIDO** — nuevo helper `jsonForScript()` escapa `<`/`>`/U+2028/U+2029 antes de interpolar en el `<script>` inline; un voice id con `</script>` ya no rompe el script. (verificado) |
 | C5 | `src/messageRouter.ts:133` | **Path traversal**: el regex de validación de `voice` no está anclado al final → `en_US-../../../etc` pasa el `test` y llega a `removePiperVoice`. |
 | C6 | `src/download.ts:41` | **Redirects sin validación SSRF**: `downloadFile` sigue 6 redirects sin comprobar host/IP (a diferencia de `safeWebFetch`). Un `Location:` a `169.254.169.254` o red interna se sigue. |
 | ✅ C7 | `src/inference.ts:163-166` | **CORREGIDO** — `answer`/`thinking` solo se actualizan desde un `chat()` que completó (`!failed && !aborted`); un fallo/abort ya no pisa la respuesta acumulada con el `res` vacío por defecto. |
@@ -149,7 +149,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 2. ✅ **C3** `fs_write` puede sobrescribir `.mcp.json` → RCE diferido — **HECHO**.
 3. ✅ **C2** `fs_search`/`fs_glob` sin `assertRealWithin` (symlink traversal) — **HECHO**.
 4. ✅ **C7** `inference.ts:165` descarta la respuesta parcial en error — **HECHO**.
-5. **C4** `</script>` sin escapar en script inline (webviewHtml.ts).
+5. ✅ **C4** `</script>` sin escapar en script inline (webviewHtml.ts) — **HECHO**.
 6. **stream.ts:32** sin flush final → se pierde el chunk de usage/done.
 7. **stream.ts:26** reader nunca liberado + abort no corta el stream.
 8. **extension.ts:313** floating promise del router sin try/catch.

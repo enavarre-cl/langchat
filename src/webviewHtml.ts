@@ -1,6 +1,20 @@
 import * as vscode from 'vscode';
 import { makeNonce } from './chatHelpers';
 
+/**
+ * Serializes a value for embedding inside an inline <script>. JSON.stringify does NOT escape
+ * `</script>`, `<!--` or the line separators U+2028/U+2029, so a value containing `</script>`
+ * (e.g. a malicious downloaded-voice filename) would break out of the script element. Escaping
+ * `<` and `>` to \uXXXX keeps it a valid JS string literal and closes that hole.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\u2028')
+    .replace(/\u2029/g, '\u2029');
+}
+
 // Line icons (monochrome, inherit currentColor) for the toolbar and headers.
 const SVG = (inner: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
@@ -197,10 +211,10 @@ export function renderWebviewHtml(
     de: { aff: '${uri('dict/de.aff')}', dic: '${uri('dict/de.dic')}' },
     it: { aff: '${uri('dict/it.aff')}', dic: '${uri('dict/it.dic')}' }
   };
-  window.DOWNLOADED_VOICES = ${JSON.stringify(downloadedVoices)};
-  window.PIPER_CUSTOM_SET = ${JSON.stringify(piperCustomSet)};
-  window.I18N_LANG = ${JSON.stringify(lang)};
-  window.I18N_BUNDLE = ${JSON.stringify(bundle)};
+  window.DOWNLOADED_VOICES = ${jsonForScript(downloadedVoices)};
+  window.PIPER_CUSTOM_SET = ${jsonForScript(piperCustomSet)};
+  window.I18N_LANG = ${jsonForScript(lang)};
+  window.I18N_BUNDLE = ${jsonForScript(bundle)};
   window.MERMAID_SRC = '${uri('mermaid.min.js')}'; // lazy-loaded on first Mermaid block
   window.PARLEY_NONCE = '${nonce}';                // so the lazy <script> passes the CSP</script>
   <!-- Classic scripts set window globals (LangZoom / LangI18n / LangSpell) consumed by the modules. -->

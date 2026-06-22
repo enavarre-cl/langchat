@@ -5,7 +5,7 @@ import * as dns from 'dns';
 import { McpManager } from './mcp';
 import { ToolSchema } from './providers';
 import { ipIsPrivate } from './net';
-import { httpFetch } from './http';
+import { safeWebFetch } from './http';
 
 /** Rejects a host that resolves to an internal/private IP (anti-SSRF). Checks ALL its IPs. */
 async function assertSafeHost(hostname: string): Promise<void> {
@@ -95,8 +95,8 @@ function maxReadBytes(): number {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : DEFAULT_MAX_READ;
 }
 
-/** Native workspace filesystem tools (fs_ prefix). */
-const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
+/** Native workspace filesystem tools (fs_ prefix). `signal` lets a long tool (web_fetch) be aborted. */
+const BUILTIN: { schema: ToolSchema; run: (args: any, signal?: AbortSignal) => Promise<string> }[] = [
   {
     schema: {
       name: 'fs_list',
@@ -124,8 +124,8 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
       const fd = fs.openSync(file, 'r');
       try {
         const buf = Buffer.alloc(toRead);
-        fs.readSync(fd, buf, 0, toRead, 0);
-        const text = buf.toString('utf8');
+        const read = fs.readSync(fd, buf, 0, toRead, 0); // may be < toRead; decode only what we got
+        const text = buf.subarray(0, read).toString('utf8');
         return size > limit ? text + `\n… (truncated, ${size} bytes)` : text;
       } finally {
         fs.closeSync(fd);
@@ -236,19 +236,23 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
         required: ['url'],
       },
     },
-    run: async (a) => {
+    run: async (a, signal) => {
       let url = String(a?.url ?? '');
       if (!/^https?:\/\//i.test(url)) throw new Error('Only http/https URLs are allowed.');
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 20000);
+      // Wire the turn's Stop signal into this fetch so pressing Stop cancels it (not just the 20s timer).
+      const onAbort = () => controller.abort();
+      if (signal) { if (signal.aborted) controller.abort(); else signal.addEventListener('abort', onAbort); }
       try {
-        // Follows redirects manually, validating the host at EACH hop (prevents public→internal bypass).
+        // Follows redirects manually, validating the host at EACH hop (defense in depth on top of the
+        // connect-time IP check in safeWebFetch, which closes the DNS-rebinding window).
         let res: Response | null = null;
         for (let hop = 0; hop < 6; hop++) {
           const u = new URL(url);
           if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Only http/https URLs are allowed.');
           await assertSafeHost(u.hostname);
-          res = await httpFetch(url, {
+          res = await safeWebFetch(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (Parley)', Accept: '*/*' },
             signal: controller.signal,
             redirect: 'manual',
@@ -267,6 +271,7 @@ const BUILTIN: { schema: ToolSchema; run: (args: any) => Promise<string> }[] = [
         return text || '(empty)';
       } finally {
         clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
       }
     },
   },
@@ -320,9 +325,9 @@ export class ToolHub {
     return [...BUILTIN.map((b) => b.schema), ...this.mcp.toolSchemas()];
   }
 
-  async call(name: string, args: any): Promise<string> {
+  async call(name: string, args: any, signal?: AbortSignal): Promise<string> {
     const builtin = BUILTIN.find((b) => b.schema.name === name);
-    if (builtin) return builtin.run(args);
+    if (builtin) return builtin.run(args, signal);
     // MCP tools use the `server__tool` separator. Without it (e.g. the model invents `fs_//read`),
     // we give a CLEAR error with the available tools so the model can self-correct (not a useless
     // "empty MCP server" that could also break the next turn).
@@ -330,7 +335,7 @@ export class ToolHub {
       const avail = this.schemas().map((s) => s.name).join(', ');
       throw new Error(`Unknown tool "${name}". Available tools: ${avail}`);
     }
-    return this.mcp.call(name, args);
+    return this.mcp.call(name, args, signal);
   }
 
   mcpErrors(): string[] {

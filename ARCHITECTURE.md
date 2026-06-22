@@ -335,7 +335,9 @@ graph LR
 - **API keys** live in **SecretStorage** (encrypted), entered via a masked input command, not
   in plaintext settings.
 - **Network** goes through `http.ts` (respects `http.proxy` / env proxy). Binaries (Ollama,
-  Piper, voices, GGUFs) are **SHA-256 verified** before use (fail-closed).
+  Piper, voices, GGUFs) are **SHA-256 verified** before use (fail-closed). `web_fetch` blocks SSRF:
+  it validates the resolved IP **at connect time** (anti DNS-rebinding) and re-checks the host at
+  every redirect hop.
 - **Webview CSP**: scripts are **nonce-locked** (`script-src 'nonce-…'`, no inline/eval); the
   lazily-loaded Mermaid bundle carries that nonce. `style-src` allows `'unsafe-inline'` only
   because Mermaid embeds a `<style>` in its SVG; diagrams render with `securityLevel: 'strict'`.

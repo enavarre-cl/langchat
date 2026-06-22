@@ -14,6 +14,7 @@ function parseAttachments(raw: any): Attachment[] {
       };
       if (typeof a.ref === 'string') o.ref = a.ref;
       if (typeof a.data === 'string') o.data = a.data; // compat: legacy inline attachments
+      if (typeof a.bytes === 'number' && a.bytes >= 0) o.bytes = a.bytes;
       return o;
     });
 }
@@ -120,6 +121,25 @@ function toggle(v: any, def: Toggle): Toggle {
   return { ...def };
 }
 
+/**
+ * Drops a trailing INCOMPLETE tool exchange from a message list ABOUT TO BE SENT to a backend. If
+ * the editor closed mid agentic loop, the history can end with a `tool` result or an `assistant`
+ * still requesting tools, with no final answer — replaying that triggers a 400 (assistant tool_call
+ * without its tool reply). A completed turn always ends with an assistant message that has NO
+ * toolCalls, so this only strips a genuinely unfinished trailing exchange.
+ *
+ * IMPORTANT: apply this to the wire copy at send time — NOT inside parseDoc — because mid-loop the
+ * persisted doc legitimately ends with a just-completed tool exchange whose answer isn't written yet.
+ */
+export function repairTrailingToolChain(messages: ChatMessage[]): void {
+  while (messages.length) {
+    const last = messages[messages.length - 1];
+    const incomplete = last.role === 'tool' || (last.role === 'assistant' && !!(last.toolCalls && last.toolCalls.length));
+    if (!incomplete) break;
+    messages.pop();
+  }
+}
+
 /** Parses the text of a `.chat` file. Migrates v1 format to v2. Throws if the JSON is invalid. */
 export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
   if (!text || !text.trim()) return defaultDoc(defaults);
@@ -165,7 +185,7 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
       : undefined;
   if (usage && typeof raw.usage.cost === 'number') usage.cost = raw.usage.cost;
 
-  return {
+  const doc: ChatDoc = {
     version: 2,
     title: typeof raw.title === 'string' ? raw.title : base.title,
     provider: validateProvider(raw.provider),
@@ -231,6 +251,7 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
           })
       : [],
   };
+  return doc;
 }
 
 export function serializeDoc(doc: ChatDoc): string {

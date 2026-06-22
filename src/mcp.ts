@@ -85,17 +85,24 @@ class McpClient {
     try { this.proc?.stdin?.write(JSON.stringify(obj) + '\n'); } catch { /* process dead */ }
   }
 
-  private request(method: string, params: any): Promise<any> {
+  private request(method: string, params: any, signal?: AbortSignal): Promise<any> {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      let done = false;
+      const finish = (fn: (v: any) => void, v: any) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        this.pending.delete(id);
+        fn(v);
+      };
+      const onAbort = () => finish(reject, new Error('Stopped.'));
+      const timer = setTimeout(() => finish(reject, new Error(`MCP timeout: ${method}`)), 30000);
+      // The pending map routes the server's reply (onData) through finish so the timer/listener clear.
+      this.pending.set(id, { resolve: (v) => finish(resolve, v), reject: (e) => finish(reject, e) });
       this.send({ jsonrpc: '2.0', id, method, params });
-      setTimeout(() => {
-        if (this.pending.has(id)) {
-          this.pending.delete(id);
-          reject(new Error(`MCP timeout: ${method}`));
-        }
-      }, 30000);
+      if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort); }
     });
   }
 
@@ -103,8 +110,8 @@ class McpClient {
     this.send({ jsonrpc: '2.0', method, params });
   }
 
-  async callTool(name: string, args: any): Promise<string> {
-    const res = await this.request('tools/call', { name, arguments: args ?? {} });
+  async callTool(name: string, args: any, signal?: AbortSignal): Promise<string> {
+    const res = await this.request('tools/call', { name, arguments: args ?? {} }, signal);
     const content = Array.isArray(res?.content) ? res.content : [];
     const text = content
       .map((c: any) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
@@ -221,13 +228,13 @@ export class McpManager {
     return out;
   }
 
-  async call(fullName: string, args: any): Promise<string> {
+  async call(fullName: string, args: any, signal?: AbortSignal): Promise<string> {
     const sep = fullName.indexOf('__');
     const server = sep >= 0 ? fullName.slice(0, sep) : '';
     const tool = sep >= 0 ? fullName.slice(sep + 2) : fullName;
     const client = this.clients.find((c) => c.config.name === server);
     if (!client) throw new Error(`MCP server not found: ${server}`);
-    return client.callTool(tool, args);
+    return client.callTool(tool, args, signal);
   }
 
   dispose(): void {

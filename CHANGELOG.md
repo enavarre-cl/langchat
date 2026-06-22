@@ -5,6 +5,46 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-22
+
+### Performance
+- **Streaming no longer re-parses the whole message every frame.** Completed Markdown blocks (up to
+  the last blank line outside a code fence) are parsed once and frozen in the DOM; only the small
+  open tail is re-rendered per frame — removes the O(n²) re-parse + full `innerHTML` rebuild on long
+  answers.
+- **Mermaid diagrams are cached by source.** History rebuilds (new message, edit, variant switch,
+  find/replace…) reuse the rendered SVG instead of re-running `mermaid.render()` for every diagram.
+
+### Security
+- **`web_fetch` is hardened against DNS-rebinding (SSRF TOCTOU).** When no proxy is configured it
+  routes through an undici dispatcher that validates the resolved IP **at connect time** and
+  connects to that exact IP, so the address that is checked is the address that is used (the
+  per-hop host check remains as defense in depth).
+- **Workspace `fs_read` honors the actual bytes read** (`readSync` return value) and decodes only
+  those — no zero-padding / truncated-UTF-8 tail.
+
+### Fixed
+- **Stop now cancels an in-flight tool.** The turn's abort signal is threaded into `web_fetch` and
+  MCP `tools/call`, so pressing Stop interrupts a long fetch/MCP request instead of waiting out its
+  own timeout.
+- **Attachment sidecar (`.attach`) writes are atomic** (temp file + rename) and serialized, and a
+  sidecar that exists but can't be parsed is never overwritten/pruned — closes a window where a
+  half-written read reset it to `{}` and a later save/prune persisted that, losing every blob.
+- **Crash-recovery: a trailing unfinished tool exchange is dropped before replay.** Reopening a
+  `.chat` that ended mid agentic loop (an assistant `tool_call` with no tool reply) no longer makes
+  the backend 400 — the wire is repaired at send time (the stored doc is untouched mid-loop).
+- **Token budgeting counts attachment size.** Ref-only attachments (blobs live in the sidecar) now
+  carry their byte size, so large attached files are no longer budgeted as 0 and can't silently
+  overflow the model context window.
+- The `onChange` reconciliation no longer re-renders mid-turn (could disrupt the streaming bubble).
+
+### Internal
+- Variant→message field-mirroring (content/thinking/usage/attachments), previously hand-written in
+  4 places, is now a single `applyVariantToMessage()` helper.
+- Find/replace pure helpers (`buildFindRegex`, `replaceInString`, `applyCase`, `expandRefs`) moved
+  to a VS Code-free `src/findReplace.ts` module **with unit tests** (case/whole-word/regex/`$1`
+  groups/preserve-case/no-trim).
+
 ## [1.2.5] - 2026-06-21
 
 ### Fixed

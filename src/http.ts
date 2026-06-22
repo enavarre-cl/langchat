@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as dns from 'dns';
+import { ipIsPrivate } from './net';
 
 // `fetch` that respects the configured proxy. Defaults to the global `fetch` (no changes in the
 // common case, without proxy). If a proxy is set, routes through undici with a ProxyAgent —
@@ -32,3 +34,54 @@ export function initProxy(): void {
 
 /** `fetch` with proxy support. Use instead of the global `fetch`. */
 export const httpFetch: typeof globalThis.fetch = (input: any, init?: any) => _fetch(input, init);
+
+// ── SSRF-safe fetch (web_fetch) ───────────────────────────────────────────────────────────────
+// An undici Agent whose DNS lookup validates the resolved IP AT CONNECT time and connects to that
+// exact IP. This closes the DNS-rebinding (TOCTOU) window a separate pre-flight check leaves open:
+// the address that is validated is the address that is connected to (no second, attacker-swappable
+// resolution). Private/internal/metadata IPs are refused.
+let _ssrfAgent: any = null;
+let _ssrfTried = false;
+function ssrfSafeDispatcher(): any {
+  if (_ssrfTried) return _ssrfAgent;
+  _ssrfTried = true;
+  try {
+    const { Agent } = require('undici');
+    _ssrfAgent = new Agent({
+      connect: {
+        lookup(hostname: string, options: any, cb: (err: Error | null, address?: string, family?: number) => void) {
+          dns.lookup(hostname, { ...(options || {}), all: true }, (err, addresses: any) => {
+            if (err) return cb(err);
+            const list = Array.isArray(addresses) ? addresses : [addresses];
+            for (const a of list) {
+              const ip = typeof a === 'string' ? a : a.address;
+              if (ipIsPrivate(ip)) return cb(new Error('Internal/private host blocked (SSRF).'));
+            }
+            const first = list[0];
+            cb(null, typeof first === 'string' ? first : first.address, typeof first === 'string' ? 4 : first.family);
+          });
+        },
+      },
+    });
+  } catch {
+    _ssrfAgent = null; // undici unavailable: fall back (the per-hop host check still applies)
+  }
+  return _ssrfAgent;
+}
+
+/**
+ * Fetch for `web_fetch`: SSRF-hardened. With no proxy, routes through an undici dispatcher that
+ * validates the resolved IP at connect time (anti DNS-rebinding). With a proxy, the proxy resolves
+ * DNS (rebinding to the target IP doesn't apply), so the proxied fetch is used as-is.
+ */
+export function safeWebFetch(input: any, init?: any): Promise<Response> {
+  if (_fetch !== globalThis.fetch) return _fetch(input, init); // a proxy is configured
+  const dispatcher = ssrfSafeDispatcher();
+  if (!dispatcher) return _fetch(input, init);
+  try {
+    const { fetch: undiciFetch } = require('undici');
+    return undiciFetch(input, { ...(init || {}), dispatcher });
+  } catch {
+    return _fetch(input, init);
+  }
+}

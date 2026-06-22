@@ -12,6 +12,7 @@ export interface Attachment {
   mime: string;
   data?: string; // resolved content (in memory / wire / webview)
   ref?: string;  // id of the entry in the .attach sidecar (what gets saved in the .chat file)
+  bytes?: number; // size of the resolved content; kept on ref-only attachments for token budgeting
 }
 
 export interface ToolSchema {

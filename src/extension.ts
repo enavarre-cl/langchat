@@ -4,7 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as crypto from 'crypto';
-import { buildProvider, chatDefaults, providerInfo, isProviderId, setApiKeyOverride, setManagedOllamaBaseUrl, ChatMessage, ProviderId } from './providers';
+import { buildProvider, chatDefaults, providerInfo, isProviderId, setApiKeyOverride, setManagedOllamaBaseUrl, ChatMessage, ChatVariant, ProviderId } from './providers';
 import { OllamaManager } from './ollama/manager';
 import { DownloadManager } from './ollama/downloads';
 import { ModelCardCache } from './ollama/cards';
@@ -18,7 +18,9 @@ import {
   serializeDoc,
   defaultDoc,
   resolveGenerationParams,
+  repairTrailingToolChain,
 } from './chatDocument';
+import { FindOpts, replaceInString } from './findReplace';
 import { ToolHub } from './tools';
 import { wavData, concatWavs, splitForTTS } from './audio';
 import { initProxy } from './http';
@@ -579,18 +581,42 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       return vscode.Uri.joinPath(document.uri, '..', stem + '.attach');
     };
     let attachCache: Record<string, any> | null = null;
+    let attachLoadFailed = false;        // sidecar exists but couldn't be parsed → never clobber it
+    let attachWriteChain: Promise<void> = Promise.resolve(); // serialize sidecar writes
     const loadAttach = (): Record<string, any> => {
       if (attachCache) return attachCache;
+      let raw: string;
       try {
-        attachCache = JSON.parse(fs.readFileSync(attachUri().fsPath, 'utf8'));
+        raw = fs.readFileSync(attachUri().fsPath, 'utf8');
+      } catch (e: any) {
+        attachCache = {};
+        attachLoadFailed = e?.code !== 'ENOENT'; // ENOENT = no sidecar yet (safe to create fresh)
+        return attachCache;
+      }
+      try {
+        attachCache = JSON.parse(raw);
       } catch {
         attachCache = {};
+        attachLoadFailed = true; // existing-but-corrupt (e.g. a half-written read): don't overwrite it
       }
       return attachCache!;
     };
+    // Atomic write (temp file + rename) so a concurrent reader never sees a half-written sidecar and
+    // resets it to {} (which a later save/prune would then persist, losing every blob). Serialized.
+    const writeSidecar = (store: Record<string, any>): Promise<void> => {
+      const run = attachWriteChain.then(async () => {
+        const main = attachUri();
+        const tmp = main.with({ path: main.path + '.tmp' });
+        await vscode.workspace.fs.writeFile(tmp, Buffer.from(JSON.stringify(store) + '\n', 'utf8'));
+        await vscode.workspace.fs.rename(tmp, main, { overwrite: true });
+      });
+      attachWriteChain = run.catch(() => {}); // keep the chain alive even if one write fails
+      return run;
+    };
     const saveAttach = async (store: Record<string, any>): Promise<void> => {
       attachCache = store;
-      await vscode.workspace.fs.writeFile(attachUri(), Buffer.from(JSON.stringify(store) + '\n', 'utf8'));
+      attachLoadFailed = false; // we now hold an authoritative store
+      await writeSidecar(store);
     };
     // Saves new blobs in the sidecar and returns attachments with only {kind,name,mime,ref}.
     const storeAttachments = async (atts: any[]): Promise<any[]> => {
@@ -599,8 +625,9 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const refs: any[] = [];
       for (const a of atts) {
         const id = `att_${Date.now().toString(36)}${Math.floor(Math.random() * 1e9).toString(36)}`;
-        store[id] = { kind: a.kind, name: a.name, mime: a.mime, data: a.data };
-        refs.push({ kind: a.kind, name: a.name, mime: a.mime, ref: id });
+        const bytes = typeof a.data === 'string' ? a.data.length : 0;
+        store[id] = { kind: a.kind, name: a.name, mime: a.mime, data: a.data, bytes };
+        refs.push({ kind: a.kind, name: a.name, mime: a.mime, ref: id, bytes }); // bytes → token budgeting
       }
       await saveAttach(store);
       return refs;
@@ -623,7 +650,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     };
     // Removes from the sidecar entries no longer referenced by any message (on delete/merge/fork).
     const pruneAttach = async (doc: ChatDoc): Promise<void> => {
-      if (!attachCache) return; // only if attachments have been/were loaded
+      if (!attachCache) return;        // only if attachments have been/were loaded
+      if (attachLoadFailed) return;    // store unreadable: never delete from a set we couldn't read
       const used = new Set<string>();
       for (const m of doc.messages) {
         for (const a of (m.attachments ?? [])) if (a.ref) used.add(a.ref);
@@ -635,9 +663,10 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       }
       if (!changed) return;
       if (Object.keys(attachCache).length === 0) {
+        await attachWriteChain.catch(() => {}); // let pending writes settle before deleting
         try { await vscode.workspace.fs.delete(attachUri()); } catch { /* no longer exists */ }
       } else {
-        await vscode.workspace.fs.writeFile(attachUri(), Buffer.from(JSON.stringify(attachCache) + '\n', 'utf8'));
+        await writeSidecar(attachCache);
       }
     };
 
@@ -782,7 +811,10 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       context: ChatMessage[],
       allowTools = false
     ): Promise<{ answer: string; thinking: string; failed: boolean; usage?: any; images: { mime: string; data: string }[] }> => {
-      let history = context;
+      // Copy + drop any trailing unfinished tool exchange (crash/reload recovery) so we never replay
+      // an assistant tool_call without its tool reply → provider 400. On a normal send this is a no-op.
+      let history = context.slice();
+      repairTrailingToolChain(history);
       let summaryText = '';
       // Resolve ONCE: used both to budget the trimming below and as the system message sent. Must be
       // the effective prompt (file content included) or the budget under-counts and can overflow the window.
@@ -935,7 +967,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
           try { args = JSON.parse(tc.arguments || '{}'); } catch { /* empty args */ }
           webview.postMessage({ type: 'toolCall', name: tc.name, args: tc.arguments || '' });
           try {
-            out = await toolHub.call(tc.name, args);
+            out = await toolHub.call(tc.name, args, ac.signal); // Stop cancels an in-flight tool too
           } catch (e: any) {
             out = 'Error: ' + (e?.message ?? e);
           }
@@ -1142,10 +1174,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (images.length) variant.attachments = await storeGenImages(images);
       target.variants.push(variant);
       target.active = target.variants.length - 1;
-      target.content = answer;
-      if (thinking) target.thinking = thinking; else delete target.thinking;
-      if (usage) target.usage = usage; else delete target.usage;
-      if (variant.attachments) target.attachments = variant.attachments; else delete target.attachments;
+      applyVariantToMessage(target, variant);
       await writeDoc(fresh);
       sendHistory();
     };
@@ -1157,10 +1186,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (!doc || !t || !Array.isArray(t.variants)) return;
       if (variant < 0 || variant >= t.variants.length) return;
       t.active = variant;
-      t.content = t.variants[variant].content;
-      if (t.variants[variant].thinking) t.thinking = t.variants[variant].thinking; else delete t.thinking;
-      if (t.variants[variant].usage) t.usage = t.variants[variant].usage; else delete t.usage;
-      if (t.variants[variant].attachments) t.attachments = t.variants[variant].attachments; else delete t.attachments;
+      applyVariantToMessage(t, t.variants[variant]);
       await writeDoc(doc);
       sendHistory();
     };
@@ -1173,20 +1199,13 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (variant < 0 || variant >= t.variants.length) return;
       t.variants.splice(variant, 1);
       if (t.variants.length <= 1) {
-        const only = t.variants[0];
-        t.content = only.content;
-        if (only.thinking) t.thinking = only.thinking; else delete t.thinking;
-        if (only.usage) t.usage = only.usage; else delete t.usage;
-        if (only.attachments) t.attachments = only.attachments; else delete t.attachments;
+        applyVariantToMessage(t, t.variants[0]); // collapse back to a plain response
         delete t.variants;
         delete t.active;
       } else {
         const a = Math.min(t.active ?? 0, t.variants.length - 1);
         t.active = a;
-        t.content = t.variants[a].content;
-        if (t.variants[a].thinking) t.thinking = t.variants[a].thinking; else delete t.thinking;
-        if (t.variants[a].usage) t.usage = t.variants[a].usage; else delete t.usage;
-        if (t.variants[a].attachments) t.attachments = t.variants[a].attachments; else delete t.attachments;
+        applyVariantToMessage(t, t.variants[a]);
       }
       await writeDoc(doc);
       sendHistory();
@@ -1608,6 +1627,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         void vscode.workspace.applyEdit(edit);
         return;
       }
+      if (busy) return; // don't reconcile/re-render mid-turn — it would disrupt the streaming bubble
       pushDoc();
     });
 
@@ -1852,9 +1872,22 @@ function addUsage(a: any, b: any): any {
 function estTokens(s?: string): number {
   return s ? Math.ceil(s.length / 4) : 0;
 }
+/** Mirrors a variant's fields onto its parent message (content always; thinking/usage/attachments
+ *  set when present, deleted when absent). The single source of truth for variant→message sync. */
+function applyVariantToMessage(m: ChatMessage, v: ChatVariant): void {
+  m.content = v.content;
+  if (v.thinking) m.thinking = v.thinking; else delete m.thinking;
+  if (v.usage) m.usage = v.usage; else delete m.usage;
+  if (v.attachments) m.attachments = v.attachments; else delete m.attachments;
+}
 function msgTokens(m: ChatMessage): number {
   let t = estTokens(m.content) + 4;
-  for (const a of m.attachments ?? []) t += a.kind === 'image' ? 1200 : estTokens(a.data);
+  for (const a of m.attachments ?? []) {
+    // Blobs live in the .attach sidecar, so history messages hold {ref} without `data`. Fall back to
+    // the stored byte size so large attached files aren't budgeted as 0 (which overflowed the window).
+    if (a.kind === 'image') t += 1200;
+    else t += a.data ? estTokens(a.data) : Math.ceil((a.bytes ?? 0) / 4);
+  }
   return t;
 }
 
@@ -1933,61 +1966,6 @@ function errMsg(err: any): string {
   return m;
 }
 
-interface FindOpts { matchCase?: boolean; wholeWord?: boolean; regex?: boolean; preserveCase?: boolean; }
-
-/** Build the same regex the webview uses, so host replace matches the on-screen highlight. */
-function buildFindRegex(query: string, o: FindOpts): RegExp | null {
-  if (query === '') return null;
-  let pattern = o.regex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (o.wholeWord) pattern = `\\b${pattern}\\b`;
-  try { return new RegExp(pattern, `g${o.matchCase ? '' : 'i'}`); } catch { return null; }
-}
-
-/** Expand $&, $1…$9 in a regex-mode replacement against the match. */
-function expandRefs(repl: string, m: RegExpExecArray): string {
-  return repl.replace(/\$(\$|&|\d{1,2})/g, (_, k: string) => {
-    if (k === '$') return '$';
-    if (k === '&') return m[0];
-    const i = parseInt(k, 10);
-    return m[i] != null ? m[i] : '';
-  });
-}
-
-/** Mirror the casing of `matched` onto `repl` (ALL CAPS → upper, Capitalized → capitalize). */
-function applyCase(matched: string, repl: string): string {
-  if (matched && matched === matched.toUpperCase() && matched !== matched.toLowerCase()) return repl.toUpperCase();
-  if (matched && matched[0] === matched[0].toUpperCase() && matched.slice(1) === matched.slice(1).toLowerCase()) {
-    return repl.charAt(0).toUpperCase() + repl.slice(1);
-  }
-  return repl;
-}
-
-/**
- * Replace matches of `query` (with the find options) in `src`. `nth` = 0 replaces every occurrence;
- * `nth >= 1` replaces only that 1-based occurrence. Returns the new string and the replacement count.
- */
-function replaceInString(src: string, query: string, replacement: string, nth: number, o: FindOpts): { content: string; count: number } {
-  const re = buildFindRegex(query, o);
-  if (!re) return { content: src, count: 0 };
-  let out = '', last = 0, occ = 0, count = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(src)) !== null) {
-    if (m[0].length === 0) { re.lastIndex++; continue; } // guard zero-width matches
-    occ++;
-    out += src.slice(last, m.index);
-    if (nth === 0 || occ === nth) {
-      let rep = o.regex ? expandRefs(replacement, m) : replacement;
-      if (o.preserveCase) rep = applyCase(m[0], rep);
-      out += rep; count++;
-    } else {
-      out += m[0];
-    }
-    last = m.index + m[0].length;
-    if (nth !== 0 && occ === nth) break;
-  }
-  out += src.slice(last);
-  return { content: out, count };
-}
 
 // Line icons (monochrome, inherit currentColor) for the toolbar and headers.
 const SVG = (inner: string) =>

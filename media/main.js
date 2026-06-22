@@ -53,16 +53,52 @@
   let streamingText = '';
   let thinkingText = ''; // reasoning for the current turn
 
-  // Coalesced streaming render with requestAnimationFrame: instead of re-parsing all
-  // markdown on EVERY token (O(n²) + reflow), renders at most once per frame.
+  // Coalesced streaming render with requestAnimationFrame: renders at most once per frame.
+  // Incremental: completed blocks (everything up to the last blank line outside a code fence) are
+  // parsed once and frozen in the DOM; only the small open "tail" is re-parsed each frame — this
+  // removes the old O(n²) where the whole growing message was re-parsed + innerHTML-rebuilt per token.
   let rafQueued = false;
   let pendingBody = false;
   let pendingThink = false;
+  let streamCommitLen = 0;   // chars of streamingText already committed to the stable part
+  let streamStableEl = null; // holds the finalized blocks (never re-touched)
+  let streamTailEl = null;   // holds the current open block (re-rendered per frame)
+  // Largest offset in `text` that ends on a block boundary (a blank line OUTSIDE a code fence), so
+  // everything before it is a run of complete markdown blocks safe to render once and keep.
+  function stableSplit(text) {
+    const lines = text.split('\n');
+    let offset = 0, inFence = false, lastSafe = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/^```/.test(line)) inFence = !inFence;
+      offset += line.length + 1; // re-add the '\n' that split() removed
+      if (!inFence && /^\s*$/.test(line)) lastSafe = offset; // block boundary
+    }
+    return lastSafe;
+  }
+  function renderStreamBody(body, text) {
+    if (!body) return;
+    if (streamStableEl == null || streamStableEl.parentNode !== body) {
+      body.innerHTML = '';
+      streamStableEl = document.createElement('div'); streamStableEl.className = 'stream-part';
+      streamTailEl = document.createElement('div'); streamTailEl.className = 'stream-part';
+      body.appendChild(streamStableEl); body.appendChild(streamTailEl);
+      streamCommitLen = 0;
+    }
+    const commit = stableSplit(text);
+    if (commit > streamCommitLen) {
+      // Parse ONLY the newly-completed blocks and append; the stable DOM is never re-touched.
+      streamStableEl.insertAdjacentHTML('beforeend', renderMarkdownImpl(text.slice(streamCommitLen, commit)));
+      streamCommitLen = commit;
+    }
+    streamTailEl.innerHTML = renderMarkdownImpl(text.slice(streamCommitLen)); // small open tail only
+  }
+  function resetStreamRender() { streamCommitLen = 0; streamStableEl = null; streamTailEl = null; }
   function flushStreamRender() {
     rafQueued = false;
     if (pendingBody && streamingEl) {
       pendingBody = false;
-      streamingEl.querySelector('.body').innerHTML = renderMarkdownImpl(streamingText);
+      renderStreamBody(streamingEl.querySelector('.body'), streamingText);
       scrollDown();
     }
     if (pendingThink) {
@@ -291,6 +327,8 @@
   // ```mermaid block, so webviews without diagrams pay nothing.
   let _mermaidPromise = null;
   let _mermaidSeq = 0;
+  const _mermaidCache = new Map(); // diagram source → rendered SVG (ids tokenized for safe re-mount)
+  const MM_ID_TOKEN = '__MMID_PLACEHOLDER__'; // swapped for a fresh id on each mount
   function ensureMermaid() {
     if (_mermaidPromise) return _mermaidPromise;
     _mermaidPromise = new Promise((resolve) => {
@@ -333,7 +371,18 @@
       const code = (srcEl ? srcEl.textContent : el.textContent) || '';
       if (!mermaid) { el.classList.add('error'); continue; } // load failed → leave the code block
       try {
-        const { svg } = await mermaid.render('mmd-' + (_mermaidSeq++), code);
+        // Cache the rendered SVG by source: history rebuilds (new message, edit, variant switch,
+        // find/replace…) otherwise re-run the expensive mermaid.render() for every diagram every time.
+        // Ids are tokenized so each mount gets fresh ones (no duplicate-id clashes within a render).
+        let svg = _mermaidCache.get(code);
+        if (svg != null) {
+          svg = svg.split(MM_ID_TOKEN).join('mmd-' + (_mermaidSeq++));
+        } else {
+          const id = 'mmd-' + (_mermaidSeq++);
+          const out = await mermaid.render(id, code);
+          _mermaidCache.set(code, out.svg.split(id).join(MM_ID_TOKEN));
+          svg = out.svg;
+        }
         mountMermaid(el, svg);
       } catch (e) {
         // Keep the source visible and append a discreet error note.
@@ -2839,6 +2888,7 @@
       case 'streamStart':
         streamingText = '';
         thinkingText = '';
+        resetStreamRender(); // start the incremental render fresh for this turn
         streamingEl = addMessage('assistant', '', { cursor: true });
         setStreaming(true);
         break;

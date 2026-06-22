@@ -558,6 +558,9 @@ mark.find-hit.current {
 }
 .msg code { font-family: var(--vscode-editor-font-family, monospace); font-size: .92em; }
 .msg pre code { display: block; }
+/* Streaming render wrappers (stable blocks + open tail): transparent to layout so block margins
+   between them behave exactly as a single rendered body. */
+.stream-part { display: contents; }
 
 /* Mermaid diagrams */
 .mermaid-diagram { margin: 8px 0; }

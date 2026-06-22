@@ -86,6 +86,8 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🟠 Webview / render (`media/**`)
 
+- **[Media] BUG `media/chat/conversation.js:329` (reportado por el usuario, 2026-06-22)** — Al abrir un `.chat` cuyo último intercambio **usó tools**, el botón de **regenerar la respuesta** no aparece en el bubble del usuario. `canRegenFromPrompt` asume que la respuesta está en `i+1` y es `lastDisplayable`: `m.role==='user' && visible[i+1].role==='assistant' && (i+1)===lastDisplayable`. Con tools, el doc es `[user, assistant(toolCalls), tool, assistant(final)]`, así que `visible[i+1]` es el assistant intermedio con `toolCalls` (no displayable) y `(i+1)!==lastDisplayable` → la condición falla. Debe comprobar que **no hay un user posterior** y que `lastDisplayable` es un assistant tras `i`, en vez de exigir adyacencia. (Verificado contra la foto: solo aparece ⏩ "Continue" en el assistant final.)
+
 - **[Alta] BUG `markdown.js:39,52`** — **Corrupción de datos**: el placeholder de code-spans usa ` dígito ` y colisiona con números del texto. Verificado: `"entre 0 y 1 … \`x\`"` → emite `<code>undefined</code>`. Frases cotidianas se rompen.
 - **[Media] BUG `markdown.js:130-141`** — **Listas anidadas se aplanan** (se descarta la indentación) → toda jerarquía se pierde en el render.
 - **[Media] BUG `conversation.js:448,458` + `message.js`** — `processMermaid` es promesa flotante (K2) y hay **race**: `renderConversation` hace `innerHTML=''`; si `mermaid.render` resuelve tras el re-render, opera sobre un nodo desconectado → diagramas que "desaparecen".

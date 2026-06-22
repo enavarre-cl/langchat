@@ -12,6 +12,47 @@
 
 ---
 
+## 📋 Inventario completo (67 hallazgos · 10 ✅ · 57 ⬜)
+
+> ID estable por subsistema. ✅ = corregido y commiteado · ⬜ = pendiente. Detalle de cada uno en
+> su sección. Severidad: 🔴 crítico · 🟠 alta · 🟡 media · ⚪ baja/convención.
+
+**Críticos (seguridad / pérdida de datos)**
+- ✅ C1 🔴 XSS control-char en links · ✅ C2 🔴 symlink en fs_search/glob · ✅ C3 🔴 fs_write→.mcp RCE
+- ✅ C4 🔴 `</script>` inline · ⬜ C5 🔴 path traversal en voice (messageRouter:133) · ✅ C6 🔴 SSRF redirects
+- ✅ C7 🔴 wipe de answer en abort · ⬜ C8 🔴 parseDoc crash con `null` + pérdida round-trip · ⬜ C9 🔴 attachmentStore tmp/cache
+
+**Providers**
+- ✅ P1 stream flush final · ✅ P2 stream reader release · ⬜ P3 🟠 AbortSignal no chequeado en read-loop
+- ⬜ P4 🟡 sin timeout de red · ⬜ P5 🟡 tool-call id sin índice (openai:229) · ⬜ P6 🟡 isImageOutputModel demasiado amplio
+- ⬜ P7 🟡 anthropic temperature:1 no fijado · ⬜ P8 🟡 defensive cap trunca línea grande · ⬜ P9 🟡 gemini functionResponse sin validar toolName
+- ⬜ P10 ⚪ multiple tool_calls sin index (openai:217) · ⬜ P11 ⚪ baseUrl sin validar (4 providers) · ⬜ P12 🟡 `any` en bodies de request
+
+**Loop agéntico / tools**
+- ⬜ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ⬜ A2 🟠 tools en secuencia (no paralelo) · ⬜ A3 🟡 fs_search síncrono bloquea event loop
+- ⬜ A4 🟡 mcp dispose zombie · ⬜ A5 🟡 mcp ignora isError · ⬜ A6 🟡 mcp buffer stdio sin límite
+- ⬜ A7 🟡 mcp servidor caído cuelga 30s · ⬜ A8 🟡 inference traga error de args JSON · ⬜ A9 ⚪ MAX_ITERS=0 sin tope · ⬜ A10 ⚪ mcp descarta stderr
+
+**Webview**
+- ⬜ W1 🟡 botón regenerar ausente tras tools (reportado) · ⬜ W2 🟠 colisión placeholder code-span · ⬜ W3 🟡 listas anidadas se aplanan
+- ⬜ W4 🟡 processMermaid flotante + race · ⬜ W5 🟡 conversation.js god-view (refactor) · ⬜ W6 ⚪ escapeHtml revienta con no-string · ⬜ W7 ⚪ mermaid unescape deprecado
+
+**Host / orquestación**
+- ⬜ H1 🟠 secrets.onDidChange sin disposable · ✅ H2 router floating promise · ⬜ H3 🟠 static activeApply global entre vistas
+- ⬜ H4 🟠 summary.upTo sin validar rango · ⬜ H5 🟡 busyRef race (setConfig/delete/edit/replace) · ⬜ H6 🟡 exportHtml fuera de CSP
+- ⬜ H7 🟡 nonce con Math.random · ⬜ H8 🟡 modelsPanel msg.path traversal · ⬜ H9 ⚪ CSP unsafe-inline · ⬜ H10 ⚪ IDs débiles colisionables
+
+**Motores locales**
+- ✅ L1 zombies tree-kill · ⬜ L2 🟠 .onnx.json sin hash · ⬜ L3 🟠 voz parcial no revalida · ⬜ L4 🟡 colisión nombres importDir
+- ⬜ L5 🟡 piper startServer sin on('error') · ⬜ L6 🟡 abort listener + .part huérfano · ⬜ L7 ⚪ python del PATH untrusted · ⬜ L8 ⚪ synthViaServer sin timeout
+
+**i18n / CSS / transversal**
+- ⬜ I1 🟡 21 claves sin traducir · ⬜ I2 ⚪ inglés británico/americano · ⬜ I3 ⚪ 2 claves sin uso
+- ⬜ S1 ⚪ verde/ámbar hardcodeados · ⬜ S2 ⚪ badges duplicados · ⬜ S3 ⚪ outline:none foco débil · ⬜ S4 ⚪ overrides que deshacen
+- ⬜ X1 🟡 ~185 `any` internos · ⬜ X2 🟡 6 archivos 400–500 · ⬜ X3 ⚪ catch vacíos sin comentar · ⬜ X4 ⚪ higiene (.webview-backup, plan-*.md)
+
+---
+
 ## ⚠️ Correcciones a lo que afirmé antes (honestidad)
 
 Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las corrijo de frente:

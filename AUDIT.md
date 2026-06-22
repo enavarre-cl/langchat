@@ -20,7 +20,7 @@
 **Críticos (seguridad / pérdida de datos)**
 - ✅ C1 🔴 XSS control-char en links · ✅ C2 🔴 symlink en fs_search/glob · ✅ C3 🔴 fs_write→.mcp RCE
 - ✅ C4 🔴 `</script>` inline · ✅ C5 🔴 path traversal en voice (messageRouter:133) · ✅ C6 🔴 SSRF redirects
-- ✅ C7 🔴 wipe de answer en abort · ⬜ C8 🔴 parseDoc crash con `null` + pérdida round-trip · ⬜ C9 🔴 attachmentStore tmp/cache
+- ✅ C7 🔴 wipe de answer en abort · ✅ C8 🔴 parseDoc crash con `null` + pérdida round-trip · ⬜ C9 🔴 attachmentStore tmp/cache
 
 **Providers**
 - ✅ P1 stream flush final · ✅ P2 stream reader release · ⬜ P3 🟠 AbortSignal no chequeado en read-loop
@@ -93,7 +93,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 | ✅ C5 | `src/messageRouter.ts:134` | **CORREGIDO** — regex de `voice` anclado y con charset restringido (`^[a-z]{2}_[A-Z]{2}-[a-zA-Z0-9_-]+$`): sin `.`/`/`/`\` → `en_US-../../../etc` rechazado antes de `removePiperVoice`/`ensureVoice`. (verificado) |
 | ✅ C6 | `src/download.ts:20-64` | **CORREGIDO** — `downloadFile` valida IP en cada petición y redirect: chequeo explícito de IP literal privada + `lookup` custom (`safeLookup`) que rechaza IPs privadas en connect-time. (5/5 verificado: metadata 169.254, localhost, LAN, IPv6 `::1`/`fc00::1`) |
 | ✅ C7 | `src/inference.ts:163-166` | **CORREGIDO** — `answer`/`thinking` solo se actualizan desde un `chat()` que completó (`!failed && !aborted`); un fallo/abort ya no pisa la respuesta acumulada con el `res` vacío por defecto. |
-| C8 | `src/chatDocument.ts:147-176` | `parseDoc` **revienta con un `.chat` que sea JSON `null`** (`raw.summary` → TypeError) y **descarta campos desconocidos en el round-trip** → edición manual o versión futura pierde datos silenciosamente. |
+| ✅ C8 | `src/chatDocument.ts:147-176` | **CORREGIDO** — guard `!raw || typeof!=='object' || isArray` → un `.chat` `null`/primitivo/array devuelve doc vacío sin crash; y campos top-level desconocidos se preservan en `doc._extra` y se re-emiten en `serializeDoc` (no para params sueltos de v1). (verificado) |
 | C9 | `src/attachmentStore.ts:43-92` | Escritura "atómica" usa **`.tmp` de nombre fijo** → dos ventanas con el mismo `.chat` se corrompen; y el **cache nunca se invalida** → sirve blobs obsoletos. |
 
 ---

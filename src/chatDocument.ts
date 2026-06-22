@@ -64,6 +64,9 @@ export interface ChatDoc {
   summary?: ChatSummary;
   usage?: TokenUsage; // accumulated token usage for the chat
   messages: ChatMessage[];
+  /** Unknown top-level keys from the .chat preserved verbatim across a round-trip (forward-compat /
+   *  hand-edited fields). Not part of the schema; re-emitted by serializeDoc. */
+  _extra?: Record<string, unknown>;
 }
 
 export interface ChatDefaults {
@@ -145,6 +148,9 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
   if (!text || !text.trim()) return defaultDoc(defaults);
 
   const raw = JSON.parse(text);
+  // JSON.parse accepts non-objects ("null", 42, [..]) — `null` in particular crashed on raw.params
+  // / raw.summary below. Treat any non-object shape as an empty doc instead of throwing a TypeError.
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return defaultDoc(defaults);
   const base = defaultDoc(defaults);
   const dp = base.params;
   // Supports both the new `params` object and the loose fields from the v1 format.
@@ -251,8 +257,22 @@ export function parseDoc(text: string, defaults: ChatDefaults): ChatDoc {
           })
       : [],
   };
+  // Preserve unknown top-level keys so a hand-edited or future-version field survives a round-trip
+  // instead of being silently dropped on the next save. Only for v2-shaped docs (a v1 doc keeps its
+  // loose params on `raw`, which are migrated into `params` — not "unknown").
+  if (raw.params && typeof raw.params === 'object') {
+    const extra: Record<string, unknown> = {};
+    for (const k of Object.keys(raw)) if (!KNOWN_TOP_KEYS.has(k)) extra[k] = raw[k];
+    if (Object.keys(extra).length) doc._extra = extra;
+  }
   return doc;
 }
+
+/** Top-level keys owned by the schema; anything else in a .chat is preserved via doc._extra. */
+const KNOWN_TOP_KEYS = new Set([
+  'version', 'title', 'provider', 'model', 'systemPrompt', 'systemPromptFile',
+  'spellLang', 'params', 'summary', 'usage', 'messages',
+]);
 
 export function serializeDoc(doc: ChatDoc): string {
   const ordered: ChatDoc = {
@@ -286,7 +306,11 @@ export function serializeDoc(doc: ChatDoc): string {
     usage: doc.usage,
     messages: doc.messages,
   };
-  return JSON.stringify(ordered, null, 2) + '\n';
+  // Re-emit any unknown top-level keys captured on parse (forward-compat / hand-edited fields),
+  // without letting them override schema fields.
+  const out: Record<string, unknown> = { ...ordered };
+  for (const [k, v] of Object.entries(doc._extra ?? {})) if (!(k in out)) out[k] = v;
+  return JSON.stringify(out, null, 2) + '\n';
 }
 
 /** Converts the document config into the parameters sent to the backend (active ones only). */

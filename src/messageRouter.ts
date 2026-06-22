@@ -131,7 +131,10 @@ export async function routeMessage(msg: any, ctx: RouterCtx): Promise<void> {
           try {
             const voice = String(msg.voice ?? '');
             const notice = (m: string) => ctx.webview.postMessage({ type: 'notice', message: m });
-            const isVoice = !!voice && /^[a-z]{2}_[A-Z]{2}-/.test(voice);
+            // Fully anchored + restricted charset: blocks path traversal (no '.', '/' or '\'),
+            // since `voice` feeds path.join in removePiperVoice/ensureVoice. e.g. `en_US-../../etc`
+            // is rejected. Real ids look like `en_US-amy-medium` / `en_US-ryan-x_low`.
+            const isVoice = /^[a-z]{2}_[A-Z]{2}-[a-zA-Z0-9_-]+$/.test(voice);
             if (isVoice) removePiperVoice(vscode.Uri.joinPath(ctx.globalStorageUri, 'piper-voices').fsPath, voice);
             await ctx.piper.update(notice);          // updates the engine (pip upgrade)
             if (isVoice) await ctx.piper.ensureVoice(voice, notice); // re-downloads the voice

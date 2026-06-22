@@ -310,7 +310,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       return pick === yes;
     };
 
-    const onMsg = webview.onDidReceiveMessage((msg: any) => routeMessage(msg, {
+    const onMsg = webview.onDidReceiveMessage((msg: any) => void routeMessage(msg, {
       webview, getDoc, writeDoc, pushDoc, pushLang, sendHistory, loadModels,
       handleSend, handleGenerate, handleFork, handleContinue, handleRegenerate, setVariant, deleteVariant,
       ensureSummary, synthPiper, killPiper, resolveSystemPrompt, tlog, applyPatch,
@@ -318,6 +318,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       spellWords: this.spellWords, downloadedVoiceIds: () => this.downloadedVoiceIds(), piper: this.piper,
       globalStorageUri: this.context.globalStorageUri,
       document, searchFiles, sysPromptPathAllowed, confirmDelete, resolveAttachment: attachStore.resolve,
+    }).catch((err) => {
+      // A throwing handler would otherwise be an unhandled rejection: no log, and the UI left
+      // hanging (e.g. a busy state never cleared). Log it and surface it to the webview.
+      console.error('[parley] message handler failed:', err);
+      webview.postMessage({ type: 'error', message: tr('Something went wrong handling that action.') + ' ' + ((err && err.message) || String(err)) });
     }));
 
     // Syncs external document changes (manual JSON editing) without overwriting the in-progress

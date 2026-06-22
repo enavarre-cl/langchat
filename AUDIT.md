@@ -40,7 +40,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🔴 Críticos — seguridad y pérdida de datos
 
-> **Progreso de correcciones: 7 / 10 del Top 10 (faltan 3).** Marcados con ✅ los corregidos.
+> **Progreso de correcciones: 8 / 10 del Top 10 (faltan 2).** Marcados con ✅ los corregidos.
 
 | Id | archivo:línea | Problema |
 |----|---------------|----------|
@@ -98,7 +98,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 ## 🟠 Host / orquestación (`src/extension.ts`, `messageRouter.ts`, …)
 
 - **[Alta] BUG `extension.ts:74`** — `context.secrets.onDidChange(...)` **no se registra en `context.subscriptions`** → listener colgado en reload (T8). El de configuración sí está; delata el olvido.
-- **[Alta] BUG `extension.ts:313` + `messageRouter.ts:51`** — `onDidReceiveMessage(msg => routeMessage(...))` **descarta la promesa** (`routeMessage` es async) y **no hay try/catch** en el router → cualquier handler que lance = unhandled rejection sin feedback (K2/L2).
+- **✅ [Alta] BUG `extension.ts:313` — CORREGIDO** — el callback ahora hace `void routeMessage(...).catch(...)`: loguea el error (`console.error`) y postea un `error` al webview, en vez de dejar un unhandled rejection sin feedback (la UI ya no queda colgada). `no-floating-promises` satisfecho.
 - **[Alta] BUG `extension.ts:135,361`** — `static activeApply` es **estado global compartido entre todos los chats abiertos** → con varios editores, `applyConfig` puede escribir sobre el doc equivocado tras un `await` (N3/F4).
 - **[Alta] BUG `chatDocument.ts:174`** — `summary.upTo` se acepta sin validar rango (`-5`, `99999`, `2.7`) → se propaga al conteo de contexto (L4).
 - **[Media] BUG `messageRouter.ts:142-250`** — `setConfig`/`deleteMessage`/`editMessage`/`replaceAll` **chequean `busyRef` pero no lo adquieren** → entre su `getDoc` y `writeDoc` async puede colarse un `send` → escritura concurrente del doc (race).
@@ -154,7 +154,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 5. ✅ **C4** `</script>` sin escapar en script inline (webviewHtml.ts) — **HECHO**.
 6. ✅ **stream.ts:32** sin flush final → se pierde el chunk de usage/done — **HECHO**.
 7. ✅ **stream.ts:26** reader nunca liberado + abort no corta el stream — **HECHO**.
-8. **extension.ts:313** floating promise del router sin try/catch.
+8. ✅ **extension.ts:313** floating promise del router sin try/catch — **HECHO**.
 9. **Zombies** Ollama/Piper en Windows (`shell:true` + sin SIGKILL).
 10. **C6** redirects de `downloadFile` sin validación SSRF.
 

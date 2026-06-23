@@ -178,8 +178,8 @@
 /* Context usage bar */
 #ctxBar { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--vscode-descriptionForeground); }
 #ctxTrack { flex: 1; height: 4px; border-radius: 3px; background: var(--vscode-panel-border); overflow: hidden; }
-#ctxFill { height: 100%; width: 0; background: #3fb950; transition: width .2s; }
-#ctxFill.mid { background: #d29922; }
+#ctxFill { height: 100%; width: 0; background: var(--vscode-charts-green, #3fb950); transition: width .2s; }
+#ctxFill.mid { background: var(--vscode-charts-yellow, #d29922); }
 #ctxFill.high { background: var(--vscode-errorForeground, #f85149); }
 #ctxLabel { white-space: nowrap; }
 

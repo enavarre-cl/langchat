@@ -220,7 +220,7 @@
   border-radius: 8px;
   overflow: hidden;
 }
-.mermaid-modal .mermaid-viewport { max-height: none; height: 100%; }
+.mermaid-modal .mermaid-viewport { height: 100%; }
 
 /* Markdown in bubbles and reasoning panel */
 .msg .body p, #thinkContent p { margin: .4em 0; }

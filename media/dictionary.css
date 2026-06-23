@@ -21,7 +21,7 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   padding: 6px 10px;
   outline: none;
 }
-#word:focus { border-color: var(--vscode-focusBorder); }
+#word:focus { border-color: var(--vscode-focusBorder); box-shadow: 0 0 0 1px var(--vscode-focusBorder); }
 #addBtn {
   padding: 6px 14px;
   border: none;

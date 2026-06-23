@@ -50,7 +50,7 @@
 
 **i18n / CSS / transversal**
 - ✅ I1 🟡 claves UI traducidas (24×5) · ✅ I2 ⚪ Reset / center (americano) · ✅ I3 ⚪ 2 claves muertas eliminadas
-- ⬜ S1 ⚪ verde/ámbar hardcodeados · ⬜ S2 ⚪ badges duplicados · ⬜ S3 ⚪ outline:none foco débil · ⬜ S4 ⚪ overrides que deshacen
+- ✅ S1 ⚪ colores con tokens de tema · ✅ S2 ⚪ badges consolidados · ✅ S3 ⚪ anillo de foco · ✅ S4 ⚪ override muerto quitado
 - ⬜ X1 🟡 ~185 `any` internos · ⬜ X2 🟡 6 archivos 400–500 · ⬜ X3 ⚪ catch vacíos sin comentar · ⬜ X4 ⚪ higiene (.webview-backup, plan-*.md)
 
 ---
@@ -175,10 +175,10 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🟡 CSS — deuda menor (no lo que dije antes)
 
-- **[Baja] composer.css:181 / style.css:65** — Verde/ámbar de estado hardcodeados (`#3fb950`, `#d29922`) sin `var(--vscode-charts-*)` → bajo contraste en temas claros. Los hermanos `.high`/`.error` sí usan tokens (inconsistencia).
-- **[Baja] messages.css:154-182** — `.think-badge` y `.tool-badge` **casi idénticas duplicadas** → mantener dos veces (P6).
-- **[Baja] find.css:48 / dictionary.css:22** — `outline:none` con reemplazo solo de `border-color` → indicador de foco débil (accesibilidad por teclado).
-- **[Baja] messages.css:223 / messages.css:30** — Overrides que **deshacen estilos** (un `max-height:none` sobre algo que ya no existe; full-width que anula el per-role recién definido) → residuo de refactor (Q10).
+- **✅ [Baja] (S1) — CORREGIDO** — verde/ámbar de estado usan `var(--vscode-charts-green/yellow, …)` con fallback (consistente con `.high`/`.error`, mejor contraste en temas claros).
+- **✅ [Baja] (S2) — CORREGIDO** — `.think-badge`/`.tool-badge` consolidados en un solo bloque + hover compartido; las reglas `.has-*` siguen alternando cada uno.
+- **✅ [Baja] (S3) — CORREGIDO** — el `:focus` añade `box-shadow: 0 0 0 1px var(--vscode-focusBorder)` → anillo de foco visible por teclado.
+- **✅ [Baja] (S4) — CORREGIDO (parcial)** — quitado el `max-height: none` muerto de `.mermaid-modal .mermaid-viewport`. (El full-width de `.msg.user/.assistant` se deja: es diseño intencional documentado, no residuo.)
 
 ---
 

@@ -62,9 +62,9 @@ body {
   flex-shrink: 0;
   background: var(--vscode-descriptionForeground);
 }
-#statusDot.ok { background: #3fb950; }
+#statusDot.ok { background: var(--vscode-charts-green, #3fb950); }
 #statusDot.error { background: var(--vscode-errorForeground, #f85149); }
-#statusDot.checking { background: #d29922; }
+#statusDot.checking { background: var(--vscode-charts-yellow, #d29922); }
 #statusText { font-weight: 600; color: var(--vscode-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
 #modelCaps { display: inline-flex; align-items: center; gap: 5px; margin-left: 2px; color: var(--vscode-foreground); opacity: .7; flex-shrink: 0; }
 #modelCaps .cap { display: inline-flex; }

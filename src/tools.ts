@@ -230,9 +230,11 @@ const BUILTIN: { schema: ToolSchema; run: (args: any, signal?: AbortSignal) => P
       for (const uri of uris) {
         if (matches.length >= max) break;
         if (!withinAnyFolder(uri.fsPath)) continue; // skip symlinks escaping the workspace (no content leak)
-        try { if (fs.statSync(uri.fsPath).size > 2_000_000) continue; } catch { continue; } // skip huge files without reading them
+        // Async I/O so scanning thousands of files yields to the event loop instead of freezing the
+        // editor (the sync readFileSync/statSync blocked the extension host).
+        try { if ((await fs.promises.stat(uri.fsPath)).size > 2_000_000) continue; } catch { continue; }
         let buf: Buffer;
-        try { buf = fs.readFileSync(uri.fsPath); } catch { continue; }
+        try { buf = await fs.promises.readFile(uri.fsPath); } catch { continue; }
         if (buf.includes(0)) continue; // skip binaries
         const lines = buf.toString('utf8').split('\n');
         for (let i = 0; i < lines.length; i++) {

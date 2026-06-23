@@ -30,7 +30,7 @@
 - ✅ P10 ⚪ multiple tool_calls por id · 🔎 P11 revisado: premisa incorrecta (baseUrl es settings, no .chat) · ⬜ P12 🟡 `any` en bodies de request
 
 **Loop agéntico / tools**
-- ✅ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ✅ A2 🟠 tools en paralelo · ⬜ A3 🟡 fs_search síncrono bloquea event loop
+- ✅ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ✅ A2 🟠 tools en paralelo · ✅ A3 🟡 fs_search asíncrono
 - **🟠 Altas: COMPLETAS** (P3, A1, A2, W2, H1, H4, L2, L3 + H3 reclasificado)
 - ✅ A4 🟡 mcp dispose zombie · ✅ A5 🟡 mcp ignora isError · ✅ A6 🟡 mcp buffer stdio acotado
 - ✅ A7 🟡 mcp servidor caído falla rápido · ✅ A8 🟡 inference reporta error de args JSON · ✅ A9 ⚪ MAX_ITERS=0 con tope duro 100 · ✅ A10 ⚪ mcp captura stderr
@@ -119,7 +119,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 - **✅ [Alta] BUG `inference.ts:174-194` (A1) — CORREGIDO** — al abortar a media ejecución del tool-loop, `repairTrailingToolChain(fresh.messages)` se llama antes del `writeDoc` intermedio → ya no se persiste un assistant con toolCalls sin sus respuestas.
 - **✅ [Alta] BUG `inference.ts` tool-loop (A2) — CORREGIDO** — las tool calls de un turno se ejecutan con `Promise.all` (independientes: el modelo las pidió sin ver resultados intermedios). Resultados recogidos en orden de petición (pairing tool_result↔tool_call intacto); el abort cancela las in-flight vía `ac.signal`. (verificado: orden a,b,c, latencia ~máx no suma)
-- **[Media] BUG `tools.ts:218-221`** — `fs_search` hace `readFileSync` **síncrono** sobre hasta 3000 archivos × 2MB → **bloquea el event loop / congela VS Code** en repos grandes (S1/S5).
+- **✅ [Media] BUG `tools.ts:218-221` (A3) — CORREGIDO** — `fs_search` usa `fs.promises.stat/readFile` (async): cede el event loop entre archivos en vez de congelar el editor en repos grandes.
 - **✅ [Media] BUG `mcp.ts` dispose (A4) — CORREGIDO** — `dispose()` usa `killProcessTree` (tree-kill en Windows + SIGKILL en POSIX).
 - **✅ [Media] BUG `mcp.ts:113` (A5) — CORREGIDO** — `callTool` respeta `isError`: prefija `Error:` para que el modelo distinga fallo de salida normal.
 - **✅ [Media] BUG `mcp.ts:60` (A6) — CORREGIDO** — buffer stdio acotado a 8MiB (evita OOM por línea sin newline).

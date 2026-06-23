@@ -191,6 +191,10 @@ export async function runInference(
           wire.push(toolMsg);
           fresh?.messages.push(toolMsg);
         }
+        // If the turn was aborted mid tool-loop, drop the dangling assistant(toolCalls) + any partial
+        // tool replies before persisting: the model never produced its answer, so writing that chain
+        // would leave a broken turn on disk (an assistant with toolCalls missing their tool results).
+        if (aborted && fresh) repairTrailingToolChain(fresh.messages);
         // Intermediate write in the tool-loop: no save() or prune (done once at the end of the turn).
         if (fresh) await writeDoc(fresh, { save: false, prune: false });
         sendHistory();

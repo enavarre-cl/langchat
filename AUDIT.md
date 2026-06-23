@@ -30,7 +30,7 @@
 - ⬜ P10 ⚪ multiple tool_calls sin index (openai:217) · ⬜ P11 ⚪ baseUrl sin validar (4 providers) · ⬜ P12 🟡 `any` en bodies de request
 
 **Loop agéntico / tools**
-- ⬜ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ⬜ A2 🟠 tools en secuencia (no paralelo) · ⬜ A3 🟡 fs_search síncrono bloquea event loop
+- ✅ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ⬜ A2 🟠 tools en secuencia (no paralelo) · ⬜ A3 🟡 fs_search síncrono bloquea event loop
 - ⬜ A4 🟡 mcp dispose zombie · ⬜ A5 🟡 mcp ignora isError · ⬜ A6 🟡 mcp buffer stdio sin límite
 - ⬜ A7 🟡 mcp servidor caído cuelga 30s · ⬜ A8 🟡 inference traga error de args JSON · ⬜ A9 ⚪ MAX_ITERS=0 sin tope · ⬜ A10 ⚪ mcp descarta stderr
 
@@ -116,7 +116,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 ## 🟠 Loop agéntico y tools (`src/inference.ts`, `tools.ts`, `mcp.ts`)
 
-- **[Alta] BUG `inference.ts:174-194`** — Abort entre el push del `assistant`+toolCalls y los `tool` results **persiste a disco un assistant con toolCalls sin respuesta** (estado roto escrito por `writeDoc`).
+- **✅ [Alta] BUG `inference.ts:174-194` (A1) — CORREGIDO** — al abortar a media ejecución del tool-loop, `repairTrailingToolChain(fresh.messages)` se llama antes del `writeDoc` intermedio → ya no se persiste un assistant con toolCalls sin sus respuestas.
 - **[Alta] BUG `tools.ts` loop** — Las tool calls se ejecutan **en secuencia** (`for…await`), no en paralelo (K3). 5 tools lentas = latencia sumada; Stop no cancela lo ya lanzado.
 - **[Media] BUG `tools.ts:218-221`** — `fs_search` hace `readFileSync` **síncrono** sobre hasta 3000 archivos × 2MB → **bloquea el event loop / congela VS Code** en repos grandes (S1/S5).
 - **[Media] BUG `mcp.ts:122-129`** — `dispose()` hace `kill()` (SIGTERM); con `shell:true` mata el shell, **no el hijo MCP** → zombie. Sin SIGKILL de respaldo (T9).

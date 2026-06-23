@@ -229,7 +229,11 @@ export function makeChatOps(deps: ChatOpsCtx) {
         delete t.variants;
         delete t.active;
       } else {
-        const a = Math.min(t.active ?? 0, t.variants.length - 1);
+        // Deleting a variant BEFORE the active one shifts the active index down by one — keep the
+        // SAME variant shown instead of jumping to a different one (Math.min alone only capped the top).
+        let a = t.active ?? 0;
+        if (variant < a) a--;
+        a = Math.max(0, Math.min(a, t.variants.length - 1));
         t.active = a;
         applyVariantToMessage(t, t.variants[a]);
       }

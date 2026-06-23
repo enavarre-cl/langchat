@@ -12,7 +12,7 @@ export interface ChatOpsCtx {
   getDoc: () => ChatDoc | null;
   writeDoc: (doc: ChatDoc, opts?: { save?: boolean; prune?: boolean }) => Promise<void>;
   sendHistory: () => void;
-  runInference: (doc: ChatDoc, context: ChatMessage[], allowTools?: boolean) => Promise<{ answer: string; thinking: string; failed: boolean; usage?: any; images: { mime: string; data: string }[] }>;
+  runInference: (doc: ChatDoc, context: ChatMessage[], allowTools?: boolean) => Promise<{ answer: string; thinking: string; failed: boolean; usage?: any; images: { mime: string; data: string }[]; usedTools: boolean }>;
   attachStore: AttachmentStore;
   viewType: string;
 }
@@ -40,8 +40,10 @@ export function makeChatOps(deps: ChatOpsCtx) {
       }
       await deps.writeDoc(doc);
 
-      const { answer, thinking, failed, usage, images } = await deps.runInference(doc, doc.messages, true);
-      if (!failed && (answer || thinking || images.length)) {
+      const { answer, thinking, failed, usage, images, usedTools } = await deps.runInference(doc, doc.messages, true);
+      // Persist a final assistant even when the model returned no text, IF the turn used tools — so the
+      // dangling assistant(toolCalls)+tool chain on disk is closed (else it's discarded next turn).
+      if (!failed && (answer || thinking || images.length || usedTools)) {
         const fresh = deps.getDoc();
         if (fresh) {
           const m: ChatMessage = { role: 'assistant', content: answer };
@@ -67,8 +69,10 @@ export function makeChatOps(deps: ChatOpsCtx) {
       const last = doc.messages[doc.messages.length - 1];
       if (!last || last.role !== 'user') return;
 
-      const { answer, thinking, failed, usage, images } = await deps.runInference(doc, doc.messages, true);
-      if (!failed && (answer || thinking || images.length)) {
+      const { answer, thinking, failed, usage, images, usedTools } = await deps.runInference(doc, doc.messages, true);
+      // Persist a final assistant even when the model returned no text, IF the turn used tools — so the
+      // dangling assistant(toolCalls)+tool chain on disk is closed (else it's discarded next turn).
+      if (!failed && (answer || thinking || images.length || usedTools)) {
         const fresh = deps.getDoc();
         if (fresh) {
           const m: ChatMessage = { role: 'assistant', content: answer };

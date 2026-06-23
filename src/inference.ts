@@ -23,7 +23,7 @@ export interface InferenceDeps {
 /** Runs one chat turn: context trimming, the wire build, and the agentic tool loop. */
 export async function runInference(
   doc: ChatDoc, context: ChatMessage[], allowTools: boolean, deps: InferenceDeps
-): Promise<{ answer: string; thinking: string; failed: boolean; usage?: any; images: { mime: string; data: string }[] }> {
+): Promise<{ answer: string; thinking: string; failed: boolean; usage?: any; images: { mime: string; data: string }[]; usedTools: boolean }> {
   const { webview, toolHub, modelContexts, resolveSystemPrompt, ensureSummary, resolveAttachment, getDoc, writeDoc, sendHistory, abortRef } = deps;
       // Copy + drop any trailing unfinished tool exchange (crash/reload recovery) so we never replay
       // an assistant tool_call without its tool reply → provider 400. On a normal send this is a no-op.
@@ -134,6 +134,7 @@ export async function runInference(
       let aborted = false;
       let usage: any = undefined;
       let images: { mime: string; data: string }[] = [];
+      let usedTools = false; // true once a tool call was persisted → the caller must close the chain
 
       // Agentic loop: if the model requests tools, they are executed and fed back.
       // A single AbortController for the ENTIRE turn: so Stop also cuts between
@@ -170,6 +171,7 @@ export async function runInference(
         if (failed || aborted || !res.toolCalls || !res.toolCalls.length) break;
 
         // The model requested tools: persist the call, execute, and feed back.
+        usedTools = true;
         const callMsg: ChatMessage = { role: 'assistant', content: res.answer, toolCalls: res.toolCalls };
         if (res.thinking) callMsg.thinking = res.thinking;
         wire.push(callMsg);
@@ -223,5 +225,5 @@ export async function runInference(
           message: tr('The model returned no content. Try another model; on OpenRouter, check the key\'s credits/limits.'),
         });
       }
-      return { answer, thinking, failed, usage, images };
+      return { answer, thinking, failed, usage, images, usedTools };
 }

@@ -431,10 +431,18 @@ export function buildExportHtml() {
     }
     const title = (doc && doc.title) || 'Chat';
     const sub = `${(doc && doc.provider) || ''}${doc && doc.model ? ' · ' + doc.model : ''} · ${visible.length} ${t('messages')}`;
-    return '<!DOCTYPE html><html lang="' + window.LangI18n.get() + '"><head><meta charset="utf-8"/><title>' + escapeHtml(title) +
+    // The standalone export is opened in the system browser (outside the webview CSP). The body is
+    // already HTML-escaped (renderMarkdown), so the model can't inject script — but a strict CSP with
+    // a nonce for the print trigger is defense-in-depth: it blocks frames/objects/fetch/forms and any
+    // unexpected inline script while still allowing the auto-print and inline styles.
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16))).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const csp = "default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline'; script-src 'nonce-" +
+      nonce + "'; base-uri 'none'; form-action 'none'";
+    return '<!DOCTYPE html><html lang="' + window.LangI18n.get() + '"><head><meta charset="utf-8"/>' +
+      '<meta http-equiv="Content-Security-Policy" content="' + csp + '"/><title>' + escapeHtml(title) +
       '</title><style>' + EXPORT_CSS + '</style></head><body>' +
       '<h1 class="title">' + escapeHtml(title) + '</h1><div class="sub">' + escapeHtml(sub) + '</div>' + body +
-      '<script>window.onload=function(){setTimeout(function(){window.print()},300)}</scr' + 'ipt></body></html>';
+      '<script nonce="' + nonce + '">window.onload=function(){setTimeout(function(){window.print()},300)}</scr' + 'ipt></body></html>';
   }
 
 // ---- Streaming lifecycle (called by the protocol dispatcher) ----

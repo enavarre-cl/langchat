@@ -41,7 +41,7 @@
 
 **Host / orquestación**
 - ✅ H1 🟠 secrets.onDidChange sin disposable · ✅ H2 router floating promise · 🔎 H3 revisado: NO es bug (convención F4, funcionalmente correcto)
-- ✅ H4 🟠 summary.upTo sin validar rango · ✅ H5 🟡 busyRef: setConfig bajo lock · ⬜ H6 🟡 exportHtml fuera de CSP
+- ✅ H4 🟠 summary.upTo sin validar rango · ✅ H5 🟡 busyRef: setConfig bajo lock · ✅ H6 🟡 exportHtml con CSP+nonce
 - ✅ H7 🟡 nonce crypto unificado · ✅ H8 🟡 modelsPanel valida import paths · ⬜ H9 ⚪ CSP unsafe-inline · ⬜ H10 ⚪ IDs débiles colisionables
 
 **Motores locales**
@@ -146,7 +146,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 - **🔎 [reclasificado] `extension.ts:135,361` (H3) — NO es bug** — revisado en detalle: `applyConfig` está acotado a su editor por closure (`getDoc`/`writeDoc`/`document` capturados), y `doc` se captura antes del `await`, así que NO escribe sobre el doc equivocado. El `static activeApply` solo enruta el "usar en chat" del sidebar al último chat activo (comportamiento deseado, documentado en el código). Es un olor de estado global (F4) pero funcionalmente correcto; no amerita cambio. Mi auditoría inicial lo sobrevaloró como "Alta BUG".
 - **✅ [Alta] BUG `chatDocument.ts:174` — CORREGIDO** — `summary.upTo` se clampa a `[0, messages.length]` con `Math.floor`; valores corruptos (`-5`→drop, `99999`→len, `2.7`→2, `NaN`→drop) ya no se propagan al conteo de contexto. (verificado)
 - **✅ [Media] BUG `messageRouter.ts:145` (H5) — CORREGIDO (parcial)** — `setConfig` ahora adquiere `busyRef` durante todo el handler (incluye el diálogo de Trust, ventana de segundos). delete/edit/replace son mutaciones síncronas + un `writeDoc` (ventana sub-ms ya cubierta por el chequeo y la UI serial de un solo usuario); residual despreciable.
-- **[Media] BUG `messageRouter.ts:364`** — `exportHtml` escribe HTML del modelo a tmp y lo abre en el navegador **fuera de CSP** → `<img src=attacker>`/scripts se ejecutan (exfiltración, U5).
+- **✅ [Media] BUG `messageRouter.ts:364` (H6) — CORREGIDO/mitigado** — el HTML exportado lleva una CSP estricta con `nonce` para el script de auto-print (bloquea frames/objects/fetch/forms y cualquier inline script inesperado). El cuerpo ya iba escapado (renderMarkdown), así que el modelo no podía inyectar script; esto es defensa en profundidad.
 - **✅ [Media] BUG `modelsPanel.ts:18` / `compareView.ts:96` (H7) — CORREGIDO** — ambos usan `makeNonce()`, que ahora es `crypto.randomBytes(16).toString('hex')` (128 bits, longitud fija). Se eliminó el `nonce()` con `Math.random` de modelsPanel y el patrón que recortaba entropía en compareView y en el propio `makeNonce`.
 - **✅ [Media] BUG `modelsPanel.ts` (H8) — CORREGIDO/mitigado** — la escritura local ya saneaba el basename (`downloads.ts:204`); se añade validación de frontera en `doPull` que rechaza import paths absolutos o con `..`. (El residual de la URL HF se queda en huggingface.co, SSRF-safe por C6.)
 - **[Media] CONVENCIÓN `webviewHtml.ts:33`** — CSP con `style-src 'unsafe-inline'` (justificado por Mermaid) → cualquier `style=` inyectado pasa; depende del sanitizador.

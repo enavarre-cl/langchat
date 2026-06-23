@@ -27,7 +27,7 @@
 - ✅ P1 stream flush final · ✅ P2 stream reader release · ✅ P3 🟠 AbortSignal chequeado en read-loop
 - ✅ P4 🟡 timeout de red · ✅ P5 🟡 tool-call id con índice · ✅ P6 🟡 isImageOutputModel ajustado
 - ✅ P7 🟡 anthropic temperature:1 fijado · ✅ P8 🟡 defensive cap 64MiB · ✅ P9 🟡 gemini functionResponse valida toolName
-- ✅ P10 ⚪ multiple tool_calls por id · 🔎 P11 revisado: premisa incorrecta (baseUrl es settings, no .chat) · ⬜ P12 🟡 `any` en bodies de request
+- ✅ P10 ⚪ multiple tool_calls por id · 🔎 P11 revisado: premisa incorrecta (baseUrl es settings, no .chat) · ⬜ P12 🟡 `any` en bodies (va con X1)
 
 **Loop agéntico / tools**
 - ✅ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ✅ A2 🟠 tools en paralelo · ✅ A3 🟡 fs_search asíncrono
@@ -42,7 +42,7 @@
 **Host / orquestación**
 - ✅ H1 🟠 secrets.onDidChange sin disposable · ✅ H2 router floating promise · 🔎 H3 revisado: NO es bug (convención F4, funcionalmente correcto)
 - ✅ H4 🟠 summary.upTo sin validar rango · ✅ H5 🟡 busyRef: setConfig bajo lock · ✅ H6 🟡 exportHtml con CSP+nonce
-- ✅ H7 🟡 nonce crypto unificado · ✅ H8 🟡 modelsPanel valida import paths · ⬜ H9 ⚪ CSP unsafe-inline · ✅ H10 ⚪ IDs con randomUUID
+- ✅ H7 🟡 nonce crypto unificado · ✅ H8 🟡 modelsPanel valida import paths · 🔎 H9 ⚪ CSP unsafe-inline (aceptada: requerida por Mermaid) · ✅ H10 ⚪ IDs con randomUUID
 
 **Motores locales**
 - ✅ L1 zombies tree-kill · ✅ L2 🟠 .onnx.json validado · ✅ L3 🟠 voz parcial revalidada · ✅ L4 🟡 importDir por subcarpeta de item
@@ -51,7 +51,7 @@
 **i18n / CSS / transversal**
 - ✅ I1 🟡 claves UI traducidas (24×5) · ✅ I2 ⚪ Reset / center (americano) · ✅ I3 ⚪ 2 claves muertas eliminadas
 - ✅ S1 ⚪ colores con tokens de tema · ✅ S2 ⚪ badges consolidados · ✅ S3 ⚪ anillo de foco · ✅ S4 ⚪ override muerto quitado
-- ⬜ X1 🟡 ~185 `any` internos · ⬜ X2 🟡 6 archivos 400–500 · ⬜ X3 ⚪ catch vacíos sin comentar · ⬜ X4 ⚪ higiene (.webview-backup, plan-*.md)
+- ⬜ X1 🟡 ~185 `any` internos · 🔎 X2 🟡 tamaños (seguimiento; el peor es W5) · ✅ X3 ⚪ catch vacíos comentados · 🔎 X4 ⚪ higiene: archivos locales (decisión del usuario)
 
 ---
 
@@ -186,8 +186,8 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 
 - **`any` en lógica interna** (no en la capa de JSON externo): ~185 ocurrencias, con focos en `localModels.ts`, `mcp.ts`, `chatDocument.ts`, `inference.ts`, `attachmentStore.ts`, `ttsBackend.ts`. Viola C2/C3. ESLint lo permite a propósito, pero el estándar pide `unknown`+narrowing fuera de la frontera.
 - **6 archivos en 400–500 líneas** (M2): `conversation.js` (god-view), `piper/manager.ts`, `extension.ts`, `messageRouter.ts`, `models.js`, `panels/config.js`.
-- **`catch` vacíos sin comentar** (L2): `tts.js:12,13,102,180`, `mermaid.js:230,240`.
-- **Higiene** (W3/W4): `.webview-backup/` (gitignored, borrar) y `plan-*.md` (no trackeados, a issues o borrar).
+- **✅ `catch` vacíos (X3) — CORREGIDO** — comentados como best-effort (tts logging/audio, pointer capture).
+- **🔎 Higiene (X4) — decisión del usuario** — `.webview-backup/` (gitignored) y `plan-*.md` (no trackeados) no afectan el repo ni el paquete; son archivos locales tuyos, no los borro sin permiso.
 
 ---
 

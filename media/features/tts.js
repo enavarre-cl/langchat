@@ -9,8 +9,8 @@ import { render as renderMarkdown } from '../render/markdown.js';
 
 // TTS debug trace (visible in the webview console and forwarded to the backend).
 const ttsLog = (msg, data) => {
-  try { console.log('[TTS]', msg, data !== undefined ? data : ''); } catch (e) {}
-  try { vscode.postMessage({ type: 'ttsLog', message: msg, data: data === undefined ? null : data }); } catch (e) {}
+  try { console.log('[TTS]', msg, data !== undefined ? data : ''); } catch { /* best-effort; ignore failures */ }
+  try { vscode.postMessage({ type: 'ttsLog', message: msg, data: data === undefined ? null : data }); } catch { /* best-effort; ignore failures */ }
 };
 
 // Curated Piper voices (feminine EN/ES). Downloaded automatically on first use and cached.
@@ -99,7 +99,7 @@ export const tts = {
       this.awaiting = false;
       this.playing = false;
       if (this.supported) window.speechSynthesis.cancel();
-      if (this.source) { try { this.source.onended = null; this.source.stop(); } catch (e) {} this.source = null; }
+      if (this.source) { try { this.source.onended = null; this.source.stop(); } catch { /* best-effort; ignore failures */ } this.source = null; }
       this.msgId = null;
       if (wasPiper) vscode.postMessage({ type: 'ttsStop' }); // aborts any pending synthesis in the backend
       this.resetBtn();
@@ -177,7 +177,7 @@ export const tts = {
 export function initTts(refreshVoicesUI) {
   tts.loadVoices();
   // Release the AudioContext when the webview is unloaded (avoids dangling contexts).
-  window.addEventListener('pagehide', () => { if (tts.ctx) { try { tts.ctx.close(); } catch (e) {} } });
+  window.addEventListener('pagehide', () => { if (tts.ctx) { try { tts.ctx.close(); } catch { /* best-effort; ignore failures */ } } });
   if (tts.supported) {
     window.speechSynthesis.onvoiceschanged = () => { tts.loadVoices(); refreshVoicesUI(); };
     // Fallback: in Electron/VS Code 'voiceschanged' sometimes never fires; poll

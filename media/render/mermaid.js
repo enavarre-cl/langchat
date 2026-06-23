@@ -236,7 +236,7 @@ import { t } from '../core/i18n.js';
     let dragging = false, sx = 0, sy = 0;
     viewport.addEventListener('pointerdown', (e) => {
       dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
-      try { viewport.setPointerCapture(e.pointerId); } catch (_) {}
+      try { viewport.setPointerCapture(e.pointerId); } catch { /* best-effort; ignore */ }
       viewport.classList.add('grabbing');
     });
     viewport.addEventListener('pointermove', (e) => {
@@ -246,7 +246,7 @@ import { t } from '../core/i18n.js';
     const endDrag = (e) => {
       if (!dragging) return;
       dragging = false; viewport.classList.remove('grabbing');
-      try { viewport.releasePointerCapture(e.pointerId); } catch (_) {}
+      try { viewport.releasePointerCapture(e.pointerId); } catch { /* best-effort; ignore */ }
     };
     viewport.addEventListener('pointerup', endDrag);
     viewport.addEventListener('pointercancel', endDrag);

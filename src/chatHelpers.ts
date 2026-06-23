@@ -76,5 +76,7 @@ export function errMsg(err: any): string {
 
 /** Cryptographic nonce (not Math.random) for the webview CSP. */
 export function makeNonce(): string {
-  return crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '');
+  // hex: 128 bits of entropy, fixed length, all CSP-safe chars. (base64 + stripping non-alphanumerics
+  // dropped a variable number of +/=/ chars, shortening the nonce and reducing entropy unpredictably.)
+  return crypto.randomBytes(16).toString('hex');
 }

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { parseDoc } from './chatDocument';
 import { chatDefaults } from './providers';
+import { makeNonce } from './chatHelpers';
 import { tr } from './i18n';
 
 /**
@@ -93,7 +93,7 @@ export function registerCompare(context: vscode.ExtensionContext): void {
       { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')] }
     );
     const media = (f: string) => panel.webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'media', f));
-    const nonce = crypto.randomBytes(24).toString('base64').replace(/[^A-Za-z0-9]/g, '');
+    const nonce = makeNonce();
     const csp = [
       `default-src 'none'`,
       `img-src ${panel.webview.cspSource} data: blob:`,

@@ -7,19 +7,13 @@ import { hfPullRef, formatBytes } from './ollama/parse';
 import { DownloadManager } from './ollama/downloads';
 import { ModelCardCache } from './ollama/cards';
 import { tr, resolvedLang, activeBundle } from './i18n';
+import { makeNonce } from './chatHelpers';
 
 export interface ModelsPanelHooks {
   /** Refreshes the sidebar after a download. */
   onChanged: () => void;
   /** Applies the model to the focused chat; returns true if it was applied. */
   useModel: (name: string) => Promise<boolean>;
-}
-
-function nonce(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let s = '';
-  for (let i = 0; i < 32; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
 }
 
 /** Free space (bytes) on the volume containing `p`, or 0 if it cannot be determined. */
@@ -185,7 +179,7 @@ export class ModelsPanel {
   }
 
   private html(webview: vscode.Webview): string {
-    const n = nonce();
+    const n = makeNonce();
     const uri = (f: string) => webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'media', f));
     const csp = [
       `default-src 'none'`,

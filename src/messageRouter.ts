@@ -84,7 +84,7 @@ export async function routeMessage(msg: any, ctx: RouterCtx): Promise<void> {
           try {
             await ctx.ensureSummary(doc, doc.messages, idx);
             ctx.pushDoc();
-          } catch (err: any) {
+          } catch (err) {
             ctx.webview.postMessage({ type: 'notice', message: tr('⚠️ Could not summarize context: ') + errMsg(err) });
           } finally { ctx.busyRef.value = false; }
           break;
@@ -139,8 +139,8 @@ export async function routeMessage(msg: any, ctx: RouterCtx): Promise<void> {
             if (isVoice) removePiperVoice(vscode.Uri.joinPath(ctx.globalStorageUri, 'piper-voices').fsPath, voice);
             await ctx.piper.update(notice);          // updates the engine (pip upgrade)
             if (isVoice) await ctx.piper.ensureVoice(voice, notice); // re-downloads the voice
-          } catch (e: any) {
-            ctx.webview.postMessage({ type: 'ttsError', message: tr('Could not set up Piper: ') + (e?.message ?? e) });
+          } catch (e) {
+            ctx.webview.postMessage({ type: 'ttsError', message: tr('Could not set up Piper: ') + (errMsg(e)) });
           }
           break;
         case 'setConfig': {

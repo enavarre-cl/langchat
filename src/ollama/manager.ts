@@ -8,6 +8,7 @@ import { httpFetch } from '../http';
 import { downloadFile, sha256File } from '../download';
 import { OLLAMA_ASSET_SHA256, ollamaAsset, ollamaAssetUrl, assetFormat, ollamaBinName } from './assets';
 import { killProcessTree } from '../procKill';
+import { errMsg } from '../chatHelpers';
 
 export type OllamaStatus = 'stopped' | 'downloading' | 'starting' | 'ready' | 'error';
 
@@ -151,8 +152,8 @@ export class OllamaManager {
         this._baseUrl = baseUrl;
         this.set('ready', baseUrl);
         return baseUrl;
-      } catch (e: any) {
-        this.set('error', e?.message || String(e));
+      } catch (e) {
+        this.set('error', errMsg(e));
         throw e;
       } finally {
         this.startPromise = null;

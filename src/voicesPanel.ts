@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { PiperManager, PIPER_VOICE_CATALOG } from './piper/manager';
 import { listPiperVoices, removePiperVoice } from './piperVoices';
 import { tr } from './i18n';
+import { errMsg } from './chatHelpers';
 
 let openPanel: vscode.WebviewPanel | undefined;
 
@@ -81,8 +82,8 @@ export function openVoicesPanel(
           { location: vscode.ProgressLocation.Notification, title: tr('Downloading voice: ') + id + ' …' },
           () => piper.ensureVoice(id)
         );
-      } catch (e: any) {
-        vscode.window.showErrorMessage(tr('Could not download voice: ') + (e?.message ?? e));
+      } catch (e) {
+        vscode.window.showErrorMessage(tr('Could not download voice: ') + (errMsg(e)));
       }
       send();
       onChanged();

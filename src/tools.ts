@@ -7,6 +7,7 @@ import { McpManager } from './mcp';
 import { ToolSchema } from './providers';
 import { ipIsPrivate } from './net';
 import { safeWebFetch } from './http';
+import { errMsg } from './chatHelpers';
 
 /** Rejects a host that resolves to an internal/private IP (anti-SSRF). Checks ALL its IPs. */
 async function assertSafeHost(hostname: string): Promise<void> {
@@ -223,7 +224,7 @@ const BUILTIN: { schema: ToolSchema; run: (args: any, signal?: AbortSignal) => P
       const uris = await vscode.workspace.findFiles(a?.glob || '**/*', EXCLUDE, 3000);
       let re: RegExp | null = null;
       if (a?.regex) {
-        try { re = new RegExp(a.query, 'i'); } catch (e: any) { return 'Invalid regex: ' + e.message; }
+        try { re = new RegExp(a.query, 'i'); } catch (e) { return 'Invalid regex: ' + errMsg(e); }
       }
       const needle = String(a?.query ?? '').toLowerCase();
       const matches: string[] = [];

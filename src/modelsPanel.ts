@@ -7,7 +7,7 @@ import { hfPullRef, formatBytes } from './ollama/parse';
 import { DownloadManager } from './ollama/downloads';
 import { ModelCardCache } from './ollama/cards';
 import { tr, resolvedLang, activeBundle } from './i18n';
-import { makeNonce } from './chatHelpers';
+import { makeNonce, errMsg } from './chatHelpers';
 
 export interface ModelsPanelHooks {
   /** Refreshes the sidebar after a download. */
@@ -82,8 +82,8 @@ export class ModelsPanel {
       const card = { model, files, readme: md, info };
       this.cards.save(modelId, card);
       this.post({ type: 'showCachedModel', card });
-    } catch (e: any) {
-      this.post({ type: 'error', message: `Could not load model card: ${e?.message || e}` });
+    } catch (e) {
+      this.post({ type: 'error', message: `Could not load model card: ${errMsg(e)}` });
     }
   }
 
@@ -132,8 +132,8 @@ export class ModelsPanel {
         case 'retryDownload': if (msg.id) this.downloads.retry(msg.id); break;
         case 'useModel': await this.useModel(msg.name); break;
       }
-    } catch (e: any) {
-      this.post({ type: 'error', message: e?.message || String(e) });
+    } catch (e) {
+      this.post({ type: 'error', message: errMsg(e) });
     }
   }
 

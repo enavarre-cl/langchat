@@ -60,7 +60,7 @@ export function makeLoadModels(deps: LoadModelsDeps): () => Promise<void> {
         }
         webview.postMessage({ type: 'models', provider: doc.provider, models, current });
         sendStatus('ok', `${models.length} ${tr(models.length === 1 ? 'model' : 'models')}`);
-      } catch (err: any) {
+      } catch (err) {
         webview.postMessage({ type: 'models', provider: doc.provider, models: [], current: '', error: errMsg(err) });
         sendStatus('error', tr('no connection'));
       }

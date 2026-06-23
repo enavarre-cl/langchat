@@ -27,6 +27,7 @@ import { SpellWordsStore } from './spellWords';
 import { openDictionaryPanel } from './dictionaryPanel';
 import { listPiperVoices } from './piperVoices';
 import { PiperManager } from './piper/manager';
+import { errMsg } from './chatHelpers';
 
 // Tools hub (native filesystem + MCP servers), shared by all chats.
 const toolHub = new ToolHub();
@@ -181,8 +182,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         const doc = parseDoc(document.getText(), chatDefaults());
         docCache = { version: document.version, doc };
         return structuredClone(doc);
-      } catch (err: any) {
-        webview.postMessage({ type: 'error', message: tr('The .chat file has invalid JSON: ') + (err?.message ?? err) });
+      } catch (err) {
+        webview.postMessage({ type: 'error', message: tr('The .chat file has invalid JSON: ') + (errMsg(err)) });
         return null;
       }
     };

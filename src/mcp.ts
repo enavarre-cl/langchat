@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { ToolSchema } from './providers';
 import { killProcessTree } from './procKill';
+import { errMsg } from './chatHelpers';
 
 /** Cap on the stdio line buffer: a server emitting an unbounded line would otherwise OOM. */
 const MAX_MCP_BUFFER = 8 * 1024 * 1024;
@@ -223,8 +224,8 @@ export class McpManager {
           try {
             await client.start();
             this.clients.push(client);
-          } catch (e: any) {
-            this.errors.push(`${cfg.name}: ${e?.message ?? e}`);
+          } catch (e) {
+            this.errors.push(`${cfg.name}: ${errMsg(e)}`);
           }
         }
       })();

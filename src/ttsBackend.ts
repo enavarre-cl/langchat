@@ -6,6 +6,7 @@ import * as path from 'path';
 import { tr } from './i18n';
 import { wavData, concatWavs, splitForTTS } from './audio';
 import { PiperManager } from './piper/manager';
+import { errMsg } from './chatHelpers';
 
 export interface TtsBackendDeps {
   webview: vscode.Webview;
@@ -53,15 +54,15 @@ export function makeTtsBackend(deps: TtsBackendDeps) {
           post({ type: 'ttsAudio', data: wav.toString('base64'), last: true });
           post({ type: 'ttsDone' });
           return;
-        } catch (e: any) {
-          tlog(`req#${reqId} daemon failed (${e?.message ?? e}); falling back to per-chunk spawn`);
+        } catch (e) {
+          tlog(`req#${reqId} daemon failed (${errMsg(e)}); falling back to per-chunk spawn`);
         }
       }
       let bin: string;
       try {
         bin = await piper.resolveBin(cfg, notice);
-      } catch (e: any) {
-        post({ type: 'ttsError', message: tr('Could not set up Piper: ') + (e?.message ?? e) });
+      } catch (e) {
+        post({ type: 'ttsError', message: tr('Could not set up Piper: ') + (errMsg(e)) });
         return;
       }
       if (cancelled()) return;
@@ -69,8 +70,8 @@ export function makeTtsBackend(deps: TtsBackendDeps) {
       if (voice && /^[a-z]{2}_[A-Z]{2}-/.test(voice)) {
         try {
           model = await piper.ensureVoice(voice, notice);
-        } catch (e: any) {
-          post({ type: 'ttsError', message: tr('Could not download voice: ') + (e?.message ?? e) });
+        } catch (e) {
+          post({ type: 'ttsError', message: tr('Could not download voice: ') + (errMsg(e)) });
           return;
         }
       } else {
@@ -100,8 +101,8 @@ export function makeTtsBackend(deps: TtsBackendDeps) {
           let proc: any;
           try {
             proc = cp.spawn(bin, args, { cwd: libDir, env });
-          } catch (e: any) {
-            return resolve({ ok: false, err: e?.message ?? String(e) });
+          } catch (e) {
+            return resolve({ ok: false, err: errMsg(e) });
           }
           currentPiperProc = proc; // so we can kill it if cancelled
           let stderr = '';
@@ -109,7 +110,7 @@ export function makeTtsBackend(deps: TtsBackendDeps) {
           proc.on('error', (e: any) => {
             if (currentPiperProc === proc) currentPiperProc = null;
             try { fs.unlinkSync(out); } catch { /* not created / already deleted */ }
-            resolve({ ok: false, err: e?.message ?? String(e) });
+            resolve({ ok: false, err: errMsg(e) });
           });
           proc.on('close', (code: number) => {
             if (currentPiperProc === proc) currentPiperProc = null;

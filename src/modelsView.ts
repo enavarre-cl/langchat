@@ -10,6 +10,7 @@ import { SpellWordsStore, SPELL_LANGS, SPELL_LANG_NAMES } from './spellWords';
 import { listPiperVoices } from './piperVoices';
 import { PiperManager } from './piper/manager';
 import { tr } from './i18n';
+import { errMsg } from './chatHelpers';
 
 export type Section = 'engines' | 'models' | 'voices' | 'dictionary';
 
@@ -120,8 +121,8 @@ export class ModelsTreeProvider implements vscode.TreeDataProvider<ModelsTreeIte
       return [empty];
     }
     let models: LocalModel[];
-    try { models = await listLocal(baseUrl); } catch (e: any) {
-      const err = new ModelsTreeItem('empty', `${tr('Error: ')}${e?.message || e}`);
+    try { models = await listLocal(baseUrl); } catch (e) {
+      const err = new ModelsTreeItem('empty', `${tr('Error: ')}${errMsg(e)}`);
       err.iconPath = new vscode.ThemeIcon('error');
       return [err];
     }

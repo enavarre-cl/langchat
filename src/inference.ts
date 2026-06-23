@@ -81,7 +81,7 @@ export async function runInference(
             try {
               summaryText = await ensureSummary(doc, history, targetUpTo);
               upTo = targetUpTo;
-            } catch (err: any) {
+            } catch (err) {
               webview.postMessage({ type: 'notice', message: tr('⚠️ Could not summarize context: ') + errMsg(err) });
               summaryText = doc.summary?.text ?? '';
             }
@@ -157,7 +157,7 @@ export async function runInference(
             onDelta: (delta) => { webview.postMessage({ type: 'streamDelta', id, delta }); },
             onReasoning: (delta) => { webview.postMessage({ type: 'streamReasoning', id, delta }); },
           });
-        } catch (err: any) {
+        } catch (err) {
           if (ac.signal.aborted) aborted = true;
           else { webview.postMessage({ type: 'error', message: errMsg(err) }); failed = true; }
         }
@@ -194,8 +194,8 @@ export async function runInference(
           } else {
             try {
               out = await toolHub.call(tc.name, args, ac.signal); // Stop cancels in-flight tools too
-            } catch (e: any) {
-              out = 'Error: ' + (e?.message ?? e);
+            } catch (e) {
+              out = 'Error: ' + (errMsg(e));
             }
           }
           webview.postMessage({ type: 'toolResult', name: tc.name, content: out });

@@ -6,6 +6,7 @@ import { pull } from './registry';
 import { hfFileUrl, projectorFile } from './catalog';
 import { downloadFile } from '../download';
 import { tr } from '../i18n';
+import { errMsg } from '../chatHelpers';
 
 export type DownloadState = 'queued' | 'downloading' | 'done' | 'error' | 'cancelled' | 'interrupted';
 
@@ -143,7 +144,7 @@ export class DownloadManager {
       } else {
         try {
           await this.doPull(item, ac.signal);
-        } catch (e: any) {
+        } catch (e) {
           // HF serves a broken manifest descriptor for some quants → the pull dies with "400:" after
           // downloading the layers. Fall back to a direct .gguf import (which we have the paths for).
           if (ac.signal.aborted || !this.isTagError(e) || !item.importPaths?.length) throw e;
@@ -156,9 +157,9 @@ export class DownloadManager {
       // `reader.cancel()`/abort can complete without throwing: detect the abort here too.
       if (ac.signal.aborted) item.state = 'cancelled';
       else { item.state = 'done'; this.onComplete(); }
-    } catch (e: any) {
+    } catch (e) {
       if (ac.signal.aborted) item.state = 'cancelled';
-      else { item.state = 'error'; item.error = e?.message || String(e); }
+      else { item.state = 'error'; item.error = errMsg(e); }
     } finally {
       this.aborts.delete(item.id);
       this.fireState();
@@ -168,7 +169,7 @@ export class DownloadManager {
 
   /** Does this error look like an HF tag/manifest 400 (so an import fallback is worth trying)? */
   private isTagError(e: any): boolean {
-    const m = String(e?.message || e);
+    const m = String(errMsg(e));
     return /(?:^|\D)400(?:\D|$)/.test(m) || /tag .*not .*available/i.test(m);
   }
 

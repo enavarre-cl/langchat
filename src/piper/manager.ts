@@ -15,6 +15,7 @@ import {
   pythonStandaloneAsset, piperAsset, PIPER_VOICE_SHA256, piperVoiceUrls, PIPER_VOICE_CATALOG,
 } from './assets';
 import type { Notify, PiperVoiceInfo } from './assets';
+import { errMsg } from '../chatHelpers';
 
 // Re-exported so existing importers (voicesPanel) keep their path.
 export { PIPER_TTS_VERSION, PIPER_VOICE_CATALOG };
@@ -291,9 +292,9 @@ export class PiperManager {
     const spawnErr = new Promise<never>((_, rej) => proc.once('error', (e) => rej(e instanceof Error ? e : new Error(String(e)))));
     try {
       await Promise.race([this.waitForServer(port, 20000), spawnErr]);
-    } catch (e: any) {
+    } catch (e) {
       killProcessTree(proc);
-      throw new Error((stderr.trim().split('\n').slice(-3).join(' ') || e?.message) ?? 'piper http_server did not respond');
+      throw new Error((stderr.trim().split('\n').slice(-3).join(' ') || errMsg(e)) ?? 'piper http_server did not respond');
     }
     this.serverProc = proc;
     this.serverPort = port;

@@ -32,10 +32,10 @@ export class AttachmentStore {
     let raw: string;
     try {
       raw = fs.readFileSync(p, 'utf8');
-    } catch (e: any) {
+    } catch (e) {
       this.cache = {};
       this.cacheMtime = mtime;
-      this.loadFailed = e?.code !== 'ENOENT'; // ENOENT = no sidecar yet (safe to create fresh)
+      this.loadFailed = (e as NodeJS.ErrnoException)?.code !== 'ENOENT'; // ENOENT = no sidecar yet (safe to create fresh)
       return this.cache;
     }
     try {

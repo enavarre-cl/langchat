@@ -66,8 +66,10 @@ export function sanitizeAttachments(input: any): { kind: 'image' | 'text' | 'doc
 }
 
 /** Maps a raw error to a friendlier backend-connection message when applicable. */
-export function errMsg(err: any): string {
-  const m = err?.message ?? String(err);
+export function errMsg(err: unknown): string {
+  const m = (typeof err === 'object' && err !== null && 'message' in err)
+    ? String((err as Record<string, unknown>).message)
+    : String(err);
   if (/fetch failed|ECONNREFUSED|Failed to fetch/i.test(m)) {
     return 'Could not connect to the backend. Is LM Studio / Ollama running? Check the URL in settings (🔧).';
   }

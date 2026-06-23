@@ -8,6 +8,7 @@ import { ModelsTreeProvider, Section } from './modelsView';
 import { ModelsPanel } from './modelsPanel';
 import { remove as removeModel } from './ollama/registry';
 import { openVoicesPanel } from './voicesPanel';
+import { errMsg } from './chatHelpers';
 import { removePiperVoice } from './piperVoices';
 import { PiperManager } from './piper/manager';
 import { SpellWordsStore } from './spellWords';
@@ -44,7 +45,7 @@ export function registerLocalModels(context: vscode.ExtensionContext, deps: Loca
         { location: vscode.ProgressLocation.Window, title: 'Ollama' },
         () => ollama.start((received, total) => { void received; void total; })
       );
-    } catch (e: any) { vscode.window.showErrorMessage(`Ollama: ${e?.message || e}`); return undefined; }
+    } catch (e) { vscode.window.showErrorMessage(`Ollama: ${errMsg(e)}`); return undefined; }
   };
   // Persistent downloads (survive restarts) that auto-start the server on (re)attempt.
   const downloads = new DownloadManager(
@@ -73,7 +74,7 @@ export function registerLocalModels(context: vscode.ExtensionContext, deps: Loca
   };
 
   // Installs/updates an engine showing progress. (Ollama "update" = reinstalls the pinned version.)
-  const runEngineTask = async (which: any): Promise<void> => {
+  const runEngineTask = async (which: string): Promise<void> => {
     if (which !== 'ollama' && which !== 'piper') return;
     const name = which === 'ollama' ? 'Ollama' : 'Piper';
     const title = tr('Installing engine…') + ` (${name})`;
@@ -83,8 +84,8 @@ export function registerLocalModels(context: vscode.ExtensionContext, deps: Loca
         if (which === 'ollama') await ollama.ensureBinary();
         else await piper.install(notify);
       });
-    } catch (e: any) {
-      vscode.window.showErrorMessage(`${name}: ${e?.message ?? e}`);
+    } catch (e) {
+      vscode.window.showErrorMessage(`${name}: ${errMsg(e)}`);
     }
     refreshTrees();
   };
@@ -126,7 +127,7 @@ export function registerLocalModels(context: vscode.ExtensionContext, deps: Loca
           { location: vscode.ProgressLocation.Notification, title: tr('Starting the Piper server…') },
           (p) => piper.ensureServer(model, (m) => p.report({ message: m }))
         );
-      } catch (e: any) { vscode.window.showErrorMessage(`Piper: ${e?.message ?? e}`); }
+      } catch (e) { vscode.window.showErrorMessage(`Piper: ${errMsg(e)}`); }
     }),
     vscode.commands.registerCommand('parley.tts.stopServer', () => piper.stopServer()),
     vscode.commands.registerCommand('parley.tts.removeVoice', async (item: any) => {
@@ -157,7 +158,7 @@ export function registerLocalModels(context: vscode.ExtensionContext, deps: Loca
       const ok = await vscode.window.showWarningMessage(`${tr('Delete the model')} ${name}?`, { modal: true }, tr('Delete'));
       if (ok !== tr('Delete')) return;
       try { await removeModel(baseUrl, name); refreshTrees(); }
-      catch (e: any) { vscode.window.showErrorMessage(`${tr('Could not delete: ')}${e?.message || e}`); }
+      catch (e) { vscode.window.showErrorMessage(`${tr('Could not delete: ')}${errMsg(e)}`); }
     }),
     vscode.commands.registerCommand('parley.models.openLocalModel', (item: any) => {
       const id = localModelHfId(item?.model?.name);

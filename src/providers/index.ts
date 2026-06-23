@@ -4,8 +4,10 @@ import { OpenAIProvider } from './openai';
 import { OllamaProvider } from './ollama';
 import { GeminiProvider } from './gemini';
 import { AnthropicProvider } from './anthropic';
+import { validateBaseUrl } from './baseUrl';
 
 export * from './types';
+export { validateBaseUrl } from './baseUrl';
 
 /** Single source of truth for supported backends. */
 export const PROVIDER_IDS = ['openai', 'ollama', 'gemini', 'anthropic', 'openrouter'] as const;
@@ -49,32 +51,37 @@ function ollamaBaseUrl(cfg: vscode.WorkspaceConfiguration): string {
 export function buildProvider(providerId: ProviderId): LLMProvider {
   const cfg = vscode.workspace.getConfiguration('parley');
   if (providerId === 'ollama') {
-    return new OllamaProvider(ollamaBaseUrl(cfg));
+    // Managed Ollama is local and trusted; a user-set remote URL still gets sanity-checked. No key.
+    return new OllamaProvider(validateBaseUrl(ollamaBaseUrl(cfg), { hasKey: false }));
   }
   if (providerId === 'gemini') {
+    const key = resolveApiKey('gemini');
     return new GeminiProvider(
-      cfg.get<string>('gemini.baseUrl', 'https://generativelanguage.googleapis.com/v1beta'),
-      resolveApiKey('gemini')
+      validateBaseUrl(cfg.get<string>('gemini.baseUrl', 'https://generativelanguage.googleapis.com/v1beta'), { hasKey: !!key }),
+      key
     );
   }
   if (providerId === 'anthropic') {
+    const key = resolveApiKey('anthropic');
     return new AnthropicProvider(
-      cfg.get<string>('anthropic.baseUrl', 'https://api.anthropic.com/v1'),
-      resolveApiKey('anthropic')
+      validateBaseUrl(cfg.get<string>('anthropic.baseUrl', 'https://api.anthropic.com/v1'), { hasKey: !!key }),
+      key
     );
   }
   if (providerId === 'openrouter') {
     // OpenRouter is compatible with the OpenAI API and supports the `reasoning` parameter.
+    const key = resolveApiKey('openrouter');
     return new OpenAIProvider(
-      cfg.get<string>('openrouter.baseUrl', 'https://openrouter.ai/api/v1'),
-      resolveApiKey('openrouter'),
+      validateBaseUrl(cfg.get<string>('openrouter.baseUrl', 'https://openrouter.ai/api/v1'), { hasKey: !!key }),
+      key,
       true,
       cfg.get<string>('openrouter.sort', '')
     );
   }
+  const key = resolveApiKey('openai');
   return new OpenAIProvider(
-    cfg.get<string>('openai.baseUrl', 'http://localhost:1234/v1'),
-    resolveApiKey('openai')
+    validateBaseUrl(cfg.get<string>('openai.baseUrl', 'http://localhost:1234/v1'), { hasKey: !!key }),
+    key
   );
 }
 

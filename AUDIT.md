@@ -42,7 +42,7 @@
 **Host / orquestación**
 - ✅ H1 🟠 secrets.onDidChange sin disposable · ✅ H2 router floating promise · 🔎 H3 revisado: NO es bug (convención F4, funcionalmente correcto)
 - ✅ H4 🟠 summary.upTo sin validar rango · ⬜ H5 🟡 busyRef race (setConfig/delete/edit/replace) · ⬜ H6 🟡 exportHtml fuera de CSP
-- ✅ H7 🟡 nonce crypto unificado · ⬜ H8 🟡 modelsPanel msg.path traversal · ⬜ H9 ⚪ CSP unsafe-inline · ⬜ H10 ⚪ IDs débiles colisionables
+- ✅ H7 🟡 nonce crypto unificado · ✅ H8 🟡 modelsPanel valida import paths · ⬜ H9 ⚪ CSP unsafe-inline · ⬜ H10 ⚪ IDs débiles colisionables
 
 **Motores locales**
 - ✅ L1 zombies tree-kill · ✅ L2 🟠 .onnx.json validado · ✅ L3 🟠 voz parcial revalidada · ⬜ L4 🟡 colisión nombres importDir
@@ -148,7 +148,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 - **[Media] BUG `messageRouter.ts:142-250`** — `setConfig`/`deleteMessage`/`editMessage`/`replaceAll` **chequean `busyRef` pero no lo adquieren** → entre su `getDoc` y `writeDoc` async puede colarse un `send` → escritura concurrente del doc (race).
 - **[Media] BUG `messageRouter.ts:364`** — `exportHtml` escribe HTML del modelo a tmp y lo abre en el navegador **fuera de CSP** → `<img src=attacker>`/scripts se ejecutan (exfiltración, U5).
 - **✅ [Media] BUG `modelsPanel.ts:18` / `compareView.ts:96` (H7) — CORREGIDO** — ambos usan `makeNonce()`, que ahora es `crypto.randomBytes(16).toString('hex')` (128 bits, longitud fija). Se eliminó el `nonce()` con `Math.random` de modelsPanel y el patrón que recortaba entropía en compareView y en el propio `makeNonce`.
-- **[Media] BUG `modelsPanel.ts:107-144`** — `msg.path`/`msg.id` del webview → nombres y rutas de import sin validar (path traversal hacia `ollama.create`, L4/U5).
+- **✅ [Media] BUG `modelsPanel.ts` (H8) — CORREGIDO/mitigado** — la escritura local ya saneaba el basename (`downloads.ts:204`); se añade validación de frontera en `doPull` que rechaza import paths absolutos o con `..`. (El residual de la URL HF se queda en huggingface.co, SSRF-safe por C6.)
 - **[Media] CONVENCIÓN `webviewHtml.ts:33`** — CSP con `style-src 'unsafe-inline'` (justificado por Mermaid) → cualquier `style=` inyectado pasa; depende del sanitizador.
 - **[Baja] BUG `extension.ts:194` / `attachmentStore.ts:66`** — IDs con `Date.now()+Math.random()*1e6` en bucle síncrono (`Date.now()` constante) → **colisión plausible** → un mensaje/attachment pierde su blob.
 

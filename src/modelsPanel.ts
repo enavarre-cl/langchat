@@ -138,6 +138,10 @@ export class ModelsPanel {
   }
 
   private async doPull(id: string, quant: string, size: number, pullable: boolean, filePath: string, shards: string[]): Promise<void> {
+    // Frontier validation (L4): import paths are repo-relative HF paths. Reject absolute paths or
+    // any `..` segment from the webview message so they can't reach outside the intended download.
+    const unsafe = (p: string): boolean => !!p && (p.startsWith('/') || /^[a-zA-Z]:[\\/]/.test(p) || p.split(/[\\/]/).includes('..'));
+    if (unsafe(filePath) || shards.some(unsafe)) { this.post({ type: 'error', message: 'Invalid model path.' }); return; }
     // D4: show modal only when free space is clearly insufficient (the size is already visible in the UI).
     const free = freeSpace(this.context.globalStorageUri.fsPath);
     if (free && size && free < size * 1.1) {

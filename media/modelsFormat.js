@@ -1,0 +1,133 @@
+// Pure formatting/render helpers for the model explorer (no shared state). Classic script loaded
+// BEFORE models.js; an IIFE keeps t/esc out of the shared global lexical scope and exposes the
+// helpers on window so the models.js IIFE can call them directly (esc(), fmtBytes(), …).
+(function () {
+  const t = (s) => (window.LangI18n ? window.LangI18n.t(s) : s);
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function fmtBytes(n) {
+    if (!n || n < 0) return '—';
+    const gb = n / 1073741824;
+    return gb >= 1 ? gb.toFixed(2) + ' GB' : (n / 1048576).toFixed(0) + ' MB';
+  }
+  function fmtNum(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(0) + 'K';
+    return String(n || 0);
+  }
+  // Localized relative time ("hace 10 días" / "10 days ago").
+  function fmtAgo(dateStr) {
+    if (!dateStr) return '';
+    const then = new Date(dateStr).getTime();
+    if (!then) return '';
+    const sec = Math.round((Date.now() - then) / 1000);
+    const units = [['year', 31536000], ['month', 2592000], ['week', 604800], ['day', 86400], ['hour', 3600], ['minute', 60]];
+    const loc = (window.LangI18n && window.LangI18n.get && window.LangI18n.get()) || 'en';
+    try {
+      const rtf = new Intl.RelativeTimeFormat(loc, { numeric: 'auto' });
+      for (const [unit, s] of units) {
+        if (Math.abs(sec) >= s || unit === 'minute') return rtf.format(-Math.round(sec / s), unit);
+      }
+    } catch (e) { /* RTF not available */ }
+    return '';
+  }
+  function pipelineLabel(p) {
+    const map = {
+      'text-generation': 'Text generation',
+      'text2text-generation': 'Text generation',
+      'image-text-to-text': 'Vision (image + text)',
+      'any-to-any': 'Multimodal',
+      'automatic-speech-recognition': 'Speech to text',
+      'text-to-speech': 'Text to speech',
+      'feature-extraction': 'Embeddings',
+      'sentence-similarity': 'Embeddings',
+    };
+    return p ? t(map[p] || p) : '';
+  }
+  // Default quant: typical quality/size balance, with fallbacks.
+  function pickDefaultQuant(files) {
+    const order = ['Q4_K_M', 'Q4_0', 'Q5_K_M', 'Q4_K_S', 'Q8_0', 'Q6_K'];
+    for (const q of order) { const i = files.findIndex((f) => f.quant === q); if (i >= 0) return i; }
+    return Math.min(files.length - 1, Math.floor(files.length / 2));
+  }
+  function capBadges(caps, estimated) {
+    const items = [];
+    if (caps.vision) items.push(['👁', t('Vision')]);
+    if (caps.tools) items.push(['🛠', t('Tool Use')]);
+    if (caps.reasoning) items.push(['🧠', t('Reasoning')]);
+    if (!items.length) return '';
+    const tip = estimated ? ` title="${esc(t('Estimated from tags'))}"` : '';
+    return `<span class="mb-caps"${tip}>` +
+      items.map(([i, l]) => `<span class="mb-cap">${i} ${esc(l)}</span>`).join('') +
+      (estimated ? ` <span class="mb-cap-est">~</span>` : '') + `</span>`;
+  }
+
+  // Capabilities row in the detail panel, with colors (Vision/Tools/Reasoning), like LM Studio.
+  function detailCaps(caps) {
+    caps = caps || {};
+    const items = [];
+    if (caps.vision) items.push(['vision', '👁', t('Vision')]);
+    if (caps.tools) items.push(['tools', '🛠', t('Tool Use')]);
+    if (caps.reasoning) items.push(['reasoning', '🧠', t('Reasoning')]);
+    if (!items.length) return '';
+    return `<div class="mb-caps-row"><span class="mb-caps-label">${esc(t('Capabilities'))}:</span> ` +
+      items.map(([k, i, l]) => `<span class="mb-cap-badge ${k}">${i} ${esc(l)}</span>`).join(' ') +
+      ` <span class="mb-cap-est" title="${esc(t('Estimated from tags'))}">~</span></div>`;
+  }
+
+  // Short README summary (first real paragraph, stripped of markdown/HTML), for the description box.
+  function readmeSummary(md) {
+    if (!md) return '';
+    const text = md
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/^\s*#.*$/gm, ' ')
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/[*_`>|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return text.length > 200 ? text.slice(0, 200).replace(/\s+\S*$/, '') + '…' : text;
+  }
+
+  // Strips dangerous content from the README HTML (CSP already blocks inline scripts; this is extra defense).
+  function sanitizeHtml(html) {
+    return html
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta)[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
+      .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*>/gi, '')
+      .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
+      .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
+      .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+      .replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1=$2#$2');
+  }
+
+  // README render: basic markdown preserving embedded HTML (HF mixes both).
+  function renderReadme(md) {
+    if (!md) return `<span class="mb-muted">${esc(t('No README'))}</span>`;
+    const blocks = [];
+    md = md.replace(/```[\s\S]*?```/g, (m) => { blocks.push(m); return `\u0000${blocks.length - 1}\u0000`; });
+    let html = md
+      .replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, '<img alt="$1" src="$2">')
+      .replace(/\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g, '<a href="$2">$1</a>')
+      .replace(/^######\s+(.+)$/gm, '<h6>$1</h6>')
+      .replace(/^#####\s+(.+)$/gm, '<h5>$1</h5>')
+      .replace(/^####\s+(.+)$/gm, '<h4>$1</h4>')
+      .replace(/^###\s+(.+)$/gm, '<h3>$1</h3>')
+      .replace(/^##\s+(.+)$/gm, '<h2>$1</h2>')
+      .replace(/^#\s+(.+)$/gm, '<h1>$1</h1>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\u0000(\d+)\u0000/g, (m, i) => {
+      const code = (blocks[Number(i)] || '').replace(/^```\w*\n?/, '').replace(/```\s*$/, '');
+      return `<pre><code>${esc(code)}</code></pre>`;
+    });
+    return sanitizeHtml(html);
+  }
+  Object.assign(window, {
+    esc, fmtBytes, fmtNum, fmtAgo, pipelineLabel, pickDefaultQuant,
+    capBadges, detailCaps, readmeSummary, sanitizeHtml, renderReadme,
+  });
+})();

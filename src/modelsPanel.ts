@@ -214,6 +214,7 @@ export class ModelsPanel {
   </div>
   <script nonce="${n}">window.I18N_LANG = ${JSON.stringify(resolvedLang())}; window.I18N_BUNDLE = ${JSON.stringify(activeBundle())};</script>
   <script nonce="${n}" src="${uri('i18n.js')}"></script>
+  <script nonce="${n}" src="${uri('modelsFormat.js')}"></script>
   <script nonce="${n}" src="${uri('models.js')}"></script>
 </body>
 </html>`;

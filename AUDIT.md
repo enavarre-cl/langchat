@@ -37,7 +37,7 @@
 
 **Webview**
 - ✅ W1 🟡 botón regenerar ausente tras tools (reportado) · ✅ W2 🟠 colisión placeholder code-span · ✅ W3 🟡 listas anidadas con nesting
-- ✅ W4 🟡 processMermaid sin race · ⬜ W5 🟡 conversation.js god-view (refactor) · ✅ W6 ⚪ escapeHtml coacciona String · ✅ W7 ⚪ mermaid sin unescape
+- ✅ W4 🟡 processMermaid sin race · ✅ W5 🟡 god-view partido (conversation 500→382 + export.js + panels.js) · ✅ W6 ⚪ escapeHtml coacciona String · ✅ W7 ⚪ mermaid sin unescape
 
 **Host / orquestación**
 - ✅ H1 🟠 secrets.onDidChange sin disposable · ✅ H2 router floating promise · 🔎 H3 revisado: NO es bug (convención F4, funcionalmente correcto)
@@ -51,7 +51,7 @@
 **i18n / CSS / transversal**
 - ✅ I1 🟡 claves UI traducidas (24×5) · ✅ I2 ⚪ Reset / center (americano) · ✅ I3 ⚪ 2 claves muertas eliminadas
 - ✅ S1 ⚪ colores con tokens de tema · ✅ S2 ⚪ badges consolidados · ✅ S3 ⚪ anillo de foco · ✅ S4 ⚪ override muerto quitado
-- ⬜ X1 🟡 ~185 `any` internos · 🔎 X2 🟡 tamaños (seguimiento; el peor es W5) · ✅ X3 ⚪ catch vacíos comentados · 🔎 X4 ⚪ higiene: archivos locales (decisión del usuario)
+- ⬜ X1 🟡 ~185 `any` internos · ✅ X2 🟡 god-view bajo umbral (382); resto en seguimiento · ✅ X3 ⚪ catch vacíos comentados · 🔎 X4 ⚪ higiene: archivos locales (decisión del usuario)
 
 ---
 

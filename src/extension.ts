@@ -108,7 +108,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  registerLocalModels(context, { piper, spellWords, voicesChanged, getActiveApply: () => ChatEditorProvider.activeApply });
+  registerLocalModels(context, { piper, spellWords, voicesChanged, getActiveApply: () => ChatEditorProvider.activeApply() });
 }
 
 export function deactivate() {
@@ -136,8 +136,16 @@ async function createNewChat(): Promise<void> {
 
 class ChatEditorProvider implements vscode.CustomTextEditorProvider {
   static readonly viewType = 'parley.editor';
-  /** Applier for the focused chat: the models view uses it to "use this model". */
-  static activeApply: ((patch: ChatPatch) => Promise<void>) | undefined;
+  // Registry of open chat editors with their config-apply fn, ordered by focus recency (most recent
+  // last). The models view's "use this model" targets the focused editor, or the most-recently
+  // focused still-open one — so closing a chat that was opened on top of another restores the latter
+  // as the target. Replaces the single mutable `activeApply` static (H3/F4 global-state smell).
+  private static readonly editors: { apply: (patch: ChatPatch) => Promise<void>; active: boolean }[] = [];
+  /** Apply fn of the chat the models view should act on (focused, else most recently focused). */
+  static activeApply(): ((patch: ChatPatch) => Promise<void>) | undefined {
+    const list = ChatEditorProvider.editors;
+    return (list.find((e) => e.active) ?? list[list.length - 1])?.apply;
+  }
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -365,13 +373,18 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       if (doc.provider !== before) await loadModels();
       pushDoc();
     };
-    // Points to the LAST active chat. We don't clear it on focus loss: if we did, focusing the
-    // sidebar to "Use in chat" would lose the reference. It is only cleared on dispose.
-    const setActive = (active: boolean): void => {
-      if (active) ChatEditorProvider.activeApply = applyConfig;
-    };
-    setActive(panel.active);
-    const onState = panel.onDidChangeViewState(() => setActive(panel.active));
+    // Register this editor; on focus, move it to the end so it becomes the "use in chat" target and
+    // the most-recent fallback when focus moves to the sidebar. Removed from the registry on dispose.
+    const entry = { apply: applyConfig, active: panel.active };
+    ChatEditorProvider.editors.push(entry);
+    const onState = panel.onDidChangeViewState(() => {
+      entry.active = panel.active;
+      if (panel.active) {
+        const list = ChatEditorProvider.editors;
+        const i = list.indexOf(entry);
+        if (i >= 0 && i !== list.length - 1) { list.splice(i, 1); list.push(entry); }
+      }
+    });
 
     // Any change to the personal dictionary (panel, another chat) → refreshes this webview.
     const onSpell = this.spellWords.onDidChange(async () => webview.postMessage({ type: 'spellWords', words: await this.spellWords.all() }));
@@ -387,7 +400,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       onSpell.dispose();
       onVoices.dispose();
       onLang.dispose();
-      if (ChatEditorProvider.activeApply === applyConfig) ChatEditorProvider.activeApply = undefined;
+      const i = ChatEditorProvider.editors.indexOf(entry);
+      if (i >= 0) ChatEditorProvider.editors.splice(i, 1);
     });
   }
 

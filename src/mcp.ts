@@ -2,6 +2,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { ToolSchema } from './providers';
+import { killProcessTree } from './procKill';
+
+/** Cap on the stdio line buffer: a server emitting an unbounded line would otherwise OOM. */
+const MAX_MCP_BUFFER = 8 * 1024 * 1024;
 
 interface ServerConfig {
   name: string;
@@ -22,6 +26,8 @@ class McpClient {
   private proc?: ChildProcess;
   private buffer = '';
   private nextId = 1;
+  private alive = false;          // false once the process has exited/errored → fail new calls fast
+  private lastStderr = '';        // tail of the server's stderr, surfaced in error messages
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>();
   tools: McpTool[] = [];
 
@@ -36,13 +42,18 @@ class McpClient {
       // The command comes from the workspace .mcp (already gated by Workspace Trust).
       shell: process.platform === 'win32',
     });
+    this.alive = true;
     this.proc.stdout!.on('data', (d) => this.onData(d));
-    this.proc.stderr!.on('data', () => {});
+    // Keep the tail of stderr instead of discarding it: it's the only diagnostic when a server fails.
+    this.proc.stderr!.on('data', (d) => { this.lastStderr = (this.lastStderr + d.toString('utf8')).slice(-2000); });
     this.proc.on('exit', () => {
-      for (const p of this.pending.values()) p.reject(new Error('The MCP server exited'));
+      this.alive = false;
+      const detail = this.lastStderr.trim() ? `: ${this.lastStderr.trim().split('\n').slice(-3).join(' ')}` : '';
+      for (const p of this.pending.values()) p.reject(new Error('The MCP server exited' + detail));
       this.pending.clear();
     });
     this.proc.on('error', (e) => {
+      this.alive = false;
       for (const p of this.pending.values()) p.reject(e);
       this.pending.clear();
     });
@@ -59,6 +70,7 @@ class McpClient {
 
   private onData(d: Buffer): void {
     this.buffer += d.toString('utf8');
+    if (this.buffer.length > MAX_MCP_BUFFER) this.buffer = this.buffer.slice(-MAX_MCP_BUFFER); // bound memory
     let idx: number;
     while ((idx = this.buffer.indexOf('\n')) >= 0) {
       const line = this.buffer.slice(0, idx).trim();
@@ -86,6 +98,8 @@ class McpClient {
   }
 
   private request(method: string, params: any, signal?: AbortSignal): Promise<any> {
+    // The server already died: fail immediately instead of waiting out the 30s timeout.
+    if (!this.alive) return Promise.reject(new Error('The MCP server is not running.'));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       let done = false;
@@ -115,16 +129,20 @@ class McpClient {
     const content = Array.isArray(res?.content) ? res.content : [];
     const text = content
       .map((c: any) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
-      .join('\n');
-    return text || '(no output)';
+      .join('\n') || '(no output)';
+    // Honour the MCP `isError` flag so the model can tell a tool failure from normal output.
+    return res?.isError ? `Error: ${text}` : text;
   }
 
   dispose(): void {
     // Reject pending immediately (don't wait for the 30s timeout) and close the process.
+    this.alive = false;
     for (const p of this.pending.values()) { try { p.reject(new Error('MCP closed')); } catch { /* noop */ } }
     this.pending.clear();
     try { this.proc?.stdin?.end(); } catch { /* noop */ }
-    try { this.proc?.kill(); } catch { /* noop */ }
+    // Tree-kill: with shell:true on Windows, proc.kill() would only kill the shell, orphaning the
+    // real server (node/npx). Also escalates to SIGKILL on POSIX.
+    killProcessTree(this.proc);
     this.proc = undefined;
   }
 }

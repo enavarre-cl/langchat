@@ -32,8 +32,8 @@
 **Loop agéntico / tools**
 - ✅ A1 🟠 abort persiste assistant+toolCalls sin respuesta · ✅ A2 🟠 tools en paralelo · ⬜ A3 🟡 fs_search síncrono bloquea event loop
 - **🟠 Altas: COMPLETAS** (P3, A1, A2, W2, H1, H4, L2, L3 + H3 reclasificado)
-- ⬜ A4 🟡 mcp dispose zombie · ⬜ A5 🟡 mcp ignora isError · ⬜ A6 🟡 mcp buffer stdio sin límite
-- ⬜ A7 🟡 mcp servidor caído cuelga 30s · ⬜ A8 🟡 inference traga error de args JSON · ⬜ A9 ⚪ MAX_ITERS=0 sin tope · ⬜ A10 ⚪ mcp descarta stderr
+- ✅ A4 🟡 mcp dispose zombie · ✅ A5 🟡 mcp ignora isError · ✅ A6 🟡 mcp buffer stdio acotado
+- ✅ A7 🟡 mcp servidor caído falla rápido · ⬜ A8 🟡 inference traga error de args JSON · ⬜ A9 ⚪ MAX_ITERS=0 sin tope · ✅ A10 ⚪ mcp captura stderr
 
 **Webview**
 - ✅ W1 🟡 botón regenerar ausente tras tools (reportado) · ✅ W2 🟠 colisión placeholder code-span · ⬜ W3 🟡 listas anidadas se aplanan
@@ -120,13 +120,13 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 - **✅ [Alta] BUG `inference.ts:174-194` (A1) — CORREGIDO** — al abortar a media ejecución del tool-loop, `repairTrailingToolChain(fresh.messages)` se llama antes del `writeDoc` intermedio → ya no se persiste un assistant con toolCalls sin sus respuestas.
 - **✅ [Alta] BUG `inference.ts` tool-loop (A2) — CORREGIDO** — las tool calls de un turno se ejecutan con `Promise.all` (independientes: el modelo las pidió sin ver resultados intermedios). Resultados recogidos en orden de petición (pairing tool_result↔tool_call intacto); el abort cancela las in-flight vía `ac.signal`. (verificado: orden a,b,c, latencia ~máx no suma)
 - **[Media] BUG `tools.ts:218-221`** — `fs_search` hace `readFileSync` **síncrono** sobre hasta 3000 archivos × 2MB → **bloquea el event loop / congela VS Code** en repos grandes (S1/S5).
-- **[Media] BUG `mcp.ts:122-129`** — `dispose()` hace `kill()` (SIGTERM); con `shell:true` mata el shell, **no el hijo MCP** → zombie. Sin SIGKILL de respaldo (T9).
-- **[Media] BUG `mcp.ts:113`** — `callTool` **ignora `isError`** del resultado MCP → el modelo no distingue éxito de fallo de la herramienta.
-- **[Media] BUG `mcp.ts:60`** — Buffer de stdio **crece sin límite** → un servidor que emite una línea enorme = OOM (K5).
-- **[Media] BUG `mcp.ts:194-215`** — Servidor MCP caído tras arrancar no se detecta → cada tool call cuelga **30s hasta timeout**.
+- **✅ [Media] BUG `mcp.ts` dispose (A4) — CORREGIDO** — `dispose()` usa `killProcessTree` (tree-kill en Windows + SIGKILL en POSIX).
+- **✅ [Media] BUG `mcp.ts:113` (A5) — CORREGIDO** — `callTool` respeta `isError`: prefija `Error:` para que el modelo distinga fallo de salida normal.
+- **✅ [Media] BUG `mcp.ts:60` (A6) — CORREGIDO** — buffer stdio acotado a 8MiB (evita OOM por línea sin newline).
+- **✅ [Media] BUG `mcp.ts` (A7) — CORREGIDO** — flag `alive` (false en exit/error): una request a un servidor muerto falla al instante en vez de esperar 30s.
 - **[Media] BUG `inference.ts:181`** — Args JSON malformados → **se traga el error y ejecuta con `args={}`** en vez de devolver un error al modelo para que se autocorrija.
 - **[Baja] BUG `inference.ts:147`** — `MAX_ITERS===0` (ilimitado) **sin tope de seguridad**: modelo en bucle de tools solo se corta por Stop manual → coste descontrolado.
-- **[Baja] BUG `mcp.ts:40`** — `stderr.on('data', () => {})` **descarta todo el stderr** → diagnóstico de servidores caídos perdido (L2).
+- **✅ [Baja] BUG `mcp.ts:40` (A10) — CORREGIDO** — se conserva la cola (2KB) de stderr y se incluye en el error de exit.
 
 ## 🟠 Webview / render (`media/**`)
 

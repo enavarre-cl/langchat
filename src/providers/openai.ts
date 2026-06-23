@@ -65,7 +65,7 @@ export class OpenAIProvider implements LLMProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const res = await httpFetch(this.url('/models'), { headers: this.headers() });
+    const res = await httpFetch(this.url('/models'), { headers: this.headers(), signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       throw new Error(`Could not list models (${res.status} ${res.statusText})`);
     }

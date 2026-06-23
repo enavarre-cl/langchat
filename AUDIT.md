@@ -25,7 +25,7 @@
 
 **Providers**
 - ✅ P1 stream flush final · ✅ P2 stream reader release · ✅ P3 🟠 AbortSignal chequeado en read-loop
-- ⬜ P4 🟡 sin timeout de red · ⬜ P5 🟡 tool-call id sin índice (openai:229) · ⬜ P6 🟡 isImageOutputModel demasiado amplio
+- ✅ P4 🟡 timeout de red · ⬜ P5 🟡 tool-call id sin índice (openai:229) · ⬜ P6 🟡 isImageOutputModel demasiado amplio
 - ⬜ P7 🟡 anthropic temperature:1 no fijado · ⬜ P8 🟡 defensive cap trunca línea grande · ⬜ P9 🟡 gemini functionResponse sin validar toolName
 - ⬜ P10 ⚪ multiple tool_calls sin index (openai:217) · ⬜ P11 ⚪ baseUrl sin validar (4 providers) · ⬜ P12 🟡 `any` en bodies de request
 
@@ -105,7 +105,7 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 - **✅ [Alta] BUG `stream.ts:32-44` — CORREGIDO** — `readLines` ahora hace flush del buffer final tras `done` (emite la última línea sin `\n`); el chunk `{"done":true}` de Ollama con el `usage` ya no se pierde. Test #41 (que asertaba el bug) reescrito + test guard de no-emisión-vacía. (49/49)
 - **✅ [Alta] BUG `stream.ts:26-44` — CORREGIDO** — `readLines` envuelto en `try/finally` que llama `reader.cancel()` siempre (cierre normal, throw de `onLine`, abort) → libera la conexión y señala cancelación. 2 tests nuevos verifican que `cancel()` se llama en ambas rutas. (51/51)
 - **✅ [Alta] BUG `stream.ts` (P3) — CORREGIDO** — `readLines` acepta `signal`: un listener `abort` cancela el reader (desbloquea un `read()` pendiente) y se chequea `signal.aborted` antes/después de cada `read()`, lanzando para que el provider lo trate como abort. Los 4 providers pasan `cb.signal`. (verificado: aborta y libera incluso con reader que nunca termina)
-- **[Media] BUG `request.ts:15` + `listModels` (todos)** — **Sin timeout en I/O de red** (K6): un backend que acepta conexión y no responde headers cuelga la UI indefinidamente.
+- **✅ [Media] BUG `request.ts:15` + `listModels` (P4) — CORREGIDO** — `postStream` usa `fetchWithHeadersTimeout` (60s para headers; el body streamed sigue ilimitado y respeta Stop). Los 4 `listModels` usan `AbortSignal.timeout(15s)`. Un backend que acepta y se queda mudo ya no cuelga la UI.
 - **[Media] BUG `openai.ts:229`** — IDs de tool-call sintéticos **sin índice** (`call_${name}`): dos llamadas a la misma tool sin `id` colisionan → tool results mal enrutados. Ollama/Gemini sí añaden índice; OpenAI no (inconsistencia).
 - **[Media] BUG `multimodal.ts:23`** — `isImageOutputModel` con regex `/…|image/i` es demasiado amplio: cualquier modelo con "image" en el id (visión, embeddings) se trata como image-output → se le quitan tools silenciosamente.
 - **[Media] BUG `anthropic.ts:110-119`** — Con thinking, la API exige `temperature:1` y el código **no lo fija** (el comentario dice que sí). El comentario miente respecto al código.

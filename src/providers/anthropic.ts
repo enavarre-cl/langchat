@@ -30,7 +30,7 @@ export class AnthropicProvider implements LLMProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const res = await httpFetch(`${this.base()}/models?limit=100`, { headers: this.headers() });
+    const res = await httpFetch(`${this.base()}/models?limit=100`, { headers: this.headers(), signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       throw new Error(formatHttpError('Anthropic', res.status, res.statusText, detail));

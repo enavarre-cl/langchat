@@ -27,7 +27,7 @@ export class GeminiProvider implements LLMProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const res = await httpFetch(`${this.base()}/models`, { headers: this.headers() });
+    const res = await httpFetch(`${this.base()}/models`, { headers: this.headers(), signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       throw new Error(`Could not list Gemini models (${res.status} ${res.statusText})`);
     }

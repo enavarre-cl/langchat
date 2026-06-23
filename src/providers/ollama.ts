@@ -37,7 +37,7 @@ export class OllamaProvider implements LLMProvider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const res = await httpFetch(this.url('/api/tags'));
+    const res = await httpFetch(this.url('/api/tags'), { signal: AbortSignal.timeout(15_000) });
     if (!res.ok) {
       throw new Error(`Could not list Ollama models (${res.status} ${res.statusText})`);
     }

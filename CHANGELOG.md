@@ -5,6 +5,60 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-06-22
+
+Security + reliability pass from a full code audit (([`bd6a71d`](https://github.com/enavarre-cl/parley/commit/bd6a71d)) inventory). 55 findings fixed
+across 39 commits; see `AUDIT.md` for per-finding detail and `BEST-PRACTICES.md` for the standard.
+
+### Security
+- Block a `javascript:` link XSS in rendered Markdown — a leading control char bypassed the scheme allowlist. ([`99ce763`](https://github.com/enavarre-cl/parley/commit/99ce763))
+- Stop `fs_write` from overwriting `.mcp.json` / `.mcp/` (deferred RCE via spawned MCP servers). ([`1449043`](https://github.com/enavarre-cl/parley/commit/1449043))
+- Stop `fs_search`/`fs_glob` from leaking files outside the workspace via an in-workspace symlink. ([`0533234`](https://github.com/enavarre-cl/parley/commit/0533234))
+- Escape values interpolated into the inline webview `<script>` (`</script>` breakout). ([`8d6852c`](https://github.com/enavarre-cl/parley/commit/8d6852c))
+- Validate IPs in `downloadFile` (block SSRF to private hosts / cloud metadata, incl. redirects). ([`1c36358`](https://github.com/enavarre-cl/parley/commit/1c36358))
+- Anchor the TTS voice-id validation to block path traversal. ([`182a51e`](https://github.com/enavarre-cl/parley/commit/182a51e))
+- Use a strong fixed-length `crypto` CSP nonce everywhere. ([`1860e16`](https://github.com/enavarre-cl/parley/commit/1860e16))
+- Strict CSP + nonce on the HTML export. ([`dc9c0e8`](https://github.com/enavarre-cl/parley/commit/dc9c0e8))
+- Reject absolute/`..` model-import paths from the webview. ([`c951136`](https://github.com/enavarre-cl/parley/commit/c951136))
+
+### Fixed
+- Streaming clipped the first letter of a block ("Jenny" → "enny") until the stream ended. ([`05fb7d4`](https://github.com/enavarre-cl/parley/commit/05fb7d4))
+- Numbers in prose rendered as `<code>undefined</code>` ("entre 0 y 1") — code-span placeholder collision. ([`8e79369`](https://github.com/enavarre-cl/parley/commit/8e79369))
+- Show the regenerate button on the prompt even when the answer used tools. ([`af08fd3`](https://github.com/enavarre-cl/parley/commit/af08fd3))
+- Don't wipe an accumulated answer on a failed/aborted turn. ([`97a2397`](https://github.com/enavarre-cl/parley/commit/97a2397))
+- Nested Markdown lists keep their nesting; `escapeHtml` coerces non-strings; drop deprecated `unescape`. ([`59bd569`](https://github.com/enavarre-cl/parley/commit/59bd569))
+- Mermaid diagrams no longer "disappear" when a re-render detaches the node mid-render. ([`6974e0a`](https://github.com/enavarre-cl/parley/commit/6974e0a))
+- Stream: flush the final chunk so Ollama token usage isn't lost. ([`728a44b`](https://github.com/enavarre-cl/parley/commit/728a44b))
+- Stream: always release the reader (leak/abort). ([`ce91371`](https://github.com/enavarre-cl/parley/commit/ce91371))
+- Stream: honor the `AbortSignal` inside the read loop. ([`84f3f14`](https://github.com/enavarre-cl/parley/commit/84f3f14))
+- Providers: network timeouts so a silent backend can't hang the UI. ([`15336a9`](https://github.com/enavarre-cl/parley/commit/15336a9))
+- Providers: tool-call id collisions, image-model detection, Anthropic thinking temp, line-buffer cap. ([`b205696`](https://github.com/enavarre-cl/parley/commit/b205696))
+- Gemini: default the function-response name to avoid a 400. ([`d9d0042`](https://github.com/enavarre-cl/parley/commit/d9d0042))
+- Agentic loop: run a turn's tool calls concurrently. ([`b01f9cc`](https://github.com/enavarre-cl/parley/commit/b01f9cc))
+- Agentic loop: repair a dangling tool chain before persisting on abort. ([`f51edd8`](https://github.com/enavarre-cl/parley/commit/f51edd8))
+- Agentic loop: report invalid tool-arg JSON + hard iteration backstop. ([`21ff371`](https://github.com/enavarre-cl/parley/commit/21ff371))
+- `fs_search` file I/O is async so it doesn't freeze the editor. ([`ec16a15`](https://github.com/enavarre-cl/parley/commit/ec16a15))
+- MCP: honor `isError`, fail fast on a dead server, keep stderr, bound the stdio buffer, tree-kill. ([`2ee7f9c`](https://github.com/enavarre-cl/parley/commit/2ee7f9c))
+- Tree-kill Ollama/Piper (no zombies; fixes Windows `shell:true`). ([`37eaf83`](https://github.com/enavarre-cl/parley/commit/37eaf83))
+- Downloads: per-item import dir, Piper spawn-error handling, abort-listener cleanup. ([`e4027a3`](https://github.com/enavarre-cl/parley/commit/e4027a3))
+- Piper: validate/re-fetch the voice `.onnx.json`. ([`aa163de`](https://github.com/enavarre-cl/parley/commit/aa163de))
+- Piper: time out the TTS synth request. ([`4e00fb8`](https://github.com/enavarre-cl/parley/commit/4e00fb8))
+- `.chat`: don't crash on a `null`/non-object file; preserve unknown fields round-trip. ([`d78d0b6`](https://github.com/enavarre-cl/parley/commit/d78d0b6))
+- `.chat`: clamp `summary.upTo` to a valid range. ([`0471988`](https://github.com/enavarre-cl/parley/commit/0471988))
+- Attachments: unique temp file + mtime cache invalidation. ([`4971a52`](https://github.com/enavarre-cl/parley/commit/4971a52))
+- Use `crypto.randomUUID()` for message/attachment ids. ([`c5558f2`](https://github.com/enavarre-cl/parley/commit/c5558f2))
+- Host: register the SecretStorage listener as a disposable. ([`d9939f8`](https://github.com/enavarre-cl/parley/commit/d9939f8))
+- Host: surface/log errors from the webview message router. ([`2859d3c`](https://github.com/enavarre-cl/parley/commit/2859d3c))
+- Router: hold the busy lock across `setConfig`. ([`40bea77`](https://github.com/enavarre-cl/parley/commit/40bea77))
+
+### Changed
+- i18n: translate 24 UI strings into es/pt/fr/de/it, fix British spelling, drop unused keys. ([`d420d11`](https://github.com/enavarre-cl/parley/commit/d420d11))
+- CSS: theme-token status colors, keyboard focus ring, deduplicated badges. ([`e18686d`](https://github.com/enavarre-cl/parley/commit/e18686d))
+- Comment best-effort empty catches. ([`3c715b6`](https://github.com/enavarre-cl/parley/commit/3c715b6))
+
+### Added
+- `BEST-PRACTICES.md` (dev standard) and `AUDIT.md` (full audit). ([`99ce763`](https://github.com/enavarre-cl/parley/commit/99ce763))
+
 ## [1.5.6] - 2026-06-22
 
 ### Fixed

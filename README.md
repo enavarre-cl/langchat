@@ -158,10 +158,16 @@ Parley is **MIT** licensed. It bundles or downloads third‑party components und
 > The neural TTS engine (Piper) is GPL and is fetched on demand from PyPI; it is **not** shipped
 > inside the extension package.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the release history. The latest release (**1.6.0**) is a
+security + reliability pass from a full code audit ([AUDIT.md](AUDIT.md)).
+
 ## Contributing
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for a tour of the codebase (extension host ↔ webviews,
 providers, the agentic loop, local engines, i18n and security) with diagrams.
+Development conventions are in [BEST-PRACTICES.md](BEST-PRACTICES.md).
 
 ## License
 

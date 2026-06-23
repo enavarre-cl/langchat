@@ -428,6 +428,8 @@ export class PiperManager {
         }
       );
       req.on('error', reject);
+      // Don't hang the TTS UI forever if the daemon stops responding mid-request (K6).
+      req.setTimeout(30000, () => req.destroy(new Error('piper http_server timed out')));
       req.write(body);
       req.end();
     });

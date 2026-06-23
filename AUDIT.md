@@ -46,7 +46,7 @@
 
 **Motores locales**
 - ✅ L1 zombies tree-kill · ✅ L2 🟠 .onnx.json validado · ✅ L3 🟠 voz parcial revalidada · ✅ L4 🟡 importDir por subcarpeta de item
-- ✅ L5 🟡 piper startServer con on('error') · ✅ L6 🟡 abort listener removido · ⬜ L7 ⚪ python del PATH untrusted · ⬜ L8 ⚪ synthViaServer sin timeout
+- ✅ L5 🟡 piper startServer con on('error') · ✅ L6 🟡 abort listener removido · 🔎 L7 revisado: riesgo teórico (PATH no es del workspace) · ✅ L8 ⚪ synthViaServer con timeout
 
 **i18n / CSS / transversal**
 - ⬜ I1 🟡 21 claves sin traducir · ⬜ I2 ⚪ inglés británico/americano · ⬜ I3 ⚪ 2 claves sin uso
@@ -160,8 +160,8 @@ Tres cosas que dije en auditorías previas de esta sesión estaban **mal**. Las 
 - **✅ [Media] BUG `ollama/downloads.ts:204` (L4) — CORREGIDO** — cada import descarga en un subdirectorio `importDir/<item.id>/`; dos descargas concurrentes con shards homónimos ya no se pisan. Se limpia la subcarpeta al terminar.
 - **✅ [Media] BUG `piper/manager.ts:328` (L5) — CORREGIDO** — `Promise.race([waitForServer, spawnErr])` con `proc.once('error')`: un spawn fallido (ENOENT) falla al instante en vez de esperar 20s.
 - **✅ [Media] BUG `download.ts:62` (L6) — CORREGIDO** — el listener `abort` se remueve en `req.on('close')` (ya no se acumulan sobre un signal compartido en redirects). (Residual menor: un `.part` de un SIGKILL del editor; `downloadFile` ya limpia en error/abort normal.)
-- **[Baja] BUG `piper/manager.ts:154`** — `findCompatiblePython` ejecuta `python`/`py` del PATH sin respetar `untrustedWorkspaces` (U2).
-- **[Baja] BUG `piper/manager.ts:407`** — `synthViaServer` sin `AbortSignal` ni timeout (K6) → daemon colgado cuelga la UI de TTS.
+- **🔎 [reclasificado] `piper/manager.ts:154` (L7) — riesgo teórico** — VS Code NO añade el workspace al PATH, así que `python`/`py` es el del sistema (no controlado por el workspace); además se prefiere el Python standalone SHA-pinned. Gatearlo por trust degradaría TTS sin beneficio real. Sin cambio.
+- **✅ [Baja] BUG `piper/manager.ts:407` (L8) — CORREGIDO** — `req.setTimeout(30s)` destruye el request si el daemon deja de responder; ya no cuelga la UI de TTS.
 
 **Verificado OK (motores):** los binarios de Ollama/Piper/Python **sí** se verifican por SHA256 pin con fail-closed; `downloadFile` usa `.part`+rename atómico y limpia en error/abort. El gap es la robustez del kill y las voces json sin hash, no la ausencia de verificación.
 

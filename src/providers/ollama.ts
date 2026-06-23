@@ -149,7 +149,7 @@ export class OllamaProvider implements LLMProvider {
           });
         }
       }
-    });
+    }, cb.signal);
     splitter.flush();
 
     return { answer, thinking, usage, toolCalls: toolCalls.length ? toolCalls : undefined };

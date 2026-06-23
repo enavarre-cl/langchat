@@ -221,7 +221,7 @@ export class OpenAIProvider implements LLMProvider {
           if (tc.function?.arguments) e.arguments += tc.function.arguments;
         }
       }
-    });
+    }, cb.signal);
     splitter.flush();
 
     const toolCalls = Object.values(toolAcc)

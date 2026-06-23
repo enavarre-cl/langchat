@@ -182,7 +182,7 @@ export class GeminiProvider implements LLMProvider {
           }
         }
       }
-    });
+    }, cb.signal);
 
     return {
       answer, thinking, usage,

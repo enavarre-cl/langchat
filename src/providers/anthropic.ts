@@ -163,7 +163,7 @@ export class AnthropicProvider implements LLMProvider {
           blocks[evt.index].json += d.partial_json ?? '';
         }
       }
-    });
+    }, cb.signal);
 
     const toolCalls = Object.values(blocks).map((b) => ({
       id: b.id,

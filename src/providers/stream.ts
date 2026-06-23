@@ -25,13 +25,20 @@ export function safeToolArgs(s: string | undefined): string {
  */
 export async function readLines(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  onLine: (line: string) => void
+  onLine: (line: string) => void,
+  signal?: AbortSignal
 ): Promise<void> {
   const decoder = new TextDecoder();
   let buffer = '';
+  // Cancel the reader the moment the turn is aborted, so a stream that the proxy/undici layer does
+  // not tear down on abort still unblocks the pending read() instead of running to completion.
+  const onAbort = (): void => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener('abort', onAbort, { once: true });
   try {
     while (true) {
+      if (signal?.aborted) throw new Error('aborted'); // inference checks signal.aborted, not the error
       const { done, value } = await reader.read();
+      if (signal?.aborted) throw new Error('aborted'); // aborted while waiting on read()
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       if (buffer.length > MAX_LINE_BUFFER) buffer = buffer.slice(-MAX_LINE_BUFFER); // defensive cap
@@ -49,6 +56,7 @@ export async function readLines(
     const tail = buffer.trim();
     if (tail) onLine(tail);
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     // Always release the reader — on normal completion, on an onLine throw (errors embedded in the
     // stream), or on abort. Without this the underlying HTTP connection lingers until GC, and an
     // aborted stream is never told to stop. cancel() releases the lock and signals cancellation.

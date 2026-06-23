@@ -19,8 +19,30 @@ interface ServerConfig {
 interface McpTool {
   name: string;
   description?: string;
-  inputSchema?: any;
+  inputSchema?: Record<string, unknown>;
 }
+
+/** A JSON-RPC 2.0 request/notification we write to the server's stdin. */
+interface JsonRpcRequest {
+  jsonrpc: '2.0';
+  id?: number;
+  method: string;
+  params: Record<string, unknown>;
+}
+
+/** A JSON-RPC 2.0 response line as parsed off the server's stdout. */
+interface JsonRpcResponse {
+  id?: number;
+  result?: unknown;
+  error?: { message?: string };
+}
+
+/** Result of the MCP `tools/list` call. */
+interface ToolsListResult { tools?: McpTool[] }
+/** A single content block of a `tools/call` result. */
+interface McpContentBlock { type?: string; text?: string }
+/** Result of the MCP `tools/call` call. */
+interface ToolCallResult { content?: McpContentBlock[]; isError?: boolean }
 
 /** Minimal MCP client over stdio (newline-delimited JSON-RPC 2.0). */
 class McpClient {
@@ -29,7 +51,7 @@ class McpClient {
   private nextId = 1;
   private alive = false;          // false once the process has exited/errored → fail new calls fast
   private lastStderr = '';        // tail of the server's stderr, surfaced in error messages
-  private pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>();
+  private pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
   tools: McpTool[] = [];
 
   constructor(public readonly config: ServerConfig) {}
@@ -65,7 +87,7 @@ class McpClient {
       clientInfo: { name: 'parley', version: '0.1.0' },
     });
     this.notify('notifications/initialized', {});
-    const list = await this.request('tools/list', {});
+    const list = await this.request<ToolsListResult>('tools/list', {});
     this.tools = Array.isArray(list?.tools) ? list.tools : [];
   }
 
@@ -77,7 +99,7 @@ class McpClient {
       const line = this.buffer.slice(0, idx).trim();
       this.buffer = this.buffer.slice(idx + 1);
       if (!line) continue;
-      let msg: any;
+      let msg: JsonRpcResponse;
       try {
         msg = JSON.parse(line);
       } catch {
@@ -93,18 +115,24 @@ class McpClient {
     }
   }
 
-  private send(obj: any): void {
+  private send(obj: JsonRpcRequest): void {
     // The process may have died: avoids the TypeError on `stdin!` and degrades cleanly.
     try { this.proc?.stdin?.write(JSON.stringify(obj) + '\n'); } catch { /* process dead */ }
   }
 
-  private request(method: string, params: any, signal?: AbortSignal): Promise<any> {
+  /**
+   * Sends a JSON-RPC request and resolves with its `result`, typed as `T` by the caller (the result
+   * shape is method-specific — `tools/list` → ToolsListResult, `tools/call` → ToolCallResult, …).
+   * The pending-call map below is the heterogeneous plumbing that routes each reply back, so it holds
+   * the value as `unknown` until this typed boundary casts it to `T`.
+   */
+  private request<T>(method: string, params: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
     // The server already died: fail immediately instead of waiting out the 30s timeout.
     if (!this.alive) return Promise.reject(new Error('The MCP server is not running.'));
     const id = this.nextId++;
-    return new Promise((resolve, reject) => {
+    return new Promise<T>((resolve, reject) => {
       let done = false;
-      const finish = (fn: (v: any) => void, v: any) => {
+      const finish = (fn: (v: unknown) => void, v: unknown) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
@@ -112,24 +140,25 @@ class McpClient {
         this.pending.delete(id);
         fn(v);
       };
+      const settle = resolve as (v: unknown) => void;
       const onAbort = () => finish(reject, new Error('Stopped.'));
       const timer = setTimeout(() => finish(reject, new Error(`MCP timeout: ${method}`)), 30000);
       // The pending map routes the server's reply (onData) through finish so the timer/listener clear.
-      this.pending.set(id, { resolve: (v) => finish(resolve, v), reject: (e) => finish(reject, e) });
+      this.pending.set(id, { resolve: (v) => finish(settle, v), reject: (e) => finish(reject, e) });
       this.send({ jsonrpc: '2.0', id, method, params });
       if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort); }
     });
   }
 
-  private notify(method: string, params: any): void {
+  private notify(method: string, params: Record<string, unknown>): void {
     this.send({ jsonrpc: '2.0', method, params });
   }
 
-  async callTool(name: string, args: any, signal?: AbortSignal): Promise<string> {
-    const res = await this.request('tools/call', { name, arguments: args ?? {} }, signal);
+  async callTool(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
+    const res = await this.request<ToolCallResult>('tools/call', { name, arguments: args ?? {} }, signal);
     const content = Array.isArray(res?.content) ? res.content : [];
     const text = content
-      .map((c: any) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
+      .map((c) => (c?.type === 'text' ? c.text : JSON.stringify(c)))
       .join('\n') || '(no output)';
     // Honour the MCP `isError` flag so the model can tell a tool failure from normal output.
     return res?.isError ? `Error: ${text}` : text;
@@ -148,34 +177,48 @@ class McpClient {
   }
 }
 
+/** A server entry as it appears in a `.mcp.json` file, before validation (every field unverified). */
+interface RawConfig {
+  name?: unknown;
+  command?: unknown;
+  args?: unknown;
+  env?: unknown;
+  cwd?: unknown;
+}
+
 /** Reads MCP server configurations from `.mcp.json` and `.mcp/*.json` in the workspace. */
 function loadServerConfigs(): ServerConfig[] {
   const out: ServerConfig[] = [];
-  const add = (cfg: any) => {
+  const add = (cfg: RawConfig | null) => {
     if (cfg && typeof cfg.command === 'string') {
       out.push({
         name: typeof cfg.name === 'string' ? cfg.name : cfg.command,
         command: cfg.command,
-        args: Array.isArray(cfg.args) ? cfg.args : [],
-        env: cfg.env && typeof cfg.env === 'object' ? cfg.env : undefined,
+        args: Array.isArray(cfg.args) ? cfg.args.filter((a): a is string => typeof a === 'string') : [],
+        env: cfg.env && typeof cfg.env === 'object' ? cfg.env as Record<string, string> : undefined,
         cwd: typeof cfg.cwd === 'string' ? cfg.cwd : undefined,
       });
     }
   };
   const parse = (raw: string) => {
-    let json: any;
+    // JSON.parse of an arbitrary external file: the one place `unknown` is the correct typed
+    // boundary — the shape is genuinely not known until each branch below narrows it.
+    let json: unknown;
     try {
       json = JSON.parse(raw);
     } catch {
       return;
     }
     // Standard format { mcpServers: { name: cfg } }
-    if (json && json.mcpServers && typeof json.mcpServers === 'object') {
-      for (const [name, cfg] of Object.entries<any>(json.mcpServers)) add({ name, ...cfg });
+    if (json && typeof json === 'object' && 'mcpServers' in json) {
+      const servers = (json as { mcpServers?: Record<string, RawConfig> }).mcpServers;
+      if (servers && typeof servers === 'object') {
+        for (const [name, cfg] of Object.entries(servers)) add({ ...cfg, name });
+      }
     } else if (Array.isArray(json)) {
-      json.forEach(add);
-    } else {
-      add(json); // single server per file
+      json.forEach((c) => add(c as RawConfig));
+    } else if (json && typeof json === 'object') {
+      add(json as RawConfig); // single server per file
     }
   };
 
@@ -247,7 +290,7 @@ export class McpManager {
     return out;
   }
 
-  async call(fullName: string, args: any, signal?: AbortSignal): Promise<string> {
+  async call(fullName: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
     const sep = fullName.indexOf('__');
     const server = sep >= 0 ? fullName.slice(0, sep) : '';
     const tool = sep >= 0 ? fullName.slice(sep + 2) : fullName;

@@ -6,7 +6,9 @@
   padding: 8px 12px 12px;
   border-top: 1px solid var(--vscode-panel-border);
 }
-#fileInput { display: none; }
+#fileInput {
+  display: none;
+}
 
 /* Rounded input box */
 #inputBox {
@@ -29,7 +31,10 @@
   background: var(--vscode-list-dropBackground, rgba(80,120,255,.12));
 }
 /* The textarea and backdrop share EXACTLY the same metrics so the underline aligns. */
-#inputWrap { position: relative; width: 100%; }
+#inputWrap {
+  position: relative;
+  width: 100%;
+}
 #input {
   position: relative;
   z-index: 1;
@@ -44,7 +49,9 @@
   /* Same long-word wrapping as #inputBackdrop, so a long URL/token wraps identically in both. */
   overflow-wrap: break-word;
 }
-#input:focus { outline: none; }
+#input:focus {
+  outline: none;
+}
 /* Background layer that draws the error underlines, aligned beneath the textarea text. */
 #inputBackdrop {
   position: absolute;
@@ -87,13 +94,31 @@
   padding: 4px 0;
   font-size: 12px;
 }
-#spellMenu.hidden { display: none; }
-#spellMenu .sp-item { padding: 4px 12px; cursor: pointer; white-space: nowrap; }
-#spellMenu .sp-item:hover { background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground)); color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground)); }
-#spellMenu .sp-none { padding: 4px 12px; opacity: .6; }
-#spellMenu .sp-sep { height: 1px; margin: 4px 0; background: var(--vscode-menu-separatorBackground, rgba(128,128,128,.3)); }
+#spellMenu.hidden {
+  display: none;
+}
+#spellMenu .sp-item {
+  padding: 4px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#spellMenu .sp-item:hover {
+  background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground));
+  color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground));
+}
+#spellMenu .sp-none {
+  padding: 4px 12px;
+  opacity: .6;
+}
+#spellMenu .sp-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--vscode-menu-separatorBackground, rgba(128,128,128,.3));
+}
 
-#inputBox { position: relative; }
+#inputBox {
+  position: relative;
+}
 #emojiPicker {
   position: absolute;
   bottom: 46px;
@@ -117,11 +142,22 @@
 }
 #emojiTabs button {
   flex: 1;
-  background: transparent; border: none; cursor: pointer;
-  font-size: 16px; line-height: 1; padding: 4px; border-radius: 6px; opacity: .65;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 6px;
+  opacity: .65;
 }
-#emojiTabs button.active { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25)); opacity: 1; }
-#emojiTabs button:hover { opacity: 1; }
+#emojiTabs button.active {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25));
+  opacity: 1;
+}
+#emojiTabs button:hover {
+  opacity: 1;
+}
 #emojiGrid {
   flex: 1;
   overflow-y: auto;
@@ -131,10 +167,17 @@
   padding: 6px;
 }
 #emojiGrid button {
-  background: transparent; border: none; cursor: pointer;
-  font-size: 19px; line-height: 1; padding: 3px; border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 19px;
+  line-height: 1;
+  padding: 3px;
+  border-radius: 6px;
 }
-#emojiGrid button:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25)); }
+#emojiGrid button:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25));
+}
 
 /* Emoji autocomplete (:name) */
 #emojiSuggest, #fileSuggest {
@@ -153,197 +196,166 @@
   z-index: 1000;
 }
 .sug-row {
-  display: flex; align-items: center; gap: 8px;
-  background: transparent; border: none; cursor: pointer; text-align: left;
-  padding: 4px 8px; border-radius: 6px; color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--vscode-foreground);
 }
-.sug-row.active, .sug-row:hover { background: var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground)); }
-.sug-em { font-size: 18px; }
-.sug-name { font-size: 12px; opacity: .8; }
+.sug-row.active, .sug-row:hover {
+  background: var(--vscode-list-activeSelectionBackground, var(--vscode-toolbar-hoverBackground));
+}
+.sug-em {
+  font-size: 18px;
+}
+.sug-name {
+  font-size: 12px;
+  opacity: .8;
+}
 /* @file mention rows: filename + dimmed directory path. */
-#fileSuggest { max-width: 420px; }
-.sug-row.file { flex-direction: column; align-items: stretch; gap: 0; }
-.sug-file { font-size: 13px; }
-.sug-path { font-size: 11px; opacity: .55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+#fileSuggest {
+  max-width: 420px;
+}
+.sug-row.file {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.sug-file {
+  font-size: 13px;
+}
+.sug-path {
+  font-size: 11px;
+  opacity: .55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
 
-#inputToolbar { display: flex; align-items: center; gap: 4px; }
-#inputToolbar .grow { flex: 1; }
-#attachBtn { font-size: 16px; border-radius: 8px; }
+#inputToolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#inputToolbar .grow {
+  flex: 1;
+}
+#attachBtn {
+  font-size: 16px;
+  border-radius: 8px;
+}
 
 /* Persistent notices */
-#notices { display: flex; flex-direction: column; gap: 4px; }
-#notices:empty { display: none; }
-#notices .banner { max-width: 100%; }
+#notices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#notices:empty {
+  display: none;
+}
+#notices .banner {
+  max-width: 100%;
+}
 
 /* Context usage bar */
-#ctxBar { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--vscode-descriptionForeground); }
-#ctxTrack { flex: 1; height: 4px; border-radius: 3px; background: var(--vscode-panel-border); overflow: hidden; }
-#ctxFill { height: 100%; width: 0; background: var(--vscode-charts-green, #3fb950); transition: width .2s; }
-#ctxFill.mid { background: var(--vscode-charts-yellow, #d29922); }
-#ctxFill.high { background: var(--vscode-errorForeground, #f85149); }
-#ctxLabel { white-space: nowrap; }
-
-/* Pending attachments */
-#attachments { display: flex; flex-wrap: wrap; gap: 6px; }
-.attach-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
-  border-radius: 6px; padding: 2px 4px 2px 6px; font-size: 11px;
-}
-.attach-chip img { width: 32px; height: 32px; object-fit: cover; border-radius: 4px; }
-.attach-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; }
-
-/* Attachments inside the message */
-.msg-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-.msg-attachments img { max-width: 220px; max-height: 220px; border-radius: 8px; border: 1px solid var(--vscode-panel-border); cursor: zoom-in; }
-/* Generated images (assistant) ARE the content, not a thumbnail: show them large. */
-.msg.assistant .msg-attachments img { max-width: min(100%, 512px); max-height: 70vh; }
-/* Click to toggle full size (any image). !important to beat the per-role rule above (more classes). */
-.msg-attachments img.zoomed { max-width: 100% !important; max-height: 90vh !important; cursor: zoom-out; }
-.file-chip { font-size: 11px; background: var(--vscode-textCodeBlock-background, rgba(127,127,127,.15)); padding: 3px 7px; border-radius: 10px; }
-
-/* ---- Tools ---- */
-.tool-calls { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
-.tool-call {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; padding: 2px 7px; border-radius: 10px;
-  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
-}
-.tool-call svg { width: 12px; height: 12px; }
-.tool-result {
-  align-self: flex-start;
-  max-width: 92%;
-  border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
-  background: var(--vscode-textBlockQuote-background, rgba(127,127,127,.08));
-  font-size: 12px;
-}
-.tool-result > summary {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 9px; cursor: pointer; list-style: none;
+#ctxBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
   color: var(--vscode-descriptionForeground);
 }
-.tool-result > summary svg { width: 14px; height: 14px; }
-.tool-result > summary::-webkit-details-marker { display: none; }
-.tool-result .tool-del { margin-left: auto; opacity: .5; }
-.tool-result .tool-del:hover { opacity: 1; }
-.tool-result pre {
-  margin: 0; padding: 8px 10px; border-top: 1px solid var(--vscode-panel-border);
-  white-space: pre-wrap; word-break: break-word; overflow-x: auto;
-  font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px;
-  max-height: 320px; overflow-y: auto;
+#ctxTrack {
+  flex: 1;
+  height: 4px;
+  border-radius: 3px;
+  background: var(--vscode-panel-border);
+  overflow: hidden;
 }
-#sendBtn, #stopBtn {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
+#ctxFill {
+  height: 100%;
+  width: 0;
+  background: var(--vscode-charts-green, #3fb950);
+  transition: width .2s;
+}
+#ctxFill.mid {
+  background: var(--vscode-charts-yellow, #d29922);
+}
+#ctxFill.high {
+  background: var(--vscode-errorForeground, #f85149);
+}
+#ctxLabel {
+  white-space: nowrap;
+}
+
+/* Pending attachments */
+#attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.attach-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  gap: 4px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 6px;
+  padding: 2px 4px 2px 6px;
+  font-size: 11px;
+}
+.attach-chip img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.attach-chip button {
+  background: transparent;
   border: none;
-  border-radius: 50%;
+  color: inherit;
   cursor: pointer;
-  padding: 0;
-  font-size: 12px;
-}
-#sendBtn svg { width: 16px; height: 16px; display: block; }
-#sendBtn:hover, #stopBtn:hover { background: var(--vscode-button-hoverBackground); }
-#stopBtn { background: var(--vscode-errorForeground, #f85149); }
-
-/* ---- Export to PDF (print): conversation only, readable ---- */
-@media print {
-  html, body, #app, #workspace, #chat {
-    height: auto !important;
-    background: #fff !important;
-    color: #000 !important;
-    display: block !important;
-    overflow: visible !important;
-  }
-  #topbar, #config, #sidepanels, #composer, #notices, #ctxBar,
-  .msg-actions, .think-badge, .tool-badge, .tool-result, .tool-calls {
-    display: none !important;
-  }
-  #messages {
-    display: block !important;
-    overflow: visible !important;
-    height: auto !important;
-    padding: 0 !important;
-  }
-  .msg {
-    max-width: 100% !important;
-    align-self: stretch !important;
-    background: #fff !important;
-    color: #000 !important;
-    border: none !important;
-    border-bottom: 1px solid #ddd !important;
-    border-radius: 0 !important;
-    padding: 10px 0 !important;
-    page-break-inside: avoid;
-  }
-  .msg.user { text-align: left; }
-  .msg .role { color: #666 !important; opacity: 1 !important; }
-  .msg .body, .msg .body * { color: #000 !important; }
-  .msg pre, .msg code { background: #f2f2f2 !important; color: #000 !important; border: 1px solid #e0e0e0; }
-  .msg .body a { color: #0645ad !important; }
-  .msg-attachments img { max-width: 320px !important; }
+  font-size: 13px;
+  line-height: 1;
 }
 
-/* ── Context summary: divider (bubble with text) + dimmed previous messages ── */
-.summary-divider { display: flex; align-items: center; justify-content: center; margin: 14px 4px; position: relative; }
-.summary-divider::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  border-top: 1px dashed var(--vscode-charts-yellow, #d7a900); opacity: .45;
+/* Attachments inside the message */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
 }
-.summary-divider-label {
-  position: relative; background: var(--vscode-editor-background);
-  padding: 2px 12px; font-size: 11px; line-height: 1.6;
-  color: var(--vscode-charts-yellow, #d7a900);
-  border: 1px solid var(--vscode-charts-yellow, #d7a900);
-  border-radius: 11px; cursor: pointer; white-space: nowrap;
+.msg-attachments img {
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-panel-border);
+  cursor: zoom-in;
 }
-.summary-divider-label:hover { background: var(--vscode-toolbar-hoverBackground); }
-.msg.pre-summary, .msg.dropped { opacity: .5; transition: opacity .12s; }
-.msg.pre-summary:hover, .msg.dropped:hover { opacity: .9; }
-.pre-summary-mark { margin-left: 6px; font-size: 11px; cursor: help; opacity: .85; }
-
-/* "Last N messages" divider (blue) — only what's below this is sent */
-.lastn-divider { display: flex; align-items: center; justify-content: center; margin: 14px 4px; position: relative; }
-.lastn-divider::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 50%;
-  border-top: 1px dashed var(--vscode-charts-blue, #4daafc); opacity: .45;
+/* Generated images (assistant) ARE the content, not a thumbnail: show them large. */
+.msg.assistant .msg-attachments img {
+  max-width: min(100%, 512px);
+  max-height: 70vh;
 }
-.lastn-divider-label {
-  position: relative; background: var(--vscode-editor-background);
-  padding: 2px 12px; font-size: 11px; line-height: 1.6; white-space: nowrap;
-  color: var(--vscode-charts-blue, #4daafc);
-  border: 1px solid var(--vscode-charts-blue, #4daafc); border-radius: 11px;
+/* Click to toggle full size (any image). !important to beat the per-role rule above (more classes). */
+.msg-attachments img.zoomed {
+  max-width: 100% !important;
+  max-height: 90vh !important;
+  cursor: zoom-out;
 }
-/* Excluded summary (last-N active): dimmed and faint */
-.summary-divider.excluded { opacity: .5; margin-top: 8px; }
-.summary-divider.excluded .summary-divider-label { cursor: help; text-decoration: line-through; }
-
-/* Centered summary bubble (when expanding the divider): rendered markdown + actions */
-.msg.summary-msg { align-items: center; margin: 4px auto 12px; max-width: 88%; }
-.msg.summary-msg .role { justify-content: center; color: var(--vscode-charts-yellow, #d7a900); }
-.msg.summary-msg .body {
-  width: 100%; padding: 10px 14px; border-radius: 12px;
-  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, .1));
-  border: 1px solid var(--vscode-textBlockQuote-border, rgba(127, 127, 127, .25));
-  border-left: 3px solid var(--vscode-charts-yellow, #d7a900);
+.file-chip {
+  font-size: 11px;
+  background: var(--vscode-textCodeBlock-background, rgba(127,127,127,.15));
+  padding: 3px 7px;
+  border-radius: 10px;
 }
-
-/* Composer disabled while summarizing */
-#inputBox.busy { opacity: .55; }
-#inputBox.busy textarea { cursor: not-allowed; }
-
-/* Persistent "summarizing…" indicator with spinner (does not auto-close) */
-.banner.summarizing { display: flex; align-items: center; gap: 8px; }
-.banner-spin {
-  width: 12px; height: 12px; flex: none; border-radius: 50%;
-  border: 2px solid currentColor; border-top-color: transparent;
-  opacity: .75; animation: sp-spin .8s linear infinite;
-}
-@keyframes sp-spin { to { transform: rotate(360deg); } }
 

@@ -14,13 +14,13 @@ const MAX_LINE_BUFFER = 64 * 1024 * 1024;
 export function safeToolArgs(s: string | undefined): string {
   const raw = (s || '').trim();
   if (!raw) return '{}';
-  try { JSON.parse(raw); return raw; } catch { /* repair attempt */ }
+  try { JSON.parse(raw); return raw; } catch { /* malformed JSON: fall through to repair below */ }
   let r = raw;
   if ((r.match(/(?<!\\)"/g) || []).length % 2) r += '"';   // close an open string
   const open = (r.match(/\{/g) || []).length;
   const close = (r.match(/\}/g) || []).length;
   if (open > close) r += '}'.repeat(open - close);         // close open objects
-  try { JSON.parse(r); return r; } catch { return '{}'; }
+  try { JSON.parse(r); return r; } catch { return '{}'; /* irreparable JSON: drop args, send empty object */ }
 }
 
 /**

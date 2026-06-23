@@ -125,7 +125,7 @@ export async function runInference(
           if (toolHub.mcpErrors().length) {
             webview.postMessage({ type: 'notice', message: tr('⚠️ Some MCP servers failed to start: ') + toolHub.mcpErrors().join('; ') });
           }
-        } catch { /* no tools if it fails */ }
+        } catch { /* toolHub start failed: continue without tools (graceful degradation) */ }
       }
 
       let answer = '';

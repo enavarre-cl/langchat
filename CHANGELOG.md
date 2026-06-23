@@ -5,6 +5,35 @@ All notable changes to Parley. Format based on
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-06-23
+
+Best-practices conformance pass over **every** `.ts`, `.js` and `.css` file against
+[BEST-PRACTICES.md](BEST-PRACTICES.md). No behavior change for the user — internal structure,
+linting and test coverage only.
+
+### Internal
+- **Module size (M1/M2): the large files were split, keeping cohesion.**
+  `extension.ts` 419 → 380 (API-key storage + the `setApiKey` command extracted to `apiKeys.ts`),
+  `messageRouter.ts` 427 → 316 (delete/merge/edit/replace handlers extracted to `messageRouterEdit.ts`),
+  `providers/openai.ts` 260 → 230 (`openAIContent`/`openAIMessage` extracted to `providers/openaiFormat.ts`).
+- **CSS (R1/R5): all 8 stylesheets reformatted to one declaration per line.** The reformat pushed
+  `composer.css` over the 500-line ceiling, so it was split by feature into `composer.css` (361) +
+  the new `conversation.css` (280, tool calls · PDF/print · context summary). `td.x` selectors in
+  `dictionary.css`/`voices.css` de-qualified to `.x` (P3).
+- **Tooling (W1):** ESLint `@typescript-eslint/no-unused-vars` raised from `warn` to `error`.
+- **Naming (A7):** named the remaining webview magic numbers (`SPELL_DEBOUNCE_MS`, `PAN_STEP`,
+  `MAX_SUGGESTIONS`, `CTX_BUDGET_RATIO`, `SLIDER_STEP`).
+- **Functions (E1/M3):** `panels/config.js#paramRow` split into `paramRowBool`/`paramRowNumeric`/
+  `paramRowTags`; `chatOps.handleFork` extracted a `copyForkAttachments` helper.
+- **Errors (L2/K6):** JSON-repair `catch` blocks in `stream.ts`/`anthropic.ts`/`inference.ts` now carry
+  a justifying comment; documented in `summary.ts` that the request timeout is owned by the provider
+  via `AbortSignal`.
+- Documented the generated-bundle exception (M1) in the header of `media/spell-engine.js`.
+
+### Tests
+- Added `src/test/applyPatch.test.ts` (7 cases) covering the previously untested pure `applyPatch`
+  logic (V5), with a test-only `vscode` module stub. Suite: **63 tests, all passing**.
+
 ## [1.6.1] - 2026-06-22
 
 Second audit pass: the remaining `AUDIT.md` items closed (now **74 fixed / 0 open**). Mostly type

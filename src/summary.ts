@@ -35,6 +35,8 @@ export function makeSummary(deps: SummaryDeps) {
       let text = '';
       let reasoning = '';
       try {
+        // No explicit timeout here on purpose: cancellation/timeout is handled by the provider
+        // through the AbortSignal passed below (abortRef.current.signal).
         await buildProvider(doc.provider).chat(
           doc.model,
           wire,

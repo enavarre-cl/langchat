@@ -114,6 +114,7 @@ const emojiPicker = $('emojiPicker');
     ship: '🚢', barco: '🚢', train: '🚆', tren: '🚆', house: '🏠', casa: '🏠', building: '🏢',
     hospital: '🏥', school: '🏫', escuela: '🏫', earth: '🌍', tierra: '🌍', world: '🌍',
   };
+  const MAX_SUGGESTIONS = 8; // max emoji suggestions shown in the :shortcode popup
   const SHORTCODE_ENTRIES = Object.entries(EMOJI_SHORTCODES);
   // Inverse map emoji -> names (for tooltips in the grid).
   const EMOJI_TO_NAMES = {};
@@ -163,7 +164,7 @@ const emojiPicker = $('emojiPicker');
     for (const [name, em] of SHORTCODE_ENTRIES) {
       if (!name.startsWith(c.q) && name.includes(c.q) && !seen.has(em)) { seen.add(em); incl.push([name, em]); }
     }
-    suggestItems = starts.concat(incl).slice(0, 8);
+    suggestItems = starts.concat(incl).slice(0, MAX_SUGGESTIONS);
     if (!suggestItems.length) { hideSuggest(); return; }
     suggestActive = 0;
     renderSuggest();

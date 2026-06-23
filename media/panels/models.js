@@ -20,6 +20,8 @@ const ctxLabel = $('ctxLabel');
 let modelContext = {}; // model id -> context tokens
 let modelCaps = {}; // model id -> capabilities
 
+const CTX_BUDGET_RATIO = 0.75; // auto context budget = this fraction of the model window
+
 // ---- Connection status ----
   let statusInfo = null, statusState = 'checking', statusDetail = '';
   function renderStatus(info, state, detail) {
@@ -134,7 +136,7 @@ let modelCaps = {}; // model id -> capabilities
   // Effective token budget: auto = 75% of the model window.
   function ctxBudget() {
     const modelCtx = modelContext[modelSelect.value];
-    return modelCtx ? Math.floor(modelCtx * 0.75) : 16000;
+    return modelCtx ? Math.floor(modelCtx * CTX_BUDGET_RATIO) : 16000;
   }
   // Tokens of the EFFECTIVE system prompt. The backend sends sysPromptTokens (file content included);
   // fall back to estimating the inline prompt if it's an older payload without that field.

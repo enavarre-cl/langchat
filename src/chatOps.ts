@@ -86,6 +86,39 @@ export function makeChatOps(deps: ChatOpsCtx) {
       deps.sendHistory();
     };
 
+    // Finds an available "(fork N)" .chat name next to the current file.
+    const forkName = async (): Promise<vscode.Uri> => {
+      const cur = deps.document.uri;
+      const dir = vscode.Uri.joinPath(cur, '..');
+      const file = cur.path.slice(cur.path.lastIndexOf('/') + 1);
+      const stem = file.replace(/\.chat$/i, '');
+      for (let n = 1; ; n++) {
+        const name = `${stem} (fork${n > 1 ? ' ' + n : ''}).chat`;
+        const target = vscode.Uri.joinPath(dir, name);
+        try {
+          await vscode.workspace.fs.stat(target); // exists → try next
+        } catch {
+          return target; // free
+        }
+      }
+    };
+
+    // Copies the attachments referenced by `msgs` to the fork's sidecar (same ids).
+    const copyForkAttachments = async (target: vscode.Uri, msgs: ChatMessage[]): Promise<void> => {
+      const refIds = new Set<string>();
+      for (const m of msgs) {
+        for (const a of (m.attachments ?? [])) if (a.ref) refIds.add(a.ref);
+        for (const v of (m.variants ?? [])) for (const a of (v.attachments ?? [])) if (a.ref) refIds.add(a.ref);
+      }
+      if (!refIds.size) return;
+      const src = deps.attachStore.load();
+      const dst: Record<string, Attachment> = {};
+      for (const id of refIds) if (src[id]) dst[id] = src[id];
+      const forkStem = path.basename(target.fsPath).replace(/\.chat$/i, '');
+      const forkAttach = vscode.Uri.joinPath(target, '..', forkStem + '.attach');
+      await vscode.workspace.fs.writeFile(forkAttach, Buffer.from(JSON.stringify(dst) + '\n', 'utf8'));
+    };
+
     // Fork: clones the conversation up to `index` (inclusive) into a new .chat and opens it.
     const handleFork = async (index: number, fromHere = false): Promise<void> => {
       const doc = deps.getDoc();
@@ -104,38 +137,9 @@ export function makeChatOps(deps: ChatOpsCtx) {
         usage: undefined, // usage is derived from the present messages
       };
 
-      // Available name next to the current file.
-      const cur = deps.document.uri;
-      const dir = vscode.Uri.joinPath(cur, '..');
-      const file = cur.path.slice(cur.path.lastIndexOf('/') + 1);
-      const stem = file.replace(/\.chat$/i, '');
-      let target = cur;
-      for (let n = 1; ; n++) {
-        const name = `${stem} (fork${n > 1 ? ' ' + n : ''}).chat`;
-        target = vscode.Uri.joinPath(dir, name);
-        try {
-          await vscode.workspace.fs.stat(target); // exists → try next
-        } catch {
-          break; // free
-        }
-      }
-
+      const target = await forkName();
       await vscode.workspace.fs.writeFile(target, Buffer.from(serializeDoc(forked), 'utf8'));
-
-      // Copies referenced attachments to the fork's sidecar (same ids).
-      const refIds = new Set<string>();
-      for (const m of sliced) {
-        for (const a of (m.attachments ?? [])) if (a.ref) refIds.add(a.ref);
-        for (const v of (m.variants ?? [])) for (const a of (v.attachments ?? [])) if (a.ref) refIds.add(a.ref);
-      }
-      if (refIds.size) {
-        const src = deps.attachStore.load();
-        const dst: Record<string, Attachment> = {};
-        for (const id of refIds) if (src[id]) dst[id] = src[id];
-        const forkStem = path.basename(target.fsPath).replace(/\.chat$/i, '');
-        const forkAttach = vscode.Uri.joinPath(target, '..', forkStem + '.attach');
-        await vscode.workspace.fs.writeFile(forkAttach, Buffer.from(JSON.stringify(dst) + '\n', 'utf8'));
-      }
+      await copyForkAttachments(target, sliced);
 
       await vscode.commands.executeCommand('vscode.openWith', target, deps.viewType);
     };

@@ -1,0 +1,280 @@
+/* conversation.css — estilos de la vista de conversación extraídos de composer.css
+   (R5: modularización por feature; mantiene composer.css < 500 líneas tras R1).
+   Secciones: herramientas (tool calls) · export a PDF/print · resumen de contexto. */
+
+/* ---- Tools ---- */
+.tool-calls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.tool-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+.tool-call svg {
+  width: 12px;
+  height: 12px;
+}
+.tool-result {
+  align-self: flex-start;
+  max-width: 92%;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  background: var(--vscode-textBlockQuote-background, rgba(127,127,127,.08));
+  font-size: 12px;
+}
+.tool-result > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--vscode-descriptionForeground);
+}
+.tool-result > summary svg {
+  width: 14px;
+  height: 14px;
+}
+.tool-result > summary::-webkit-details-marker {
+  display: none;
+}
+.tool-result .tool-del {
+  margin-left: auto;
+  opacity: .5;
+}
+.tool-result .tool-del:hover {
+  opacity: 1;
+}
+.tool-result pre {
+  margin: 0;
+  padding: 8px 10px;
+  border-top: 1px solid var(--vscode-panel-border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11.5px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+#sendBtn, #stopBtn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+#sendBtn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+#sendBtn:hover, #stopBtn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+#stopBtn {
+  background: var(--vscode-errorForeground, #f85149);
+}
+
+/* ---- Export to PDF (print): conversation only, readable ---- */
+@media print {
+  html, body, #app, #workspace, #chat {
+    height: auto !important;
+    background: #fff !important;
+    color: #000 !important;
+    display: block !important;
+    overflow: visible !important;
+  }
+  #topbar, #config, #sidepanels, #composer, #notices, #ctxBar,
+  .msg-actions, .think-badge, .tool-badge, .tool-result, .tool-calls {
+    display: none !important;
+  }
+  #messages {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    padding: 0 !important;
+  }
+  .msg {
+    max-width: 100% !important;
+    align-self: stretch !important;
+    background: #fff !important;
+    color: #000 !important;
+    border: none !important;
+    border-bottom: 1px solid #ddd !important;
+    border-radius: 0 !important;
+    padding: 10px 0 !important;
+    page-break-inside: avoid;
+  }
+  .msg.user {
+    text-align: left;
+  }
+  .msg .role {
+    color: #666 !important;
+    opacity: 1 !important;
+  }
+  .msg .body, .msg .body * {
+    color: #000 !important;
+  }
+  .msg pre, .msg code {
+    background: #f2f2f2 !important;
+    color: #000 !important;
+    border: 1px solid #e0e0e0;
+  }
+  .msg .body a {
+    color: #0645ad !important;
+  }
+  .msg-attachments img {
+    max-width: 320px !important;
+  }
+}
+
+/* ── Context summary: divider (bubble with text) + dimmed previous messages ── */
+.summary-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 4px;
+  position: relative;
+}
+.summary-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--vscode-charts-yellow, #d7a900);
+  opacity: .45;
+}
+.summary-divider-label {
+  position: relative;
+  background: var(--vscode-editor-background);
+  padding: 2px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--vscode-charts-yellow, #d7a900);
+  border: 1px solid var(--vscode-charts-yellow, #d7a900);
+  border-radius: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.summary-divider-label:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+.msg.pre-summary, .msg.dropped {
+  opacity: .5;
+  transition: opacity .12s;
+}
+.msg.pre-summary:hover, .msg.dropped:hover {
+  opacity: .9;
+}
+.pre-summary-mark {
+  margin-left: 6px;
+  font-size: 11px;
+  cursor: help;
+  opacity: .85;
+}
+
+/* "Last N messages" divider (blue) — only what's below this is sent */
+.lastn-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 14px 4px;
+  position: relative;
+}
+.lastn-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px dashed var(--vscode-charts-blue, #4daafc);
+  opacity: .45;
+}
+.lastn-divider-label {
+  position: relative;
+  background: var(--vscode-editor-background);
+  padding: 2px 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--vscode-charts-blue, #4daafc);
+  border: 1px solid var(--vscode-charts-blue, #4daafc);
+  border-radius: 11px;
+}
+/* Excluded summary (last-N active): dimmed and faint */
+.summary-divider.excluded {
+  opacity: .5;
+  margin-top: 8px;
+}
+.summary-divider.excluded .summary-divider-label {
+  cursor: help;
+  text-decoration: line-through;
+}
+
+/* Centered summary bubble (when expanding the divider): rendered markdown + actions */
+.msg.summary-msg {
+  align-items: center;
+  margin: 4px auto 12px;
+  max-width: 88%;
+}
+.msg.summary-msg .role {
+  justify-content: center;
+  color: var(--vscode-charts-yellow, #d7a900);
+}
+.msg.summary-msg .body {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, .1));
+  border: 1px solid var(--vscode-textBlockQuote-border, rgba(127, 127, 127, .25));
+  border-left: 3px solid var(--vscode-charts-yellow, #d7a900);
+}
+
+/* Composer disabled while summarizing */
+#inputBox.busy {
+  opacity: .55;
+}
+#inputBox.busy textarea {
+  cursor: not-allowed;
+}
+
+/* Persistent "summarizing…" indicator with spinner (does not auto-close) */
+.banner.summarizing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.banner-spin {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: .75;
+  animation: sp-spin .8s linear infinite;
+}
+@keyframes sp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

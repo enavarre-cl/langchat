@@ -85,7 +85,7 @@ export class AnthropicProvider implements LLMProvider {
         if (m.content) content.push({ type: 'text', text: m.content });
         for (const tc of m.toolCalls) {
           let input: unknown = {};
-          try { input = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* empty */ }
+          try { input = JSON.parse(safeToolArgs(tc.arguments)); } catch { /* unrepairable tool args: send empty input object */ }
           content.push({ type: 'tool_use', id: tc.id, name: tc.name, input });
         }
         msgs.push({ role: 'assistant', content });
@@ -152,7 +152,7 @@ export class AnthropicProvider implements LLMProvider {
       try {
         evt = JSON.parse(payload);
       } catch {
-        return; // Partial or non-JSON event: ignored.
+        return; // partial or non-JSON SSE event: skip this chunk
       }
       if (evt?.type === 'error') {
         throw new Error(`Anthropic (stream): ${evt.error?.message ?? JSON.stringify(evt.error)}`);

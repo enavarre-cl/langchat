@@ -1,4 +1,6 @@
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 body {
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size, 13px);
@@ -7,11 +9,24 @@ body {
   padding: 16px 20px;
   max-width: 640px;
 }
-h2 { margin: 0 0 4px; font-size: 16px; }
-.sub { opacity: .65; font-size: 12px; margin: 0 0 12px; }
-.hidden { display: none; }
+h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+.sub {
+  opacity: .65;
+  font-size: 12px;
+  margin: 0 0 12px;
+}
+.hidden {
+  display: none;
+}
 
-#addRow { display: flex; gap: 8px; margin-bottom: 6px; }
+#addRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
 #word {
   flex: 1;
   background: var(--vscode-input-background);
@@ -21,7 +36,10 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   padding: 6px 10px;
   outline: none;
 }
-#word:focus { border-color: var(--vscode-focusBorder); box-shadow: 0 0 0 1px var(--vscode-focusBorder); }
+#word:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
 #addBtn {
   padding: 6px 14px;
   border: none;
@@ -30,13 +48,28 @@ h2 { margin: 0 0 4px; font-size: 16px; }
   color: var(--vscode-button-foreground);
   cursor: pointer;
 }
-#addBtn:hover { background: var(--vscode-button-hoverBackground); }
+#addBtn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
 
-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-tr { border-bottom: 1px solid var(--vscode-panel-border); }
-td { padding: 6px 4px; }
-td.w { font-family: var(--vscode-editor-font-family, monospace); }
-td.act { width: 36px; text-align: right; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+tr {
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+td {
+  padding: 6px 4px;
+}
+.w {
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+.act {
+  width: 36px;
+  text-align: right;
+}
 .del {
   background: transparent;
   border: none;
@@ -46,5 +79,12 @@ td.act { width: 36px; text-align: right; }
   padding: 2px 6px;
   border-radius: 4px;
 }
-.del:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
-.empty { opacity: .5; padding: 16px 0; text-align: center; }
+.del:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground);
+}
+.empty {
+  opacity: .5;
+  padding: 16px 0;
+  text-align: center;
+}

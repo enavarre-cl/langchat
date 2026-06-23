@@ -16,7 +16,7 @@ module.exports = [
       'no-var': 'error',
       'prefer-const': 'warn',
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': ['warn', { checksVoidReturn: false }],
       '@typescript-eslint/await-thenable': 'warn',

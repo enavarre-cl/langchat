@@ -13,6 +13,7 @@ const spellSelect = /** @type {HTMLSelectElement} */ ($('spellSelect'));
 
 // ---- Spell checker (live underline via overlay; nspell engine in spell-engine.js) ----
   const WORD_RE = /[\p{L}\p{M}]+/gu; // words (letters + marks/diacritics); ignores numbers/symbols
+  const SPELL_DEBOUNCE_MS = 250;
   let spellTimer = null;
 
   function spellEffective() {
@@ -49,7 +50,7 @@ const spellSelect = /** @type {HTMLSelectElement} */ ($('spellSelect'));
 
   function scheduleSpell() {
     if (spellTimer) clearTimeout(spellTimer);
-    spellTimer = setTimeout(renderSpell, 250);
+    spellTimer = setTimeout(renderSpell, SPELL_DEBOUNCE_MS);
   }
 
   function wordAt(text, pos) {

@@ -13,9 +13,19 @@
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,.35);
 }
-#findBar.hidden { display: none; }
-.find-rows { display: flex; flex-direction: column; gap: 4px; }
-.find-row { display: flex; align-items: center; gap: 4px; }
+#findBar.hidden {
+  display: none;
+}
+.find-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 /* VS Code-style replace toggle: a tall chevron spanning both rows, rotates to point down when open. */
 #findToggleReplace {
   align-self: stretch;
@@ -33,10 +43,18 @@
   font-size: 13px;
   transition: transform .12s ease;
 }
-#findToggleReplace:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2)); }
-#findToggleReplace[aria-expanded="true"] { transform: rotate(90deg); }
+#findToggleReplace:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2));
+}
+#findToggleReplace[aria-expanded="true"] {
+  transform: rotate(90deg);
+}
 /* Field = input with the option toggles (Aa / ab / .* / AB) overlaid on its right edge. */
-.find-field { position: relative; display: flex; align-items: center; }
+.find-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 #findInput, #replaceInput {
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
@@ -47,10 +65,21 @@
   width: 210px;
   outline: none;
 }
-#findInput { padding-right: 74px; } /* room for 3 toggles */
-#replaceInput { padding-right: 30px; } /* room for 1 toggle */
-#findInput:focus, #replaceInput:focus { border-color: var(--vscode-focusBorder); box-shadow: 0 0 0 1px var(--vscode-focusBorder); }
-#findInput.invalid { border-color: var(--vscode-inputValidation-errorBorder, #be1100); }
+#findInput {
+  padding-right: 74px;
+}
+/* room for 3 toggles */
+#replaceInput {
+  padding-right: 30px;
+}
+/* room for 1 toggle */
+#findInput:focus, #replaceInput:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+#findInput.invalid {
+  border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+}
 .find-field-opts {
   position: absolute;
   right: 3px;
@@ -72,15 +101,26 @@
   line-height: 1;
   cursor: pointer;
 }
-.find-opt:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2)); }
+.find-opt:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2));
+}
 .find-opt.active {
   opacity: 1;
   background: var(--vscode-inputOption-activeBackground, rgba(100,150,250,.28));
   border-color: var(--vscode-inputOption-activeBorder, transparent);
   color: var(--vscode-inputOption-activeForeground, var(--vscode-foreground));
 }
-.find-opt u { text-decoration: underline; }
-#findCount { font-size: 11px; opacity: .65; min-width: 34px; text-align: center; white-space: nowrap; }
+.find-opt u {
+  text-decoration: underline;
+}
+#findCount {
+  font-size: 11px;
+  opacity: .65;
+  min-width: 34px;
+  text-align: center;
+  white-space: nowrap;
+}
 mark.find-hit {
   background: var(--vscode-editor-findMatchHighlightBackground, rgba(234,92,0,.33));
   color: inherit;
@@ -109,7 +149,9 @@ mark.find-hit.current {
   overflow: hidden;
 }
 /* Separates consecutive open panels with a line. */
-#sidepanels > :not(.hidden) ~ :not(.hidden) { border-top: 1px solid var(--vscode-panel-border); }
+#sidepanels > :not(.hidden) ~ :not(.hidden) {
+  border-top: 1px solid var(--vscode-panel-border);
+}
 
 .panel-head {
   display: flex;
@@ -131,24 +173,63 @@ mark.find-hit.current {
   word-wrap: break-word;
   color: var(--vscode-descriptionForeground);
 }
-#thinkContent.empty { font-style: italic; opacity: .7; }
+#thinkContent.empty {
+  font-style: italic;
+  opacity: .7;
+}
 
 /* Tools panel */
-#toolsContent { flex: 1; overflow-y: auto; padding: 8px 10px; font-size: 12px; }
-#toolsContent.empty { font-style: italic; opacity: .7; color: var(--vscode-descriptionForeground); }
-.tool-item { border: 1px solid var(--vscode-panel-border); border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
-.tool-item-head { display: flex; align-items: center; gap: 6px; padding: 5px 8px; font-weight: 600; }
-.tool-item-head svg { width: 14px; height: 14px; }
-.tool-args { padding: 0 8px 5px; font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; opacity: .8; word-break: break-all; }
+#toolsContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+#toolsContent.empty {
+  font-style: italic;
+  opacity: .7;
+  color: var(--vscode-descriptionForeground);
+}
+.tool-item {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.tool-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  font-weight: 600;
+}
+.tool-item-head svg {
+  width: 14px;
+  height: 14px;
+}
+.tool-args {
+  padding: 0 8px 5px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11px;
+  opacity: .8;
+  word-break: break-all;
+}
 .tool-item pre {
-  margin: 0; padding: 8px; border-top: 1px solid var(--vscode-panel-border);
-  white-space: pre-wrap; word-break: break-word;
-  font-family: var(--vscode-editor-font-family, monospace); font-size: 11.5px;
-  max-height: 300px; overflow: auto;
+  margin: 0;
+  padding: 8px;
+  border-top: 1px solid var(--vscode-panel-border);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 11.5px;
+  max-height: 300px;
+  overflow: auto;
 }
 #thinkContent pre {
   background: var(--vscode-textCodeBlock-background, rgba(0,0,0,.25));
-  padding: 8px; border-radius: 6px; overflow-x: auto;
+  padding: 8px;
+  border-radius: 6px;
+  overflow-x: auto;
 }
 
 /* think/tool badges share one rule (were two identical blocks); the .has-* rules toggle each. */
@@ -164,7 +245,13 @@ mark.find-hit.current {
   cursor: pointer;
   display: none;
 }
-.think-badge:hover, .tool-badge:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2)); }
-.msg.has-think .think-badge { display: inline-block; }
-.msg.has-tools .tool-badge { display: inline-block; }
-
+.think-badge:hover, .tool-badge:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2));
+}
+.msg.has-think .think-badge {
+  display: inline-block;
+}
+.msg.has-tools .tool-badge {
+  display: inline-block;
+}

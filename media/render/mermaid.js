@@ -7,6 +7,7 @@ import { t } from '../core/i18n.js';
   // ── Mermaid diagrams ───────────────────────────────────────────────────────
   // The library (~3MB) is loaded lazily the first time a chat actually contains a
   // ```mermaid block, so webviews without diagrams pay nothing.
+  const PAN_STEP = 80; // px moved per pan-arrow press in the diagram viewer
   let _mermaidPromise = null;
   let _mermaidSeq = 0;
   function ensureMermaid() {
@@ -99,16 +100,15 @@ import { t } from '../core/i18n.js';
   function mmPad(pz) {
     const pad = document.createElement('div');
     pad.className = 'mermaid-tools mermaid-pad';
-    const STEP = 80;
     const gap = () => { const s = document.createElement('span'); s.className = 'mermaid-pad-gap'; return s; };
     pad.appendChild(gap());
-    pad.appendChild(mmBtn(MM_ICON.up, t('Pan up'), () => pz.panBy(0, STEP)));
+    pad.appendChild(mmBtn(MM_ICON.up, t('Pan up'), () => pz.panBy(0, PAN_STEP)));
     pad.appendChild(mmBtn(MM_ICON.zoomIn, t('Zoom in'), pz.zoomIn));
-    pad.appendChild(mmBtn(MM_ICON.left, t('Pan left'), () => pz.panBy(STEP, 0)));
+    pad.appendChild(mmBtn(MM_ICON.left, t('Pan left'), () => pz.panBy(PAN_STEP, 0)));
     pad.appendChild(mmBtn(MM_ICON.recenter, t('Reset / center'), pz.fit));
-    pad.appendChild(mmBtn(MM_ICON.right, t('Pan right'), () => pz.panBy(-STEP, 0)));
+    pad.appendChild(mmBtn(MM_ICON.right, t('Pan right'), () => pz.panBy(-PAN_STEP, 0)));
     pad.appendChild(gap());
-    pad.appendChild(mmBtn(MM_ICON.down, t('Pan down'), () => pz.panBy(0, -STEP)));
+    pad.appendChild(mmBtn(MM_ICON.down, t('Pan down'), () => pz.panBy(0, -PAN_STEP)));
     pad.appendChild(mmBtn(MM_ICON.zoomOut, t('Zoom out'), pz.zoomOut));
     return pad;
   }

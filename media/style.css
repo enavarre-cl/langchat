@@ -3,7 +3,9 @@
   --radius: 10px;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 html, body, #app {
   height: 100%;
@@ -32,7 +34,9 @@ body {
   padding: 6px 8px;
   border-bottom: 1px solid var(--vscode-panel-border);
 }
-#spacer { flex: 1; }
+#spacer {
+  flex: 1;
+}
 
 #topbar select {
   background: var(--vscode-dropdown-background);
@@ -41,8 +45,14 @@ body {
   border-radius: 6px;
   padding: 3px 6px;
 }
-#providerSelect { font-weight: 600; flex-shrink: 0; }
-#modelSelect { flex: 1; min-width: 0; }
+#providerSelect {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+#modelSelect {
+  flex: 1;
+  min-width: 0;
+}
 #modelCtx {
   font-size: 10px;
   padding: 1px 5px;
@@ -52,7 +62,9 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
-#modelCtx:empty { display: none; }
+#modelCtx:empty {
+  display: none;
+}
 
 /* ---- Status (dot + text + chips, in the topbar) ---- */
 #statusDot {
@@ -62,18 +74,61 @@ body {
   flex-shrink: 0;
   background: var(--vscode-descriptionForeground);
 }
-#statusDot.ok { background: var(--vscode-charts-green, #3fb950); }
-#statusDot.error { background: var(--vscode-errorForeground, #f85149); }
-#statusDot.checking { background: var(--vscode-charts-yellow, #d29922); }
-#statusText { font-weight: 600; color: var(--vscode-foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
-#modelCaps { display: inline-flex; align-items: center; gap: 5px; margin-left: 2px; color: var(--vscode-foreground); opacity: .7; flex-shrink: 0; }
-#modelCaps .cap { display: inline-flex; }
-#modelCaps .cap svg { width: 14px; height: 14px; display: block; }
-#usageChip { font-size: 10px; opacity: .7; white-space: nowrap; flex-shrink: 0; }
-#usageChip:empty { display: none; }
-#modelRow { display: flex; align-items: center; gap: 6px; }
-#modelRow select { flex: 1; min-width: 0; }
-#modelRow #modelCtx { margin: 0; }
+#statusDot.ok {
+  background: var(--vscode-charts-green, #3fb950);
+}
+#statusDot.error {
+  background: var(--vscode-errorForeground, #f85149);
+}
+#statusDot.checking {
+  background: var(--vscode-charts-yellow, #d29922);
+}
+#statusText {
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#modelCaps {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 2px;
+  color: var(--vscode-foreground);
+  opacity: .7;
+  flex-shrink: 0;
+}
+#modelCaps .cap {
+  display: inline-flex;
+}
+#modelCaps .cap svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+#usageChip {
+  font-size: 10px;
+  opacity: .7;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#usageChip:empty {
+  display: none;
+}
+#modelRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#modelRow select {
+  flex: 1;
+  min-width: 0;
+}
+#modelRow #modelCtx {
+  margin: 0;
+}
 
 .icon-btn {
   background: transparent;
@@ -88,10 +143,24 @@ body {
   justify-content: center;
   opacity: .8;
 }
-.icon-btn:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
-.icon-btn svg { width: 18px; height: 18px; display: block; }
-#zoomGroup { display: inline-flex; align-items: center; gap: 1px; margin-right: 2px; }
-#zoomGroup .icon-btn { padding: 4px 4px; }
+.icon-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  opacity: 1;
+}
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+#zoomGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-right: 2px;
+}
+#zoomGroup .icon-btn {
+  padding: 4px 4px;
+}
 #zoomResetBtn {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -99,8 +168,15 @@ body {
   padding: 4px 4px;
 }
 /* Line icons in panel headers */
-.panel-head span { display: inline-flex; align-items: center; gap: 6px; }
-.panel-head span svg { width: 15px; height: 15px; }
+.panel-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel-head span svg {
+  width: 15px;
+  height: 15px;
+}
 
 /* ---- Config panel (side) ---- */
 #configBody {
@@ -111,25 +187,78 @@ body {
   flex-direction: column;
   gap: 10px;
 }
-.hidden { display: none !important; }
-
-.cfg-row { display: flex; flex-direction: column; gap: 4px; }
-.cfg-row > label { font-size: 11px; opacity: .8; }
-.cfg-row > input, .cfg-row > select, .cfg-row > textarea { width: 100%; }
-.cfg-note { font-size: 12px; opacity: .7; padding: 2px 0; }
-.tts-rate { display: flex; align-items: center; gap: 8px; }
-.tts-rate input { flex: 1; min-width: 0; }
-.tts-rate-val { font-size: 12px; opacity: .8; min-width: 42px; text-align: right; font-variant-numeric: tabular-nums; }
-
-.sysref { display: flex; align-items: center; gap: 6px; }
-.sysref-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.sysref button, .sysref-actions button {
-  font-size: 12px; padding: 5px 8px; border-radius: 6px; cursor: pointer;
-  border: 1px solid var(--vscode-panel-border); background: transparent; color: var(--vscode-foreground);
+.hidden {
+  display: none !important;
 }
-.sysref button:hover, .sysref-actions button:hover { background: var(--vscode-toolbar-hoverBackground); }
-.sysref-actions { display: flex; gap: 6px; margin-top: 6px; }
-.sysref-actions button { flex: 1; } /* equal width, distributed */
+
+.cfg-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cfg-row > label {
+  font-size: 11px;
+  opacity: .8;
+}
+.cfg-row > input, .cfg-row > select, .cfg-row > textarea {
+  width: 100%;
+}
+.cfg-note {
+  font-size: 12px;
+  opacity: .7;
+  padding: 2px 0;
+}
+.tts-rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tts-rate input {
+  flex: 1;
+  min-width: 0;
+}
+.tts-rate-val {
+  font-size: 12px;
+  opacity: .8;
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sysref {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sysref-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.sysref button, .sysref-actions button {
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid var(--vscode-panel-border);
+  background: transparent;
+  color: var(--vscode-foreground);
+}
+.sysref button:hover, .sysref-actions button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+.sysref-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sysref-actions button {
+  flex: 1;
+}
+/* equal width, distributed */
 
 .group-head {
   font-size: 11px;
@@ -142,8 +271,12 @@ body {
   border-bottom: 1px solid var(--vscode-panel-border);
 }
 
-.cfg-row.param { gap: 6px; }
-.cfg-row.param.disabled { opacity: .45; }
+.cfg-row.param {
+  gap: 6px;
+}
+.cfg-row.param.disabled {
+  opacity: .45;
+}
 
 .param-head {
   display: flex;
@@ -157,8 +290,15 @@ body {
   flex: 1;
   font-size: 12px;
 }
-.param-label input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--vscode-button-background); }
-.param-num { width: 90px; text-align: right; }
+.param-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--vscode-button-background);
+}
+.param-num {
+  width: 90px;
+  text-align: right;
+}
 
 input[type="range"] {
   width: 100%;
@@ -174,7 +314,13 @@ input[type="range"] {
   border-radius: 6px;
   background: var(--vscode-input-background);
 }
-.tags input { flex: 1; min-width: 120px; border: none; background: transparent; padding: 2px 4px; }
+.tags input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+}
 .tag {
   display: inline-flex;
   align-items: center;
@@ -186,8 +332,13 @@ input[type="range"] {
   color: var(--vscode-badge-foreground);
 }
 .tag button {
-  background: transparent; border: none; cursor: pointer;
-  color: inherit; font-size: 13px; line-height: 1; padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
 }
 
 input, select {
@@ -244,6 +395,6 @@ textarea {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  position: relative; /* anchors the floating search bar */
+  position: relative;
+  /* anchors the floating search bar */
 }
-

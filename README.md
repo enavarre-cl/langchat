@@ -160,9 +160,10 @@ Parley is **MIT** licensed. It bundles or downloads third‑party components und
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. The latest releases (**1.6.0 / 1.6.1**)
-are a security + reliability pass from a full code audit ([AUDIT.md](AUDIT.md)) — every audit finding
-is now resolved.
+See [CHANGELOG.md](CHANGELOG.md) for the release history. Recent releases are a quality pass against
+[BEST-PRACTICES.md](BEST-PRACTICES.md): **1.6.0 / 1.6.1** closed a security + reliability audit, and
+**1.6.2** is a best-practices conformance pass over every source file (module sizes, linting, test
+coverage) with no behavior change.
 
 ## Contributing
 

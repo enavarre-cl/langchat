@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as crypto from 'crypto';
-import { chatDefaults, providerInfo, setApiKeyOverride, ChatMessage, ProviderId } from './providers';
+import { chatDefaults, providerInfo, ChatMessage } from './providers';
 import {
   ChatDoc,
   parseDoc,
@@ -28,26 +28,10 @@ import { openDictionaryPanel } from './dictionaryPanel';
 import { listPiperVoices } from './piperVoices';
 import { PiperManager } from './piper/manager';
 import { errMsg } from './chatHelpers';
+import { registerApiKeys } from './apiKeys';
 
 // Tools hub (native filesystem + MCP servers), shared by all chats.
 const toolHub = new ToolHub();
-
-// Backends that use an API key (Ollama does not). The secret is stored as `parley.<id>.apiKey`.
-const KEY_PROVIDERS: { id: ProviderId; label: string }[] = [
-  { id: 'openai', label: 'LM Studio / OpenAI' },
-  { id: 'gemini', label: 'Google Gemini' },
-  { id: 'anthropic', label: 'Anthropic Claude' },
-  { id: 'openrouter', label: 'OpenRouter' },
-];
-
-/** Loads API keys from SecretStorage (encrypted) into the provider overrides. */
-async function loadApiKeys(context: vscode.ExtensionContext): Promise<void> {
-  for (const { id } of KEY_PROVIDERS) {
-    const k = await context.secrets.get(`parley.${id}.apiKey`);
-    setApiKeyOverride(id, k || undefined);
-  }
-}
-
 
 export function activate(context: vscode.ExtensionContext) {
   const spellWords = new SpellWordsStore(context);
@@ -71,12 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration('parley.language')) langChanged.fire();
     })
   );
-  void loadApiKeys(context); // populate overrides from SecretStorage on startup
-  // If secrets change (another window, or the command), reload. Registered as a disposable so it is
-  // cleaned up on deactivate (the sibling onDidChangeConfiguration above already is).
-  context.subscriptions.push(
-    context.secrets.onDidChange((e) => { if (e.key.startsWith('parley.') && e.key.endsWith('.apiKey')) void loadApiKeys(context); })
-  );
+  registerApiKeys(context); // SecretStorage ⇄ overrides + the setApiKey command (apiKeys.ts)
 
   context.subscriptions.push(
     vscode.window.registerCustomEditorProvider(ChatEditorProvider.viewType, provider, {
@@ -87,24 +66,6 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('parley.spell.openDictionary', (item: { word?: string } | undefined) => {
       const lang = item?.word === 'en' ? 'en' : 'es'; // the node carries the language in `word`
       openDictionaryPanel(context, spellWords, lang);
-    }),
-    vscode.commands.registerCommand('parley.setApiKey', async () => {
-      const pick = await vscode.window.showQuickPick(
-        KEY_PROVIDERS.map((p) => ({ label: p.label, id: p.id })),
-        { placeHolder: tr('Backend for the API key') }
-      );
-      if (!pick) return;
-      const key = await vscode.window.showInputBox({
-        password: true,
-        prompt: `${tr('API key for')} ${pick.label} ${tr('(empty = delete)')}`,
-        placeHolder: '••••••••',
-      });
-      if (key === undefined) return; // cancelled
-      const secretKey = `parley.${pick.id}.apiKey`;
-      if (key) await context.secrets.store(secretKey, key);
-      else await context.secrets.delete(secretKey);
-      setApiKeyOverride(pick.id, key || undefined);
-      vscode.window.showInformationMessage(`${tr('API key for')} ${pick.label} ${key ? tr('saved') : tr('deleted')} ${tr('(encrypted in SecretStorage).')}`);
     })
   );
 

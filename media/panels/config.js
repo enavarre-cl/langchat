@@ -13,10 +13,12 @@ import { renderTtsConfig } from './configTts.js';
 
 const configFields = $('configFields');
 
+const SLIDER_STEP = 0.01; // decimal precision for fractional sliders/number inputs
+
 // Configuration panel schema. `only` restricts a parameter to certain backends.
   const SCHEMA = [
     { group: 'General', items: [
-      { key: 'temperature', label: 'Temperature', kind: 'slider', min: 0, max: 2, step: 0.01, toggle: false },
+      { key: 'temperature', label: 'Temperature', kind: 'slider', min: 0, max: 2, step: SLIDER_STEP, toggle: false },
       { key: 'maxTokens', label: 'Limit response length', kind: 'int', min: 1, max: 131072, step: 1, toggle: true },
       { key: 'contextMessages', label: 'History to send: last N messages', kind: 'int', min: 1, max: 500, step: 1, toggle: true },
       { key: 'autoSummary', label: 'Auto-summarize when context fills up', kind: 'bool' },
@@ -28,12 +30,12 @@ const configFields = $('configFields');
     ] },
     { group: 'Sampling', items: [
       { key: 'topK', label: 'Top K Sampling', kind: 'int', min: 0, max: 500, step: 1, toggle: true },
-      { key: 'topP', label: 'Top P Sampling', kind: 'slider', min: 0, max: 1, step: 0.01, toggle: true },
-      { key: 'minP', label: 'Min P Sampling', kind: 'slider', min: 0, max: 1, step: 0.01, toggle: true, only: ['openai', 'ollama', 'openrouter'] },
-      { key: 'topA', label: 'Top A Sampling', kind: 'slider', min: 0, max: 1, step: 0.01, toggle: true, only: ['openrouter'] },
-      { key: 'repeatPenalty', label: 'Repeat / Repetition Penalty', kind: 'number', min: 0, max: 2, step: 0.01, toggle: true, only: ['openai', 'ollama', 'openrouter'] },
-      { key: 'presencePenalty', label: 'Presence Penalty', kind: 'number', min: -2, max: 2, step: 0.01, toggle: true, only: ['openai', 'ollama', 'openrouter', 'gemini'] },
-      { key: 'frequencyPenalty', label: 'Frequency Penalty', kind: 'number', min: -2, max: 2, step: 0.01, toggle: true, only: ['openai', 'ollama', 'openrouter', 'gemini'] },
+      { key: 'topP', label: 'Top P Sampling', kind: 'slider', min: 0, max: 1, step: SLIDER_STEP, toggle: true },
+      { key: 'minP', label: 'Min P Sampling', kind: 'slider', min: 0, max: 1, step: SLIDER_STEP, toggle: true, only: ['openai', 'ollama', 'openrouter'] },
+      { key: 'topA', label: 'Top A Sampling', kind: 'slider', min: 0, max: 1, step: SLIDER_STEP, toggle: true, only: ['openrouter'] },
+      { key: 'repeatPenalty', label: 'Repeat / Repetition Penalty', kind: 'number', min: 0, max: 2, step: SLIDER_STEP, toggle: true, only: ['openai', 'ollama', 'openrouter'] },
+      { key: 'presencePenalty', label: 'Presence Penalty', kind: 'number', min: -2, max: 2, step: SLIDER_STEP, toggle: true, only: ['openai', 'ollama', 'openrouter', 'gemini'] },
+      { key: 'frequencyPenalty', label: 'Frequency Penalty', kind: 'number', min: -2, max: 2, step: SLIDER_STEP, toggle: true, only: ['openai', 'ollama', 'openrouter', 'gemini'] },
       { key: 'seed', label: 'Seed', kind: 'int', min: 0, max: 2147483647, step: 1, toggle: true, only: ['openai', 'ollama', 'openrouter', 'gemini'] },
     ] },
   ];
@@ -130,39 +132,47 @@ const configFields = $('configFields');
     return row;
   }
 
+  // Dispatches to a per-kind builder; every branch produces the same `cfg-row param` element.
   function paramRow(item) {
     const doc = getDoc();
     const p = doc.params || {};
     const row = document.createElement('div');
     row.className = 'cfg-row param';
 
-    if (item.kind === 'tags') {
-      row.appendChild(tagsControl(item, p));
-      return row;
-    }
+    if (item.kind === 'tags') return paramRowTags(item, p, row);
+    if (item.kind === 'bool') return paramRowBool(item, p, row);
+    return paramRowNumeric(item, p, row);
+  }
 
-    if (item.kind === 'bool') {
-      const head = document.createElement('div');
-      head.className = 'param-head';
-      const left = document.createElement('div');
-      left.className = 'param-label';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = !!p[item.key];
-      row.classList.toggle('disabled', !cb.checked); // dim when off
-      cb.addEventListener('change', () => {
-        row.classList.toggle('disabled', !cb.checked);
-        patchParam(item.key, cb.checked);
-      });
-      const lab = document.createElement('span');
-      lab.textContent = t(item.label);
-      left.appendChild(cb);
-      left.appendChild(lab);
-      head.appendChild(left);
-      row.appendChild(head);
-      return row;
-    }
+  function paramRowTags(item, p, row) {
+    row.appendChild(tagsControl(item, p));
+    return row;
+  }
 
+  function paramRowBool(item, p, row) {
+    const head = document.createElement('div');
+    head.className = 'param-head';
+    const left = document.createElement('div');
+    left.className = 'param-label';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!p[item.key];
+    row.classList.toggle('disabled', !cb.checked); // dim when off
+    cb.addEventListener('change', () => {
+      row.classList.toggle('disabled', !cb.checked);
+      patchParam(item.key, cb.checked);
+    });
+    const lab = document.createElement('span');
+    lab.textContent = t(item.label);
+    left.appendChild(cb);
+    left.appendChild(lab);
+    head.appendChild(left);
+    row.appendChild(head);
+    return row;
+  }
+
+  // Numeric kinds: 'int' / 'number' (box only) and 'slider' (box + range).
+  function paramRowNumeric(item, p, row) {
     const val = p[item.key];
     const enabled = item.toggle ? !!(val && val.enabled) : true;
     const numValue = item.toggle ? (val ? val.value : item.min) : (typeof val === 'number' ? val : item.min);

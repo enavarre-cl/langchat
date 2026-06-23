@@ -1,3 +1,13 @@
+/*
+ * GENERATED BUNDLE — DO NOT EDIT BY HAND.
+ *
+ * This file is produced by scripts/build-spell.js (esbuild, bundling the `nspell`
+ * library). Any manual change will be overwritten the next time the bundle is rebuilt;
+ * to alter it, edit the build script / source library and regenerate.
+ *
+ * Its length (>500 lines) is a legitimate exception to rule M1 (file-size limit)
+ * because it is a generated / vendored artifact, not authored source code.
+ */
 var NspellLib = (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
   var __commonJS = (cb, mod) => function __require() {

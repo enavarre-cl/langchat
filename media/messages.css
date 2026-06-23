@@ -27,7 +27,10 @@
   border: 1px solid var(--vscode-panel-border);
 }
 /* Full-width bubbles: differentiated only by background colour + the role title (not width/side). */
-.msg.user, .msg.assistant { align-self: stretch; max-width: none; }
+.msg.user, .msg.assistant {
+  align-self: stretch;
+  max-width: none;
+}
 .msg .role {
   display: flex;
   align-items: center;
@@ -38,19 +41,49 @@
   letter-spacing: .04em;
 }
 /* Dims only the role label (You/Assistant), not the icons. */
-.msg .role > span:first-child { opacity: .6; }
-.variant-nav { display: inline-flex; align-items: center; gap: 2px; }
-.variant-nav button:not(.icon-act) {
-  background: transparent; border: none; cursor: pointer; color: inherit;
-  font-size: 16px; line-height: 1; padding: 0 4px; border-radius: 4px;
+.msg .role > span:first-child {
+  opacity: .6;
 }
-.variant-nav button:not(.icon-act):hover:not(:disabled) { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25)); }
-.variant-nav button:disabled { opacity: .3; cursor: default; }
-.variant-count { font-size: 11px; opacity: .85; min-width: 30px; text-align: center; }
+.variant-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.variant-nav button:not(.icon-act) {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.variant-nav button:not(.icon-act):hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.25));
+}
+.variant-nav button:disabled {
+  opacity: .3;
+  cursor: default;
+}
+.variant-count {
+  font-size: 11px;
+  opacity: .85;
+  min-width: 30px;
+  text-align: center;
+}
 
 /* Action buttons with monochrome SVG icon (inherit text color). */
-.msg-actions { margin-left: auto; display: inline-flex; gap: 1px; opacity: .45; transition: opacity .12s; }
-.msg:hover .msg-actions, .msg.editing .msg-actions { opacity: 1; }
+.msg-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 1px;
+  opacity: .45;
+  transition: opacity .12s;
+}
+.msg:hover .msg-actions, .msg.editing .msg-actions {
+  opacity: 1;
+}
 .icon-act {
   background: transparent;
   border: none;
@@ -61,8 +94,14 @@
   display: inline-flex;
   align-items: center;
 }
-.icon-act svg { width: 17px; height: 17px; display: block; }
-.icon-act:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.3)); }
+.icon-act svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+.icon-act:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.3));
+}
 /* Floating tooltip for any [data-tip] element (JS-positioned on the body → immune to the native
  * title being unreliable in webviews and to container clipping in the topbar / scroll area). */
 #tip {
@@ -80,10 +119,17 @@
   box-shadow: 0 3px 12px rgba(0,0,0,.4);
   pointer-events: none;
 }
-#tip.hidden { display: none; }
+#tip.hidden {
+  display: none;
+}
 /* Trash button armed for the confirming 2nd click: red, and keep the actions row visible. */
-.icon-act.armed { color: var(--vscode-errorForeground, #f14c4c); background: var(--vscode-inputValidation-errorBackground, rgba(241,76,76,.15)); }
-.msg-actions:has(.icon-act.armed) { opacity: 1; }
+.icon-act.armed {
+  color: var(--vscode-errorForeground, #f14c4c);
+  background: var(--vscode-inputValidation-errorBackground, rgba(241,76,76,.15));
+}
+.msg-actions:has(.icon-act.armed) {
+  opacity: 1;
+}
 
 .msg.editing {
   align-self: stretch;
@@ -93,7 +139,12 @@
   color: var(--vscode-foreground);
   border: 1px solid var(--vscode-panel-border);
 }
-.edit-wrap { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.edit-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
 .edit-area {
   width: 100%;
   min-height: 60px;
@@ -105,7 +156,11 @@
   border-radius: 6px;
   padding: 6px;
 }
-.edit-bar { display: flex; gap: 6px; justify-content: flex-end; }
+.edit-bar {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
 .edit-bar button {
   font-size: 12px;
   padding: 4px 14px;
@@ -113,10 +168,21 @@
   border: none;
   cursor: pointer;
 }
-.edit-bar .btn-primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); font-weight: 600; }
-.edit-bar .btn-primary:hover { background: var(--vscode-button-hoverBackground); }
-.edit-bar .btn-secondary { background: var(--vscode-button-secondaryBackground, rgba(127,127,127,.2)); color: var(--vscode-foreground); }
-.edit-bar .btn-secondary:hover { background: var(--vscode-button-secondaryHoverBackground, rgba(127,127,127,.3)); }
+.edit-bar .btn-primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  font-weight: 600;
+}
+.edit-bar .btn-primary:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+.edit-bar .btn-secondary {
+  background: var(--vscode-button-secondaryBackground, rgba(127,127,127,.2));
+  color: var(--vscode-foreground);
+}
+.edit-bar .btn-secondary:hover {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(127,127,127,.3));
+}
 .msg pre {
   background: var(--vscode-textCodeBlock-background, rgba(0,0,0,.25));
   padding: 8px;
@@ -124,14 +190,23 @@
   overflow-x: auto;
   margin: 6px 0;
 }
-.msg code { font-family: var(--vscode-editor-font-family, monospace); font-size: .92em; }
-.msg pre code { display: block; }
+.msg code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: .92em;
+}
+.msg pre code {
+  display: block;
+}
 /* Streaming render wrappers (stable blocks + open tail): transparent to layout so block margins
    between them behave exactly as a single rendered body. */
-.stream-part { display: contents; }
+.stream-part {
+  display: contents;
+}
 
 /* Mermaid diagrams */
-.mermaid-diagram { margin: 8px 0; }
+.mermaid-diagram {
+  margin: 8px 0;
+}
 .mermaid-diagram.rendered {
   position: relative;
   background: var(--vscode-textCodeBlock-background, rgba(0,0,0,.25));
@@ -147,9 +222,12 @@
      + bottom zoom pad ~98px). The canvas stays top-left so the pan/zoom transform math is unaffected. */
   min-height: 150px;
   cursor: grab;
-  touch-action: none; /* pointer drag = pan, not page scroll */
+  touch-action: none;
+  /* pointer drag = pan, not page scroll */
 }
-.mermaid-viewport.grabbing { cursor: grabbing; }
+.mermaid-viewport.grabbing {
+  cursor: grabbing;
+}
 .mermaid-canvas {
   transform-origin: 0 0;
   display: block;
@@ -177,20 +255,30 @@
   z-index: 2;
 }
 .mermaid-diagram.rendered:hover .mermaid-tools,
-.mermaid-modal .mermaid-tools { opacity: 1; }
+.mermaid-modal .mermaid-tools {
+  opacity: 1;
+}
 .mermaid-tools-top {
-  top: 8px; right: 8px;
+  top: 8px;
+  right: 8px;
   grid-auto-flow: column;
 }
 .mermaid-pad {
-  right: 8px; bottom: 8px;
+  right: 8px;
+  bottom: 8px;
   grid-template-columns: repeat(3, 30px);
   grid-template-rows: repeat(3, 30px);
 }
-.mermaid-pad-gap { pointer-events: none; } /* empty cell keeping the cross shape */
+.mermaid-pad-gap {
+  pointer-events: none;
+}
+/* empty cell keeping the cross shape */
 .mermaid-btn {
-  width: 30px; height: 30px;
-  display: flex; align-items: center; justify-content: center;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 1px solid var(--vscode-panel-border, rgba(127,127,127,.3));
   background: var(--vscode-editor-background, #1e1e1e);
@@ -198,8 +286,14 @@
   border-radius: 6px;
   cursor: pointer;
 }
-.mermaid-btn:hover { background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2)); }
-.mermaid-btn svg { width: 16px; height: 16px; display: block; }
+.mermaid-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(127,127,127,.2));
+}
+.mermaid-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
 .mermaid-error {
   margin: 6px 10px;
   font-size: .85em;
@@ -207,51 +301,112 @@
 }
 /* Fullscreen lightbox */
 .mermaid-modal {
-  position: fixed; inset: 0;
+  position: fixed;
+  inset: 0;
   z-index: 1000;
   background: rgba(0,0,0,.6);
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .mermaid-modal-inner {
   position: relative;
-  width: 90vw; height: 88vh;
+  width: 90vw;
+  height: 88vh;
   background: var(--vscode-editor-background, #1e1e1e);
   border: 1px solid var(--vscode-panel-border, rgba(127,127,127,.3));
   border-radius: 8px;
   overflow: hidden;
 }
-.mermaid-modal .mermaid-viewport { height: 100%; }
+.mermaid-modal .mermaid-viewport {
+  height: 100%;
+}
 
 /* Markdown in bubbles and reasoning panel */
-.msg .body p, #thinkContent p { margin: .4em 0; }
-.msg .body p:first-child, #thinkContent p:first-child { margin-top: 0; }
-.msg .body p:last-child, #thinkContent p:last-child { margin-bottom: 0; }
+.msg .body p, #thinkContent p {
+  margin: .4em 0;
+}
+.msg .body p:first-child, #thinkContent p:first-child {
+  margin-top: 0;
+}
+.msg .body p:last-child, #thinkContent p:last-child {
+  margin-bottom: 0;
+}
 .msg .body h1, .msg .body h2, .msg .body h3, .msg .body h4, .msg .body h5, .msg .body h6,
 #thinkContent h1, #thinkContent h2, #thinkContent h3 {
-  margin: .5em 0 .25em; line-height: 1.25; font-weight: 600;
+  margin: .5em 0 .25em;
+  line-height: 1.25;
+  font-weight: 600;
 }
-.msg .body h1 { font-size: 1.3em; }
-.msg .body h2 { font-size: 1.18em; }
-.msg .body h3 { font-size: 1.08em; }
-.msg .body h4, .msg .body h5, .msg .body h6 { font-size: 1em; }
-.msg .body ul, .msg .body ol, #thinkContent ul, #thinkContent ol { margin: .3em 0; padding-left: 1.5em; }
-.msg .body li, #thinkContent li { margin: .15em 0; }
-.msg .body a, #thinkContent a { color: var(--vscode-textLink-foreground); text-decoration: none; }
-.msg .body a:hover, #thinkContent a:hover { text-decoration: underline; }
+.msg .body h1 {
+  font-size: 1.3em;
+}
+.msg .body h2 {
+  font-size: 1.18em;
+}
+.msg .body h3 {
+  font-size: 1.08em;
+}
+.msg .body h4, .msg .body h5, .msg .body h6 {
+  font-size: 1em;
+}
+.msg .body ul, .msg .body ol, #thinkContent ul, #thinkContent ol {
+  margin: .3em 0;
+  padding-left: 1.5em;
+}
+.msg .body li, #thinkContent li {
+  margin: .15em 0;
+}
+.msg .body a, #thinkContent a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+}
+.msg .body a:hover, #thinkContent a:hover {
+  text-decoration: underline;
+}
 .msg .body blockquote, #thinkContent blockquote {
-  margin: .4em 0; padding: .1em 0 .1em .8em;
-  border-left: 3px solid var(--vscode-panel-border); opacity: .9;
+  margin: .4em 0;
+  padding: .1em 0 .1em .8em;
+  border-left: 3px solid var(--vscode-panel-border);
+  opacity: .9;
 }
-.msg .body hr { border: none; border-top: 1px solid var(--vscode-panel-border); margin: .6em 0; }
-.msg .body del { opacity: .7; }
-.msg .body table, #thinkContent table { border-collapse: collapse; margin: .4em 0; font-size: .95em; }
+.msg .body hr {
+  border: none;
+  border-top: 1px solid var(--vscode-panel-border);
+  margin: .6em 0;
+}
+.msg .body del {
+  opacity: .7;
+}
+.msg .body table, #thinkContent table {
+  border-collapse: collapse;
+  margin: .4em 0;
+  font-size: .95em;
+}
 .msg .body th, .msg .body td, #thinkContent th, #thinkContent td {
-  border: 1px solid var(--vscode-panel-border); padding: 3px 8px; text-align: left;
+  border: 1px solid var(--vscode-panel-border);
+  padding: 3px 8px;
+  text-align: left;
 }
-.msg .body th, #thinkContent th { background: var(--vscode-textBlockQuote-background, rgba(127,127,127,.12)); font-weight: 600; }
-.cursor::after { content: '▍'; opacity: .6; animation: blink 1s steps(2) infinite; }
-.empty-note { opacity: .6; font-style: italic; font-size: .92em; }
-@keyframes blink { 50% { opacity: 0; } }
+.msg .body th, #thinkContent th {
+  background: var(--vscode-textBlockQuote-background, rgba(127,127,127,.12));
+  font-weight: 600;
+}
+.cursor::after {
+  content: '▍';
+  opacity: .6;
+  animation: blink 1s steps(2) infinite;
+}
+.empty-note {
+  opacity: .6;
+  font-style: italic;
+  font-size: .92em;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
 
 .banner {
   align-self: center;
@@ -266,7 +421,10 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
-.banner-text { flex: 1; min-width: 0; }
+.banner-text {
+  flex: 1;
+  min-width: 0;
+}
 .banner-x {
   flex-shrink: 0;
   background: transparent;
@@ -278,12 +436,15 @@
   line-height: 1;
   padding: 0 2px;
 }
-.banner-x:hover { opacity: 1; }
+.banner-x:hover {
+  opacity: 1;
+}
 .banner.error {
   text-align: left;
   background: var(--vscode-inputValidation-errorBackground, rgba(248,81,73,.1));
   border: 1px solid var(--vscode-errorForeground, #f85149);
   border-radius: 8px;
 }
-.banner.error { color: var(--vscode-errorForeground); }
-
+.banner.error {
+  color: var(--vscode-errorForeground);
+}

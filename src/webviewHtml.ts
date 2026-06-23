@@ -70,6 +70,7 @@ export function renderWebviewHtml(
   <link href="${uri('find.css')}" rel="stylesheet" />
   <link href="${uri('messages.css')}" rel="stylesheet" />
   <link href="${uri('composer.css')}" rel="stylesheet" />
+  <link href="${uri('conversation.css')}" rel="stylesheet" />
   <title>Parley</title>
 </head>
 <body>

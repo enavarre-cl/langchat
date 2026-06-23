@@ -175,22 +175,28 @@ export async function runInference(
         const fresh = getDoc();
         fresh?.messages.push(callMsg);
 
-        for (const tc of res.toolCalls) {
-          if (ac.signal.aborted) { aborted = true; break; } // Stop before the next tool
-          let out: string;
+        // Run the requested tools CONCURRENTLY: the model asked for them in a single turn without
+        // seeing intermediate results, so they're independent and can't rely on intra-turn ordering.
+        // Results are collected in request order to keep tool_result ↔ tool_call pairing intact.
+        const toolResults = await Promise.all(res.toolCalls.map(async (tc): Promise<{ tc: typeof tc; out: string }> => {
           let args: any = {};
           try { args = JSON.parse(tc.arguments || '{}'); } catch { /* empty args */ }
           webview.postMessage({ type: 'toolCall', name: tc.name, args: tc.arguments || '' });
+          let out: string;
           try {
-            out = await toolHub.call(tc.name, args, ac.signal); // Stop cancels an in-flight tool too
+            out = await toolHub.call(tc.name, args, ac.signal); // Stop cancels in-flight tools too
           } catch (e: any) {
             out = 'Error: ' + (e?.message ?? e);
           }
           webview.postMessage({ type: 'toolResult', name: tc.name, content: out });
+          return { tc, out };
+        }));
+        for (const { tc, out } of toolResults) {
           const toolMsg: ChatMessage = { role: 'tool', content: out, toolCallId: tc.id, toolName: tc.name };
           wire.push(toolMsg);
           fresh?.messages.push(toolMsg);
         }
+        if (ac.signal.aborted) aborted = true; // a Stop during the concurrent batch cancels the turn
         // If the turn was aborted mid tool-loop, drop the dangling assistant(toolCalls) + any partial
         // tool replies before persisting: the model never produced its answer, so writing that chain
         // would leave a broken turn on disk (an assistant with toolCalls missing their tool results).

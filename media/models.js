@@ -91,7 +91,7 @@
         `<div class="mb-row-title">${esc(m.id)}${off}${cloud}</div>` +
         (desc ? `<div class="mb-row-desc">${esc(desc)}</div>` : '') +
         `<div class="mb-row-meta">${params}⬇ ${fmtNum(m.downloads)} · ★ ${fmtNum(m.likes)}${ago ? ` · ${esc(ago)}` : ''}</div>` +
-        capBadges(m.capabilities, true);
+        capBadges(m.capabilities, m.capsEstimated !== false);
       row.addEventListener('click', () => openModel(m.id));
       listEl.appendChild(row);
     }
@@ -178,7 +178,7 @@
          ${stats}
          ${summary ? `<div class="mb-desc-box">${esc(summary)}</div>` : ''}
          ${metaRow}
-         ${detailCaps(m.capabilities)}
+         ${detailCaps(m.capabilities, m.capsEstimated !== false)}
          <div class="mb-section-title">${esc(t('Download options'))}</div>
          <div class="mb-opts">${opts}</div>
          <div id="mb-progress" class="hidden"></div>

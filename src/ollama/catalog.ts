@@ -22,6 +22,7 @@ export interface CatalogModel {
   capabilities: ModelCapabilities; // estimated (D3: truth arrives from /api/show after download)
   description?: string; // short blurb (Ollama library only; HF has none in the search payload)
   cloud?: boolean;      // Ollama cloud-only model (no local download); never set for HF
+  capsEstimated?: boolean; // capabilities are heuristic (HF). Ollama reports declared ones → false.
 }
 
 /** Extra model info (architecture and exact params), from the individual HF endpoint. */

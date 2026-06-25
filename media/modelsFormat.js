@@ -66,7 +66,8 @@
   }
 
   // Capabilities row in the detail panel, with colors (Vision/Tools/Reasoning), like LM Studio.
-  function detailCaps(caps) {
+  // `estimated` (HF heuristic) appends a `~`; Ollama reports declared capabilities, so it's omitted.
+  function detailCaps(caps, estimated) {
     caps = caps || {};
     const items = [];
     if (caps.vision) items.push(['vision', '👁', t('Vision')]);
@@ -75,7 +76,7 @@
     if (!items.length) return '';
     return `<div class="mb-caps-row"><span class="mb-caps-label">${esc(t('Capabilities'))}:</span> ` +
       items.map(([k, i, l]) => `<span class="mb-cap-badge ${k}">${i} ${esc(l)}</span>`).join(' ') +
-      ` <span class="mb-cap-est" title="${esc(t('Estimated from tags'))}">~</span></div>`;
+      (estimated ? ` <span class="mb-cap-est" title="${esc(t('Estimated from tags'))}">~</span>` : '') + `</div>`;
   }
 
   // Short README summary (first real paragraph, stripped of markdown/HTML), for the description box.

@@ -168,6 +168,7 @@ function toCatalogModel(e: OllamaSearchEntry): CatalogModel {
     domain: capabilities.vision ? 'VLM' : 'LLM',
     official: true,
     capabilities,
+    capsEstimated: false, // these come from the model's declared `x-test-capability` pills, not a heuristic
     description: e.description,
     cloud: e.cloud,
   };

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import {
   parseSize, parsePulls, decodeEntities, parseSearchHtml, parseTagsHtml, dedupeTags,
-  metaDescription, metaCard, extractReadme,
+  metaDescription, metaCard, extractReadme, parseCloudTags,
 } from '../ollama/library';
 
 // --- numeric/text helpers ---
@@ -92,6 +92,14 @@ test('parseTagsHtml extracts every tag/digest/size tuple', () => {
   assert.strictEqual(tags.length, 3);
   assert.deepStrictEqual(tags[0], { tag: 'latest', digest: '845dbda0ea48', bytes: 4_700_000_000 });
   assert.deepStrictEqual(tags[2], { tag: '0.5b', digest: 'a8b0c5157701', bytes: 398_000_000 });
+});
+
+test('parseCloudTags extracts cloud variant tags from hrefs, deduped and in order', () => {
+  const html =
+    '<a href="/library/gemma4:12b">x</a><a href="/library/gemma4:cloud">x</a>' +
+    '<a href="/library/gemma4:cloud">x</a><a href="/library/gemma4:31b-cloud">x</a>';
+  assert.deepStrictEqual(parseCloudTags(html), ['cloud', '31b-cloud']);
+  assert.deepStrictEqual(parseCloudTags('<a href="/library/qwen2.5:7b">x</a>'), []);
 });
 
 test('dedupeTags collapses aliases by digest, prefers a specific tag over latest, sorts by size', () => {

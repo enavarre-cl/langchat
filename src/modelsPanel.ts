@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { OllamaManager } from './ollama/manager';
 import { searchHF, modelFiles, readme, modelInfo, fetchModel, ollamaPullViable, OFFICIAL_ORG_NAMES, CatalogModel, SortMode } from './ollama/catalog';
-import { searchOllama, ollamaModelFiles, ollamaModelCard, OllamaSort } from './ollama/library';
+import { searchOllama, ollamaModelTags, ollamaModelCard, OllamaSort } from './ollama/library';
 import { hfPullRef, formatBytes } from './ollama/parse';
 
 /** Where the model browser searches/downloads from. `ollama` is the default. */
@@ -107,13 +107,13 @@ export class ModelsPanel {
   private async buildCardFromOllama(modelId: string): Promise<void> {
     this.post({ type: 'showCachedLoading' });
     try {
-      const files = await ollamaModelFiles(modelId);
+      const { files, cloudTags } = await ollamaModelTags(modelId);
       const model: CatalogModel = {
         id: modelId, author: '', downloads: 0, likes: 0, updated: '', tags: [],
         pipeline: '', params: '', domain: 'LLM', official: true,
         capabilities: { vision: false, tools: false, reasoning: false },
       };
-      const card = { model, files, readme: '', info: { arch: '', params: '' } };
+      const card = { model, files, cloudTags, readme: '', info: { arch: '', params: '' } };
       this.cards.save(modelId, card);
       this.post({ type: 'showCachedModel', card });
     } catch (e) {
@@ -170,13 +170,13 @@ export class ModelsPanel {
         case 'detail': {
           const detailId = msg.id ?? '';
           if (this.source() === 'ollama') {
-            const [files, overview] = await Promise.all([
-              ollamaModelFiles(detailId).catch(() => []),
+            const [tags, overview] = await Promise.all([
+              ollamaModelTags(detailId).catch(() => ({ files: [], cloudTags: [] })),
               ollamaModelCard(detailId).catch(() => ({ description: '', readme: '', params: '', context: '' })),
             ]);
             const readme = overview.readme || overview.description || msg.model?.description || '';
             const info = { arch: '', params: overview.params, context: overview.context };
-            const card: ModelCard = { model: msg.model, files, readme, info };
+            const card: ModelCard = { model: msg.model, files: tags.files, cloudTags: tags.cloudTags, readme, info };
             this.cards.save(detailId, card);
             this.post({ type: 'detail', id: msg.id, ...card });
             break;

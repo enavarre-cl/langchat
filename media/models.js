@@ -110,9 +110,11 @@
     }
   }
 
-  function renderDetail(id, files, readme, info, modelOverride) {
+  function renderDetail(id, files, readme, info, modelOverride, cloudTags) {
     const m = modelOverride || results.find((r) => r.id === id) || { id, capabilities: {}, pipeline: '', params: '', domain: '', official: false };
     info = info || {};
+    // Cloud variants come from the tags page; fall back to a bare `cloud` tag if only the search flag is set.
+    const cloud = (cloudTags && cloudTags.length) ? cloudTags : (m.cloud ? ['cloud'] : []);
     const desc = m.description || pipelineLabel(m.pipeline);
     const params = info.params || m.params || '';
     const metaRow =
@@ -140,13 +142,17 @@
       <div class="mb-reco">★ ${esc(t('Recommended'))}: <b>${esc(files[def].quant)}</b> · ${fmtBytes(files[def].size)}</div>`
         + (anyRisky ? `<div class="mb-warn">⚠ ${esc(t('Non-standard file names: it will be downloaded and imported into Ollama (no resume).'))}</div>` : '');
     }
-    if (m.cloud) {
-      // The cloud variant isn't downloaded; registering pulls a tiny `name:cloud` manifest stub so it
-      // shows up locally and can be picked in chat — inference still runs on Ollama Cloud.
+    if (cloud.length) {
+      // Cloud variants aren't downloaded; registering pulls a tiny `name:tag` manifest stub so the
+      // chosen variant shows up locally and can be picked in chat — inference runs on Ollama Cloud.
       opts += `<div class="mb-opt-picker">
-        <button class="mb-dl" id="mb-cloud-reg">${esc(t('Register for cloud use'))}</button>
+        <select id="mb-cloud-select" class="mb-select">
+          ${cloud.map((tg, i) => `<option value="${esc(tg)}"${i === 0 ? ' selected' : ''}>☁ ${esc(id)}:${esc(tg)}</option>`).join('')}
+        </select>
+        <button class="mb-dl" id="mb-cloud-reg">${esc(t('Register'))}</button>
+        <span class="mb-opt-count">${cloud.length} ${esc(t('cloud variants'))}</span>
       </div>
-      <div class="mb-reco">${esc(t('Runs on Ollama Cloud. Registering adds it to your model list (no weights downloaded); needs an Ollama API key — see Set API Key.'))}</div>`;
+      <div class="mb-reco">${esc(t('Runs on Ollama Cloud. Registering adds the selected variant to your model list (no weights downloaded); needs an Ollama API key — see Set API Key.'))}</div>`;
     }
     if (!opts) {
       opts = `<div class="mb-muted">${esc(t('No downloadable files found'))}</div>`;
@@ -184,8 +190,11 @@
       vscode.postMessage({ type: 'pull', id, quant: f.quant, size: f.size, pullable: f.pullable !== false, path: f.path, shards: f.shards || [] });
     });
     const reg = $('mb-cloud-reg');
-    if (reg) reg.addEventListener('click', () =>
-      vscode.postMessage({ type: 'pull', id, quant: 'cloud', size: 0, pullable: true, path: '', shards: [] }));
+    if (reg) reg.addEventListener('click', () => {
+      const sel = $('mb-cloud-select');
+      const tag = (sel && sel.value) || 'cloud';
+      vscode.postMessage({ type: 'pull', id, quant: tag, size: 0, pullable: true, path: '', shards: [] });
+    });
     renderDetailProgress(id); // shows progress ONLY if this model has a download
   }
 
@@ -276,7 +285,7 @@
         break;
       }
       case 'detail':
-        if (msg.id === selected) renderDetail(msg.id, msg.files || [], msg.readme || '', msg.info || {});
+        if (msg.id === selected) renderDetail(msg.id, msg.files || [], msg.readme || '', msg.info || {}, undefined, msg.cloudTags || []);
         break;
       case 'showCachedLoading':
         detailEl.innerHTML = `<div class="mb-muted">${esc(t('Loading…'))}</div>`;
@@ -291,7 +300,7 @@
         renderList();
         const sel = listEl.querySelector('.mb-row.sel');
         if (sel) sel.scrollIntoView({ block: 'center' });
-        renderDetail(card.model.id, card.files || [], card.readme || '', card.info || {}, card.model);
+        renderDetail(card.model.id, card.files || [], card.readme || '', card.info || {}, card.model, card.cloudTags || []);
         break;
       }
       case 'downloads':

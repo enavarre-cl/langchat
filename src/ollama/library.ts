@@ -203,12 +203,23 @@ export async function searchOllama(
   return parseSearchHtml(await res.text()).slice(0, limit).map(toCatalogModel);
 }
 
-/** Lists the distinct downloadable tags of a library model as ModelFile entries (quant = tag). */
-export async function ollamaModelFiles(name: string, signal?: AbortSignal): Promise<ModelFile[]> {
+/** PURE. Cloud-variant tag names from a tags page (e.g. ["cloud", "31b-cloud"]) — registered, not downloaded. */
+export function parseCloudTags(html: string): string[] {
+  const out: string[] = [];
+  for (const m of html.matchAll(/\/library\/[^":]+:([a-z0-9._-]*cloud)\b/gi)) {
+    if (!out.includes(m[1])) out.push(m[1]);
+  }
+  return out;
+}
+
+/** A library model's downloadable tags (with sizes) and its cloud variants, from one tags-page fetch. */
+export async function ollamaModelTags(name: string, signal?: AbortSignal): Promise<{ files: ModelFile[]; cloudTags: string[] }> {
   const res = await fetchWithTimeout(`${OLLAMA}/library/${encodeURIComponent(name)}/tags`, signal);
   if (!res.ok) throw new Error(`Ollama tags HTTP ${res.status}`);
-  return dedupeTags(parseTagsHtml(await res.text()))
+  const html = await res.text();
+  const files = dedupeTags(parseTagsHtml(html))
     .map((t): ModelFile => ({ path: '', size: t.bytes, quant: t.tag, pullable: true }));
+  return { files, cloudTags: parseCloudTags(html) };
 }
 
 /** Fetches a model's overview, README (Markdown) and headline metadata from its library page. */

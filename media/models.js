@@ -118,6 +118,7 @@
     const metaRow =
       `<div class="mb-meta-row">` +
       (params ? `<span class="mb-meta"><b>${esc(t('Params'))}</b> ${esc(params)}</span>` : '') +
+      (info.context ? `<span class="mb-meta"><b>${esc(t('Context'))}</b> ${esc(info.context)}</span>` : '') +
       (info.arch ? `<span class="mb-meta"><b>${esc(t('Arch'))}</b> ${esc(info.arch)}</span>` : '') +
       (m.domain ? `<span class="mb-meta"><b>${esc(t('Domain'))}</b> ${esc(m.domain)}</span>` : '') +
       `<span class="mb-meta"><b>${esc(t('Format'))}</b> GGUF</span>` +

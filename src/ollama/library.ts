@@ -12,8 +12,11 @@
  * functions add the fetch layer (timeout + AbortSignal) and map to the shared CatalogModel/ModelFile.
  */
 import { httpFetch } from '../http';
+import { decodeEntities, htmlToMarkdown } from './htmlMarkdown';
 import type { CatalogModel, ModelFile } from './catalog';
 import type { ModelCapabilities } from './registry';
+
+export { decodeEntities } from './htmlMarkdown';
 
 const OLLAMA = 'https://ollama.com';
 const FETCH_TIMEOUT_MS = 12_000;
@@ -31,10 +34,12 @@ export interface OllamaSearchEntry {
   cloud: boolean; // cloud-only model (runs on Ollama Cloud; no local GGUF to download)
 }
 
-/** Overview + README of a model, scraped from its library page. */
+/** Overview + README + headline metadata of a model, scraped from its library page. */
 export interface OllamaCard {
   description: string;
-  readme: string;
+  readme: string;   // Markdown
+  params: string;   // parameter count, e.g. "1.04T" (the page's "Size")
+  context: string;  // context window, e.g. "256K"
 }
 
 /** A single downloadable tag of a library model. */
@@ -42,15 +47,6 @@ export interface OllamaTag {
   tag: string;
   digest: string;
   bytes: number;
-}
-
-const ENTITIES: Record<string, string> = {
-  '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#x27;': "'",
-};
-
-/** Decodes the handful of HTML entities that appear in scraped text. */
-export function decodeEntities(text: string): string {
-  return text.replace(/&(?:amp|lt|gt|quot|#39|#x27);/g, (m) => ENTITIES[m] ?? m);
 }
 
 /** Parses a human size ("4.7GB", "398MB") into bytes (decimal units, as Ollama shows them). */
@@ -91,18 +87,15 @@ export function metaDescription(html: string): string {
   return m ? decodeEntities(m[1]).trim() : '';
 }
 
-/** PURE. Flattens a scraped HTML fragment to readable plain text (keeps line breaks and list bullets). */
-export function htmlToText(fragment: string): string {
-  const text = fragment
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, '')
-    .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<\/(p|div|h[1-6]|tr|pre|blockquote|ul|ol|table)>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '');
-  return decodeEntities(text).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+/** PURE. The value of a headline metadata card ("Context" → "256K", "Size" → "1.04T"). */
+export function metaCard(html: string, label: string): string {
+  const m = new RegExp(`>${label}</div>([\\s\\S]{0,400}?)</div>\\s*</div>`).exec(html);
+  if (!m) return '';
+  const span = /<span[^>]*>([^<]+)<\/span>/.exec(m[1]);
+  return span ? decodeEntities(span[1]).trim() : '';
 }
 
-/** PURE. Extracts the README text from a model page's `#display` container (balances nested divs). */
+/** PURE. Extracts the README as Markdown from a model page's `#display` container (balances nested divs). */
 export function extractReadme(html: string): string {
   const anchor = html.indexOf('id="display"');
   if (anchor < 0) return '';
@@ -117,7 +110,7 @@ export function extractReadme(html: string): string {
     depth += m[0].startsWith('</') ? -1 : 1;
     if (depth === 0) { end = m.index; break; }
   }
-  return htmlToText(html.slice(open + 1, end));
+  return htmlToMarkdown(html.slice(open + 1, end));
 }
 
 // Each tag row links to /library/{name}:{tag} and, shortly after, prints `<digest> • <size> • …`.
@@ -218,10 +211,15 @@ export async function ollamaModelFiles(name: string, signal?: AbortSignal): Prom
     .map((t): ModelFile => ({ path: '', size: t.bytes, quant: t.tag, pullable: true }));
 }
 
-/** Fetches a model's overview + README from its ollama.com/library page. */
+/** Fetches a model's overview, README (Markdown) and headline metadata from its library page. */
 export async function ollamaModelCard(name: string, signal?: AbortSignal): Promise<OllamaCard> {
   const res = await fetchWithTimeout(`${OLLAMA}/library/${encodeURIComponent(name)}`, signal);
   if (!res.ok) throw new Error(`Ollama model HTTP ${res.status}`);
   const html = await res.text();
-  return { description: metaDescription(html), readme: extractReadme(html) };
+  return {
+    description: metaDescription(html),
+    readme: extractReadme(html),
+    params: metaCard(html, 'Size'),
+    context: metaCard(html, 'Context'),
+  };
 }

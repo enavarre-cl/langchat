@@ -28,6 +28,7 @@ export interface CatalogModel {
 export interface ModelInfo {
   arch: string;        // config.model_type (qwen3, gemma, llama…)
   params: string;      // from safetensors.total, if available
+  context?: string;    // context window, e.g. "256K" (Ollama library only)
 }
 
 export interface ModelFile {

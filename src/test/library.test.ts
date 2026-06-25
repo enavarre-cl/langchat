@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import {
   parseSize, parsePulls, decodeEntities, parseSearchHtml, parseTagsHtml, dedupeTags,
-  metaDescription, htmlToText, extractReadme,
+  metaDescription, metaCard, extractReadme,
 } from '../ollama/library';
 
 // --- numeric/text helpers ---
@@ -102,10 +102,12 @@ test('dedupeTags collapses aliases by digest, prefers a specific tag over latest
   assert.strictEqual(out[1].tag, '7b'); // 'latest' dropped in favour of the explicit '7b'
 });
 
-// --- model page (overview + README) ---
+// --- model page (overview + README + metadata) ---
 const MODEL_HTML = `
 <head><meta name="description" content="Qwen2.5 supports up to 128K tokens &amp; multilingual." /></head>
 <body>
+  <div class="card"><div class="lbl">Context</div><div class="val"><span class="big">256K</span> <span>tokens</span></div></div>
+  <div class="card"><div class="lbl">Size</div><div class="val"><span class="big">1.04T</span> <span>parameters</span></div></div>
   <div id="readme">
     <div><h2>Readme</h2></div>
     <div id="display" class="prose">
@@ -122,16 +124,18 @@ test('metaDescription reads and decodes the page overview', () => {
   assert.strictEqual(metaDescription(MODEL_HTML), 'Qwen2.5 supports up to 128K tokens & multilingual.');
 });
 
-test('extractReadme pulls the #display content (balancing nested divs) as readable text', () => {
-  const md = extractReadme(MODEL_HTML);
-  assert.match(md, /Qwen2\.5/);
-  assert.match(md, /instruction-tuned/);
-  assert.match(md, /- 0\.5B to 72B/);
-  assert.match(md, /ollama run qwen2\.5/);
-  assert.doesNotMatch(md, /unrelated/);   // stopped at the balanced close, didn't bleed into the footer
-  assert.doesNotMatch(md, /</);           // all tags stripped
+test('metaCard extracts the headline Context and Size values', () => {
+  assert.strictEqual(metaCard(MODEL_HTML, 'Context'), '256K');
+  assert.strictEqual(metaCard(MODEL_HTML, 'Size'), '1.04T');
+  assert.strictEqual(metaCard(MODEL_HTML, 'Missing'), '');
 });
 
-test('htmlToText keeps line breaks/bullets and strips tags', () => {
-  assert.strictEqual(htmlToText('<p>Hi</p><ul><li>a</li><li>b</li></ul>'), 'Hi\n\n- a\n- b');
+test('extractReadme pulls the #display content (balancing nested divs) as Markdown', () => {
+  const md = extractReadme(MODEL_HTML);
+  assert.match(md, /# Qwen2\.5/);                 // h1 → markdown heading
+  assert.match(md, /\*\*instruction-tuned\*\*/);  // strong → bold
+  assert.match(md, /- 0\.5B to 72B/);             // li → bullet
+  assert.match(md, /`ollama run qwen2\.5`/);      // code → inline code
+  assert.doesNotMatch(md, /unrelated/);           // stopped at the balanced close (no footer bleed)
+  assert.doesNotMatch(md, /</);                   // no raw tags left
 });

@@ -172,10 +172,11 @@ export class ModelsPanel {
           if (this.source() === 'ollama') {
             const [files, overview] = await Promise.all([
               ollamaModelFiles(detailId).catch(() => []),
-              ollamaModelCard(detailId).catch(() => ({ description: '', readme: '' })),
+              ollamaModelCard(detailId).catch(() => ({ description: '', readme: '', params: '', context: '' })),
             ]);
             const readme = overview.readme || overview.description || msg.model?.description || '';
-            const card: ModelCard = { model: msg.model, files, readme, info: { arch: '', params: '' } };
+            const info = { arch: '', params: overview.params, context: overview.context };
+            const card: ModelCard = { model: msg.model, files, readme, info };
             this.cards.save(detailId, card);
             this.post({ type: 'detail', id: msg.id, ...card });
             break;

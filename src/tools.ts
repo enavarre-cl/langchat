@@ -87,8 +87,8 @@ const EXCLUDE = '**/{node_modules,.git,out,dist,build,.vscode-test,.next,coverag
 /** Converts HTML to readable text (strips scripts/styles/tags and decodes basic entities). */
 function htmlToText(html: string): string {
   return html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script[^>]*>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style[^>]*>/gi, ' ')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<\/(p|div|br|li|h[1-6]|tr|article|section)>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')

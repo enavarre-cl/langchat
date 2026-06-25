@@ -210,8 +210,10 @@ export function addMessage(role, content, opts) {
       for (const a of opts.attachments) {
         if (a.kind === 'image') {
           const img = document.createElement('img');
-          const mime = /^image\/[\w.+-]+$/i.test(a.mime || '') ? a.mime : 'image/png'; // constrain the data: URL
-          img.src = 'data:' + mime + ';base64,' + a.data;
+          // Only build the data: URL from a validated image mime + base64 payload.
+          if (/^image\/[\w.+-]+$/i.test(a.mime || '') && /^[A-Za-z0-9+/=]+$/.test(a.data || '')) {
+            img.src = 'data:' + a.mime + ';base64,' + a.data;
+          }
           img.title = t('Click to enlarge');
           img.addEventListener('click', () => img.classList.toggle('zoomed'));
           att.appendChild(img);

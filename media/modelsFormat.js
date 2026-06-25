@@ -94,21 +94,28 @@
     return text.length > 200 ? text.slice(0, 200).replace(/\s+\S*$/, '') + '…' : text;
   }
 
-  // Strips dangerous content from the README HTML (CSP already blocks inline scripts; this is extra
-  // defense). Each removal runs in a fixpoint loop so a split/nested payload (e.g. `<scr<script>ipt>`)
-  // that one pass would reassemble is fully removed (CodeQL js/incomplete-multi-character-sanitization).
+  // Allowlist sanitizer: parse into an inert <template> (its content never renders and scripts never
+  // execute), then keep only known-safe tags/attributes. This is a DOM allowlist, not a regex denylist,
+  // so a split/nested payload can't slip through; CSP remains the backstop.
+  const SANITIZE_KEEP = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'UL', 'OL', 'LI', 'STRONG',
+    'EM', 'B', 'I', 'CODE', 'PRE', 'A', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'BR', 'HR',
+    'BLOCKQUOTE', 'SPAN', 'IMG']);
+  const SANITIZE_DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'SVG', 'HEAD']);
   function sanitizeHtml(html) {
-    let prev;
-    do {
-      prev = html;
-      html = html
-        .replace(/<\s*(script|style|iframe|object|embed|link|meta)[\s\S]*?<\s*\/\s*\1\s*>/gi, '')
-        .replace(/<\s*(script|style|iframe|object|embed|link|meta)[^>]*>/gi, '')
-        .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
-        .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-        .replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
-    } while (html !== prev);
-    return html.replace(/(href|src)\s*=\s*("|')\s*javascript:[^"']*\2/gi, '$1=$2#$2');
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    for (const el of [...tpl.content.querySelectorAll('*')]) {
+      if (SANITIZE_DROP.has(el.tagName)) { el.remove(); continue; }      // drop subtree
+      if (!SANITIZE_KEEP.has(el.tagName)) { el.replaceWith(...el.childNodes); continue; } // unwrap, keep text
+      for (const attr of [...el.attributes]) {
+        const n = attr.name.toLowerCase(), v = attr.value;
+        const ok = n === 'title' || n === 'alt'
+          || (el.tagName === 'A' && n === 'href' && /^(https?:|mailto:)/i.test(v))
+          || (el.tagName === 'IMG' && n === 'src' && /^(https?:|data:image\/)/i.test(v));
+        if (!ok) el.removeAttribute(attr.name);
+      }
+    }
+    return tpl.innerHTML;
   }
 
   // README render: basic markdown preserving embedded HTML (HF mixes both).

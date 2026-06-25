@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { ipIsPrivate, safeLookupShape } from '../net';
+import { ipIsPrivate, safeLookupResult } from '../net';
 
 test('ipIsPrivate blocks loopback/private/CGNAT/metadata and internal IPv6', () => {
   const block = [
@@ -19,18 +19,20 @@ test('ipIsPrivate allows public IPs (incl. boundary values)', () => {
   for (const ip of allow) assert.equal(ipIsPrivate(ip), false, `should not block ${ip}`);
 });
 
-test('safeLookupShape returns an ARRAY when Node requests all (autoSelectFamily); single otherwise', () => {
+test('safeLookupResult returns an ARRAY when Node requests all (autoSelectFamily); single otherwise', () => {
   const addrs = [{ address: '8.8.8.8', family: 4 }, { address: '1.1.1.1', family: 4 }];
   // The regression: under all:true the callback MUST get the array, not a bare string
   // (otherwise Node throws "Invalid IP address: undefined").
-  assert.deepStrictEqual(safeLookupShape(addrs, true), addrs);
-  assert.deepStrictEqual(safeLookupShape(addrs, false), { address: '8.8.8.8', family: 4 });
-  assert.deepStrictEqual(safeLookupShape(addrs, undefined), { address: '8.8.8.8', family: 4 });
+  assert.deepStrictEqual(safeLookupResult(addrs, true), addrs);
+  assert.deepStrictEqual(safeLookupResult(addrs, false), { address: '8.8.8.8', family: 4 });
+  assert.deepStrictEqual(safeLookupResult(addrs, undefined), { address: '8.8.8.8', family: 4 });
 });
 
-test('safeLookupShape drops private IPs and returns null when every address is private (SSRF)', () => {
-  const mixed = [{ address: '10.0.0.1', family: 4 }, { address: '93.184.216.34', family: 4 }];
-  assert.deepStrictEqual(safeLookupShape(mixed, true), [{ address: '93.184.216.34', family: 4 }]);
-  assert.strictEqual(safeLookupShape([{ address: '127.0.0.1', family: 4 }], true), null);
-  assert.strictEqual(safeLookupShape([{ address: '169.254.169.254', family: 4 }], false), null);
+test('safeLookupResult refuses the host (null) if ANY address is private, or none resolve (strict SSRF)', () => {
+  // Strict anti-rebinding: a public host that ALSO resolves to a private IP is refused whole.
+  const mixed = [{ address: '93.184.216.34', family: 4 }, { address: '10.0.0.1', family: 4 }];
+  assert.strictEqual(safeLookupResult(mixed, true), null);
+  assert.strictEqual(safeLookupResult([{ address: '127.0.0.1', family: 4 }], false), null);
+  assert.strictEqual(safeLookupResult([{ address: '169.254.169.254', family: 4 }], true), null);
+  assert.strictEqual(safeLookupResult([], true), null);
 });

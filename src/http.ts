@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as dns from 'dns';
 import type { Dispatcher } from 'undici';
-import { safeLookupShape, ResolvedAddr } from './net';
+import { safeLookupResult, ResolvedAddr } from './net';
 
 type FetchInput = Parameters<typeof globalThis.fetch>[0];
 type FetchInit = Parameters<typeof globalThis.fetch>[1];
@@ -58,12 +58,12 @@ function ssrfSafeDispatcher(): Dispatcher | null {
           dns.lookup(hostname, { ...(options || {}), all: true }, (err, addresses: dns.LookupAddress[]) => {
             if (err) return cb(err);
             const list: ResolvedAddr[] = Array.isArray(addresses) ? addresses : [addresses];
-            const shaped = safeLookupShape(list, options?.all);
-            if (!shaped) return cb(new Error('Internal/private host blocked (SSRF).'));
+            const result = safeLookupResult(list, options?.all);
+            if (!result) return cb(new Error('Internal/private host blocked (SSRF).'));
             // Array when Node asked for `all` (autoSelectFamily); a single address otherwise —
             // returning a bare string under `all:true` throws ERR_INVALID_IP_ADDRESS.
-            if (Array.isArray(shaped)) return cb(null, shaped);
-            cb(null, shaped.address, shaped.family);
+            if (Array.isArray(result)) return cb(null, result);
+            cb(null, result.address, result.family);
           });
         },
       },

@@ -21,7 +21,9 @@ All notable changes to Jotflow. Format based on
   `autoSelectFamily`/happy-eyeballs) Node calls the custom `lookup` with `all:true` and expects an
   **array** — handing it a bare string made Node read `.address` off it and throw
   `ERR_INVALID_IP_ADDRESS`, aborting the binary download so the server never came up. The lookup now
-  returns the shape Node asked for (new pure, unit-tested `safeLookupShape` in `net.ts`).
+  returns the shape Node asked for via a new pure, unit-tested `safeLookupResult` (`net.ts`), which
+  keeps the **strict** anti-SSRF/anti-rebinding policy: the host is refused if any resolved address
+  is private/internal/metadata.
 
 ## [2.0.1] - 2026-06-24
 

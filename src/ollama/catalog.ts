@@ -20,12 +20,16 @@ export interface CatalogModel {
   domain: string;      // LLM / VLM / Embeddings…
   official: boolean;   // author is in the official orgs list
   capabilities: ModelCapabilities; // estimated (D3: truth arrives from /api/show after download)
+  description?: string; // short blurb (Ollama library only; HF has none in the search payload)
+  cloud?: boolean;      // Ollama cloud-only model (no local download); never set for HF
+  capsEstimated?: boolean; // capabilities are heuristic (HF). Ollama reports declared ones → false.
 }
 
 /** Extra model info (architecture and exact params), from the individual HF endpoint. */
 export interface ModelInfo {
   arch: string;        // config.model_type (qwen3, gemma, llama…)
   params: string;      // from safetensors.total, if available
+  context?: string;    // context window, e.g. "256K" (Ollama library only)
 }
 
 export interface ModelFile {

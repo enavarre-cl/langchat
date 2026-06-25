@@ -2,7 +2,7 @@
   "name": "jotflow",
   "displayName": "Jotflow",
   "description": "%ext.description%",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {
@@ -387,6 +387,19 @@
             "type": "number",
             "default": 2048,
             "description": "%config.maxTokens.desc%"
+          },
+          "jotflow.models.source": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "huggingface"
+            ],
+            "enumDescriptions": [
+              "%config.models.source.enum.ollama%",
+              "%config.models.source.enum.huggingface%"
+            ],
+            "default": "ollama",
+            "description": "%config.models.source.desc%"
           }
         }
       },
@@ -436,6 +449,11 @@
             "type": "string",
             "default": "http://localhost:11434",
             "markdownDescription": "%config.ollama.baseUrl.desc%"
+          },
+          "jotflow.ollama.apiKey": {
+            "type": "string",
+            "default": "",
+            "markdownDescription": "%config.ollama.apiKey.desc%"
           }
         }
       },

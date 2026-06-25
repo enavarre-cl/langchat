@@ -5,6 +5,28 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-06-25
+
+### Added
+- **Model explorer source is now configurable** (`jotflow.models.source`). The default is the
+  **Ollama library** (ollama.com) — searched and downloaded natively via `ollama pull name:tag`.
+  Set it to `huggingface` to keep browsing Hugging Face GGUF repos as before. Ollama has no public
+  search API, so the library is read from ollama.com's first-party HTML (stable `x-test-*` markup);
+  downloading never depends on that. New module `src/ollama/library.ts` with unit-tested pure parsers.
+  - **Cloud variants** are surfaced explicitly. A model's detail lists its real cloud tags (e.g.
+    `gemma4:cloud`, `gemma4:31b-cloud`) in a selector with a **Register** action that pulls the chosen
+    `name:tag` stub (no weights) so it appears in your list / chat selector; inference runs on Ollama
+    Cloud. Models with **both** local downloads and cloud variants (e.g. `gemma4`) now show *both* the
+    download picker and the cloud selector, instead of one hiding the other. Cloud-only models keep
+    just the cloud selector; ☁ Cloud badge in the list and detail header.
+  - **Ollama Cloud API key**: new `jotflow.ollama.apiKey` setting (and an *Ollama (cloud)* entry in
+    the **Set API Key** command → SecretStorage). It is passed as `OLLAMA_API_KEY` to the managed
+    server so it can proxy cloud models (`model:cloud`). Restart the Ollama server to apply.
+  - **Richer detail pages**: the model's overview, headline metadata (**Context window**, parameter
+    **Size**) and full README are scraped from its library page and the README is converted to
+    Markdown — so headings, bullet lists and the **benchmarks table** render properly (previously a
+    one-line blurb, then a flattened wall of text). New `src/ollama/htmlMarkdown.ts` (pure, tested).
+
 ## [2.0.2] - 2026-06-25
 
 ### Fixed

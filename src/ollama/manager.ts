@@ -9,6 +9,7 @@ import { downloadFile, sha256File } from '../download';
 import { OLLAMA_ASSET_SHA256, ollamaAsset, ollamaAssetUrl, assetFormat, ollamaBinName } from './assets';
 import { killProcessTree } from '../procKill';
 import { errMsg } from '../chatHelpers';
+import { resolveApiKey } from '../providers';
 
 export type OllamaStatus = 'stopped' | 'downloading' | 'starting' | 'ready' | 'error';
 
@@ -140,6 +141,9 @@ export class OllamaManager {
         const env: NodeJS.ProcessEnv = { ...process.env, OLLAMA_HOST: host };
         const modelsPath = cfg.get<string>('ollama.modelsPath', '');
         if (modelsPath) env.OLLAMA_MODELS = modelsPath;
+        // Authenticate the server with ollama.com so it can proxy cloud models (`model:cloud`).
+        const apiKey = resolveApiKey('ollama');
+        if (apiKey) env.OLLAMA_API_KEY = apiKey;
         this.set('starting', host);
         this.proc = cp.spawn(bin, ['serve'], { env, stdio: 'ignore', shell: process.platform === 'win32' });
         this.proc.on('exit', (code) => {

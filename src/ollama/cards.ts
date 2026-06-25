@@ -7,6 +7,7 @@ import type { CatalogModel, ModelFile, ModelInfo } from './catalog';
 export interface ModelCard {
   model?: CatalogModel;
   files?: ModelFile[];
+  cloudTags?: string[]; // Ollama cloud variants (e.g. ["cloud", "31b-cloud"]) — registered, not downloaded
   readme?: string;
   info?: ModelInfo;
 }

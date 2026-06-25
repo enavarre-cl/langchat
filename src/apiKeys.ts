@@ -3,12 +3,14 @@ import * as vscode from 'vscode';
 import { setApiKeyOverride, ProviderId } from './providers';
 import { tr } from './i18n';
 
-// Backends that use an API key (Ollama does not). The secret is stored as `jotflow.<id>.apiKey`.
+// Backends that use an API key. The secret is stored as `jotflow.<id>.apiKey`. Ollama only needs
+// one for its cloud models (the local server proxies them once authenticated with OLLAMA_API_KEY).
 const KEY_PROVIDERS: { id: ProviderId; label: string }[] = [
   { id: 'openai', label: 'LM Studio / OpenAI' },
   { id: 'gemini', label: 'Google Gemini' },
   { id: 'anthropic', label: 'Anthropic Claude' },
   { id: 'openrouter', label: 'OpenRouter' },
+  { id: 'ollama', label: 'Ollama (cloud)' },
 ];
 
 /** Loads API keys from SecretStorage (encrypted) into the provider overrides. */

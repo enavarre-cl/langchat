@@ -14,8 +14,8 @@ management and neural text‑to‑speech without leaving the editor.
   Anthropic Claude, switchable per conversation.
 - 📄 **Conversations as files** — each chat is a human‑readable `.chat` (config + history) you can
   diff, version and share.
-- 🦙 **Models, batteries included** — manage an embedded Ollama and browse/download GGUF models
-  from Hugging Face without installing anything.
+- 🦙 **Models, batteries included** — manage an embedded Ollama and browse/download models from the
+  **Ollama library** (default) or **Hugging Face** GGUF repos, without installing anything.
 - 🔧 **Agentic tools** — workspace filesystem + MCP servers (function calling) on every backend.
 - 🗣️ **Read aloud** — system voices or self‑contained neural **Piper** TTS.
 
@@ -32,8 +32,9 @@ management and neural text‑to‑speech without leaving the editor.
 - 📊 **Markdown + Mermaid** in chat bubbles: ` ```mermaid ` blocks render as diagrams with a
   GitHub‑style viewer — pan pad, zoom (pinch / `Ctrl`·`⌘`+wheel), **fullscreen** and **copy‑as‑image**.
   The library is lazy‑loaded only when a chat contains a diagram.
-- 🦙 **Embedded Ollama** + **Hugging Face GGUF explorer**: capability badges, quantization options
-  and **downloads with progress** (shows size and free disk space first; retry/cancel).
+- 🦙 **Embedded Ollama** + **model explorer** (Ollama library by default, Hugging Face GGUF optional
+  via `jotflow.models.source`): capability badges, quantization options and **downloads with
+  progress** (shows size and free disk space first; retry/cancel).
 - 🔧 **Tools (function calling)**: native **workspace filesystem** + **MCP servers** — agentic loop.
 - 🗣️ **Read aloud (TTS)**: system voices (Web Speech) or neural **Piper** (local, managed daemon).
 - 🔎 **Find & replace in chat** (`Ctrl/Cmd+F` find · `Ctrl/Cmd+H` replace), 🔍 **zoom** (`Alt`/`Option` + wheel), 🌳 **fork**,
@@ -78,8 +79,13 @@ Jotflow can manage its **own Ollama server** without you installing anything:
 
 - The **Jotflow** sidebar groups everything into sections: **Engines** (Ollama / Piper, with
   run/stop/install), **Models** (local models + downloads), **Voices** and **Dictionary**.
-- The **＋** button opens an **LM Studio‑style explorer**: searches **GGUF** models on Hugging
-  Face, shows capability badges and quantization options, and **downloads with progress**.
+- The **＋** button opens an **LM Studio‑style explorer**. By default it browses the **Ollama
+  library**; set `jotflow.models.source` to `huggingface` to search **GGUF** repos on Hugging Face
+  instead. It shows capability badges, quantization options and **downloads with progress**, and
+  renders each model's README (with its benchmarks table) and headline **Context / Size**.
+- **Cloud models** (e.g. `gemma4:cloud`, `kimi-k2.7-code:cloud`) are flagged ☁ and offer **Register**
+  (pulls a tiny stub, no weights) so you can pick them in chat — inference runs on Ollama Cloud.
+  Set an Ollama API key via **“Jotflow: Set API Key”** (or `jotflow.ollama.apiKey`).
 - On first use it downloads the Ollama binary (SHA256‑verified, fail‑closed) into your global
   storage; the server runs only on `127.0.0.1`. Configure under *Settings → Jotflow → Ollama*.
 
@@ -121,6 +127,7 @@ Settings under `Settings → Jotflow`:
 | --- | --- | --- |
 | `jotflow.provider` | `openai` | Default backend: `openai`, `ollama`, `openrouter`, `gemini` or `anthropic` |
 | `jotflow.language` | `auto` | UI language: `auto`, `en`, `es`, `pt`, `fr`, `de`, `it` |
+| `jotflow.models.source` | `ollama` | Where the model explorer searches: `ollama` (library) or `huggingface` (GGUF) |
 | `jotflow.openai.baseUrl` | `http://localhost:1234/v1` | OpenAI‑compatible endpoint |
 | `jotflow.openai.apiKey` | _(empty)_ | Optional API key |
 | `jotflow.ollama.baseUrl` | `http://localhost:11434` | Ollama server URL (used when `managed` is off) |
@@ -128,6 +135,7 @@ Settings under `Settings → Jotflow`:
 | `jotflow.ollama.port` | `0` | Managed server port (`0` = pick a free one) |
 | `jotflow.ollama.modelsPath` | _(empty)_ | Optional `OLLAMA_MODELS` path |
 | `jotflow.ollama.maxConcurrentDownloads` | `2` | Parallel model downloads |
+| `jotflow.ollama.apiKey` | _(empty)_ | Ollama API key for **cloud** models (prefer **Set API Key** → SecretStorage) |
 | `jotflow.openrouter.baseUrl` | `https://openrouter.ai/api/v1` | OpenRouter endpoint |
 | `jotflow.openrouter.apiKey` | _(empty)_ | OpenRouter API key |
 | `jotflow.openrouter.vendors` | _(empty)_ | Filter OpenRouter models by vendor (prefix before `/`) |
@@ -160,8 +168,10 @@ Jotflow is **MIT** licensed. It bundles or downloads third‑party components un
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.0.0** is the rebrand from Parley to
-Jotflow (no functional change; the major bump reflects the new identity and extension ID). The
+See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.1.0** makes the model explorer source
+configurable (Ollama library by default, Hugging Face optional), adds Ollama **cloud** models
+(register + API key) and richer detail pages (README + Context/Size). **2.0.0** is the rebrand from
+Parley to Jotflow (no functional change; the major bump reflects the new identity and extension ID). The
 preceding quality passes against [BEST-PRACTICES.md](BEST-PRACTICES.md) still apply: **1.6.0 / 1.6.1**
 closed a security + reliability audit, and **1.6.2** is a best-practices conformance pass over every
 source file (module sizes, linting, test coverage) with no behavior change.

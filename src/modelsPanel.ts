@@ -3,7 +3,17 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { OllamaManager } from './ollama/manager';
 import { searchHF, modelFiles, readme, modelInfo, fetchModel, ollamaPullViable, OFFICIAL_ORG_NAMES, CatalogModel, SortMode } from './ollama/catalog';
+import { searchOllama, ollamaModelTags, ollamaModelCard, OllamaSort } from './ollama/library';
 import { hfPullRef, formatBytes } from './ollama/parse';
+import { resolveApiKey } from './providers';
+
+/** Where the model browser searches/downloads from. `ollama` is the default. */
+type ModelSource = 'ollama' | 'huggingface';
+
+/** Maps the browser's HF-style sort options onto the two orders ollama.com/search supports. */
+function toOllamaSort(sort: SortMode): OllamaSort {
+  return sort === 'modified' ? 'newest' : 'popular';
+}
 import { DownloadManager } from './ollama/downloads';
 import { ModelCardCache, ModelCard } from './ollama/cards';
 import { tr, resolvedLang, activeBundle } from './i18n';
@@ -82,11 +92,39 @@ export class ModelsPanel {
 
   private post(msg: Record<string, unknown>): void { void this.panel.webview.postMessage(msg); }
 
+  /** Current catalog source, read live so a settings change takes effect without reopening. */
+  private source(): ModelSource {
+    return vscode.workspace.getConfiguration('jotflow').get<string>('models.source', 'ollama') === 'huggingface'
+      ? 'huggingface' : 'ollama';
+  }
+
+  /** Whether an Ollama API key is configured (so the webview can drop the "set a key" hint). */
+  private hasOllamaKey(): boolean {
+    return !!resolveApiKey('ollama');
+  }
+
   /** Opens a model card WITHOUT changing the search: uses the sidecar if present, otherwise fetches from HF. */
   revealModelImpl(modelId: string): void {
     const card = this.cards.load(modelId);
-    if (card?.model) { this.post({ type: 'showCachedModel', card }); return; }
-    void this.buildCardFromHF(modelId);
+    if (card?.model) { this.post({ type: 'showCachedModel', card, hasKey: this.hasOllamaKey() }); return; }
+    void (this.source() === 'ollama' ? this.buildCardFromOllama(modelId) : this.buildCardFromHF(modelId));
+  }
+
+  private async buildCardFromOllama(modelId: string): Promise<void> {
+    this.post({ type: 'showCachedLoading' });
+    try {
+      const { files, cloudTags } = await ollamaModelTags(modelId);
+      const model: CatalogModel = {
+        id: modelId, author: '', downloads: 0, likes: 0, updated: '', tags: [],
+        pipeline: '', params: '', domain: 'LLM', official: true,
+        capabilities: { vision: false, tools: false, reasoning: false },
+      };
+      const card = { model, files, cloudTags, readme: '', info: { arch: '', params: '' } };
+      this.cards.save(modelId, card);
+      this.post({ type: 'showCachedModel', card, hasKey: this.hasOllamaKey() });
+    } catch (e) {
+      this.post({ type: 'error', message: `Could not load model card: ${errMsg(e)}` });
+    }
   }
 
   private async buildCardFromHF(modelId: string): Promise<void> {
@@ -124,12 +162,31 @@ export class ModelsPanel {
           this.searchAbort?.abort();
           this.searchAbort = new AbortController();
           const limit = Math.min(Math.max(Number(msg.limit) || 30, 30), 240);
-          const models = await searchHF(msg.query || '', limit, this.searchAbort.signal, msg.author || '', msg.sort || 'relevance');
-          this.post({ type: 'searchResults', models, limit, officialOrgs: OFFICIAL_ORG_NAMES });
+          const sort = msg.sort || 'relevance';
+          const { signal } = this.searchAbort;
+          if (this.source() === 'ollama') {
+            const models = await searchOllama(msg.query || '', limit, signal, toOllamaSort(sort));
+            this.post({ type: 'searchResults', models, limit, officialOrgs: [], source: 'ollama' });
+            break;
+          }
+          const models = await searchHF(msg.query || '', limit, signal, msg.author || '', sort);
+          this.post({ type: 'searchResults', models, limit, officialOrgs: OFFICIAL_ORG_NAMES, source: 'huggingface' });
           break;
         }
         case 'detail': {
           const detailId = msg.id ?? '';
+          if (this.source() === 'ollama') {
+            const [tags, overview] = await Promise.all([
+              ollamaModelTags(detailId).catch(() => ({ files: [], cloudTags: [] })),
+              ollamaModelCard(detailId).catch(() => ({ description: '', readme: '', params: '', context: '' })),
+            ]);
+            const readme = overview.readme || overview.description || msg.model?.description || '';
+            const info = { arch: '', params: overview.params, context: overview.context };
+            const card: ModelCard = { model: msg.model, files: tags.files, cloudTags: tags.cloudTags, readme, info };
+            this.cards.save(detailId, card);
+            this.post({ type: 'detail', id: msg.id, ...card, hasKey: this.hasOllamaKey() });
+            break;
+          }
           const [files, md, info] = await Promise.all([
             modelFiles(detailId).catch(() => []),
             readme(detailId).catch(() => ''),
@@ -170,6 +227,13 @@ export class ModelsPanel {
         { modal: true }, tr('Download anyway')
       );
       if (go !== tr('Download anyway')) return;
+    }
+    // Ollama library: a native `name:tag` pull. No manifest probe / import fallback — those exist
+    // only because HF serves Ollama-style manifests on the fly, which can be broken per quant.
+    if (this.source() === 'ollama') {
+      const ref = `${id}:${quant}`;
+      this.downloads.start({ mode: 'pull', ref, label: ref, size, modelId: id, quant, name: ref });
+      return;
     }
     const importPaths = shards.length ? shards : (filePath ? [filePath] : []);
     const name = `${(id.split('/').pop() || id)}:${quant}`.toLowerCase().replace(/[^a-z0-9._:-]/g, '-');
@@ -224,7 +288,7 @@ export class ModelsPanel {
 <body class="models-browser">
   <div id="mb">
     <div id="mb-left">
-      <input id="mb-search" type="text" placeholder="${tr('Search GGUF models on Hugging Face…')}" spellcheck="false" />
+      <input id="mb-search" type="text" placeholder="${this.source() === 'ollama' ? tr('Search models on Ollama…') : tr('Search GGUF models on Hugging Face…')}" spellcheck="false" />
       <div id="mb-filters"></div>
       <div id="mb-list"></div>
     </div>

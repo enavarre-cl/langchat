@@ -1,4 +1,5 @@
-// Model explorer (webview). Searches Hugging Face and downloads via Ollama.
+// Model explorer (webview). Searches the configured source (Ollama library or Hugging Face) and
+// downloads via Ollama. The host maps both sources onto the same model/file shapes used here.
 (function () {
   const vscode = acquireVsCodeApi();
   const t = (s) => (window.LangI18n ? window.LangI18n.t(s) : s);
@@ -18,6 +19,8 @@
   let filterProvider = '';      // provider: server-side filter (HF author=)
   let officialOrgs = [];        // curated list of official orgs (sent by the backend)
   let sortBy = 'relevance';     // Best Match by default (like LM Studio)
+  let ollamaHasKey = false;     // whether an Ollama API key is configured (host-reported)
+  let searchSource = 'ollama';  // active catalog source (host-reported); drives the filter bar
 
   // Provider and sort order are filtered on the server. Capabilities are NOT filtered (only shown
   // as estimated badges): relying on a heuristic to hide results leads to inconsistencies.
@@ -26,18 +29,26 @@
   function renderFilters() {
     const fb = $('mb-filters');
     if (!fb) return;
-    // Union of official orgs (always) + authors present in the results.
-    const set = new Set([...officialOrgs, ...results.map((m) => m.author).filter(Boolean)]);
-    if (filterProvider) set.add(filterProvider);
-    const authors = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-    fb.innerHTML =
-      `<select id="mb-provider" class="mb-select-sm">
-         <option value="">${esc(t('All providers'))}</option>
-         ${authors.map((a) => `<option value="${esc(a)}"${a === filterProvider ? ' selected' : ''}>${esc(a)}</option>`).join('')}
-       </select>
-       <select id="mb-sort" class="mb-select-sm mb-sort">
-         ${[['relevance', 'Best Match'], ['likes', 'Most Likes'], ['downloads', 'Most Downloads'], ['modified', 'Recently Updated']]
-        .map(([v, l]) => `<option value="${v}"${v === sortBy ? ' selected' : ''}>${esc(t(l))}</option>`).join('')}
+    const isHF = searchSource === 'huggingface';
+    // Provider/author filter only exists on Hugging Face; Ollama's library has no author namespace.
+    let providerSel = '';
+    if (isHF) {
+      const set = new Set([...officialOrgs, ...results.map((m) => m.author).filter(Boolean)]);
+      if (filterProvider) set.add(filterProvider);
+      const authors = [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      providerSel =
+        `<select id="mb-provider" class="mb-select-sm">
+           <option value="">${esc(t('All providers'))}</option>
+           ${authors.map((a) => `<option value="${esc(a)}"${a === filterProvider ? ' selected' : ''}>${esc(a)}</option>`).join('')}
+         </select>`;
+    }
+    // Sort: HF exposes Best Match/Likes/Downloads/Updated; Ollama's search only ranks Popular/Newest.
+    const sortOpts = isHF
+      ? [['relevance', 'Best Match'], ['likes', 'Most Likes'], ['downloads', 'Most Downloads'], ['modified', 'Recently Updated']]
+      : [['relevance', 'Popular'], ['modified', 'Newest']];
+    fb.innerHTML = providerSel +
+      `<select id="mb-sort" class="mb-select-sm mb-sort">
+         ${sortOpts.map(([v, l]) => `<option value="${v}"${v === sortBy ? ' selected' : ''}>${esc(t(l))}</option>`).join('')}
        </select>`;
     const ss = $('mb-sort');
     if (ss) ss.addEventListener('change', () => { sortBy = ss.value; currentLimit = PAGE; doSearch(); });
@@ -80,15 +91,16 @@
     for (const m of vis) {
       const row = document.createElement('div');
       row.className = 'mb-row' + (m.id === selected ? ' sel' : '');
-      const desc = pipelineLabel(m.pipeline);
+      const desc = m.description || pipelineLabel(m.pipeline);
       const off = m.official ? ` <span class="mb-verified" title="${esc(t('Official'))}">✓</span>` : '';
+      const cloud = m.cloud ? ` <span class="mb-cloud" title="${esc(t('Runs on Ollama Cloud (no local download)'))}">☁ ${esc(t('Cloud'))}</span>` : '';
       const params = m.params ? `${esc(m.params)} · ` : '';
       const ago = fmtAgo(m.updated);
       row.innerHTML =
-        `<div class="mb-row-title">${esc(m.id)}${off}</div>` +
+        `<div class="mb-row-title">${esc(m.id)}${off}${cloud}</div>` +
         (desc ? `<div class="mb-row-desc">${esc(desc)}</div>` : '') +
         `<div class="mb-row-meta">${params}⬇ ${fmtNum(m.downloads)} · ★ ${fmtNum(m.likes)}${ago ? ` · ${esc(ago)}` : ''}</div>` +
-        capBadges(m.capabilities, true);
+        capBadges(m.capabilities, m.capsEstimated !== false);
       row.addEventListener('click', () => openModel(m.id));
       listEl.appendChild(row);
     }
@@ -108,25 +120,28 @@
     }
   }
 
-  function renderDetail(id, files, readme, info, modelOverride) {
+  function renderDetail(id, files, readme, info, modelOverride, cloudTags) {
     const m = modelOverride || results.find((r) => r.id === id) || { id, capabilities: {}, pipeline: '', params: '', domain: '', official: false };
     info = info || {};
-    const desc = pipelineLabel(m.pipeline);
+    // Cloud variants come from the tags page; fall back to a bare `cloud` tag if only the search flag is set.
+    const cloud = (cloudTags && cloudTags.length) ? cloudTags : (m.cloud ? ['cloud'] : []);
+    const desc = m.description || pipelineLabel(m.pipeline);
     const params = info.params || m.params || '';
     const metaRow =
       `<div class="mb-meta-row">` +
       (params ? `<span class="mb-meta"><b>${esc(t('Params'))}</b> ${esc(params)}</span>` : '') +
+      (info.context ? `<span class="mb-meta"><b>${esc(t('Context'))}</b> ${esc(info.context)}</span>` : '') +
       (info.arch ? `<span class="mb-meta"><b>${esc(t('Arch'))}</b> ${esc(info.arch)}</span>` : '') +
       (m.domain ? `<span class="mb-meta"><b>${esc(t('Domain'))}</b> ${esc(m.domain)}</span>` : '') +
       `<span class="mb-meta"><b>${esc(t('Format'))}</b> GGUF</span>` +
       `</div>`;
-    let opts;
-    if (!files.length) {
-      opts = `<div class="mb-muted">${esc(t('No GGUF files found'))}</div>`;
-    } else {
+    // A model can offer local downloads AND a cloud variant (e.g. gemma4), or only one. Show every
+    // applicable option rather than gating one out.
+    let opts = '';
+    if (files.length) {
       const def = pickDefaultQuant(files);
       const anyRisky = files.some((f) => f.pullable === false);
-      opts = `<div class="mb-opt-picker">
+      opts += `<div class="mb-opt-picker">
         <select id="mb-quant-select" class="mb-select">
           ${files.map((f, i) =>
         `<option value="${i}"${i === def ? ' selected' : ''}>${f.pullable === false ? '⚠ ' : ''}${esc(f.quant)} · ${fmtBytes(f.size)}${f.shards && f.shards.length > 1 ? ` · ${f.shards.length} ${esc(t('parts'))}` : ''}${i === def ? '   ★' : ''}</option>`).join('')}
@@ -136,6 +151,22 @@
       </div>
       <div class="mb-reco">★ ${esc(t('Recommended'))}: <b>${esc(files[def].quant)}</b> · ${fmtBytes(files[def].size)}</div>`
         + (anyRisky ? `<div class="mb-warn">⚠ ${esc(t('Non-standard file names: it will be downloaded and imported into Ollama (no resume).'))}</div>` : '');
+    }
+    if (cloud.length) {
+      // Cloud variants aren't downloaded; registering pulls a tiny `name:tag` manifest stub so the
+      // chosen variant shows up locally and can be picked in chat — inference runs on Ollama Cloud.
+      opts += `<div class="mb-opt-picker">
+        <select id="mb-cloud-select" class="mb-select">
+          ${cloud.map((tg, i) => `<option value="${esc(tg)}"${i === 0 ? ' selected' : ''}>☁ ${esc(id)}:${esc(tg)}</option>`).join('')}
+        </select>
+        <button class="mb-dl" id="mb-cloud-reg">${esc(t('Register'))}</button>
+        <span class="mb-opt-count">${cloud.length} ${esc(t('cloud variants'))}</span>
+      </div>
+      <div class="mb-reco">${esc(t('Runs on Ollama Cloud. Registering adds the selected variant to your model list (no weights downloaded).')
+        + (ollamaHasKey ? '' : ' ' + t('Needs an Ollama API key — see Set API Key.')))}</div>`;
+    }
+    if (!opts) {
+      opts = `<div class="mb-muted">${esc(t('No downloadable files found'))}</div>`;
     }
     const ago = fmtAgo(m.updated);
     const stats =
@@ -151,11 +182,12 @@
          <div class="mb-head">
            <h2>${esc(id)}</h2>
            ${m.official ? `<span class="mb-verified" title="${esc(t('Official'))}">✓ ${esc(t('Official'))}</span>` : ''}
+           ${m.cloud ? `<span class="mb-cloud" title="${esc(t('Runs on Ollama Cloud (no local download)'))}">☁ ${esc(t('Cloud'))}</span>` : ''}
          </div>
          ${stats}
          ${summary ? `<div class="mb-desc-box">${esc(summary)}</div>` : ''}
          ${metaRow}
-         ${detailCaps(m.capabilities)}
+         ${detailCaps(m.capabilities, m.capsEstimated !== false)}
          <div class="mb-section-title">${esc(t('Download options'))}</div>
          <div class="mb-opts">${opts}</div>
          <div id="mb-progress" class="hidden"></div>
@@ -167,6 +199,12 @@
       const sel = $('mb-quant-select');
       const f = files[Number(sel && sel.value)] || files[0];
       vscode.postMessage({ type: 'pull', id, quant: f.quant, size: f.size, pullable: f.pullable !== false, path: f.path, shards: f.shards || [] });
+    });
+    const reg = $('mb-cloud-reg');
+    if (reg) reg.addEventListener('click', () => {
+      const sel = $('mb-cloud-select');
+      const tag = (sel && sel.value) || 'cloud';
+      vscode.postMessage({ type: 'pull', id, quant: tag, size: 0, pullable: true, path: '', shards: [] });
     });
     renderDetailProgress(id); // shows progress ONLY if this model has a download
   }
@@ -248,6 +286,7 @@
       case 'searchResults': {
         lastFetchCount = (msg.models || []).length;
         if (typeof msg.limit === 'number') currentLimit = msg.limit;
+        if (msg.source) searchSource = msg.source;
         if (Array.isArray(msg.officialOrgs) && msg.officialOrgs.length) officialOrgs = msg.officialOrgs;
         // We respect the order returned by HF according to the chosen criterion (Best Match / Likes / etc.).
         results = (msg.models || []).slice();
@@ -258,7 +297,8 @@
         break;
       }
       case 'detail':
-        if (msg.id === selected) renderDetail(msg.id, msg.files || [], msg.readme || '', msg.info || {});
+        if (typeof msg.hasKey === 'boolean') ollamaHasKey = msg.hasKey;
+        if (msg.id === selected) renderDetail(msg.id, msg.files || [], msg.readme || '', msg.info || {}, undefined, msg.cloudTags || []);
         break;
       case 'showCachedLoading':
         detailEl.innerHTML = `<div class="mb-muted">${esc(t('Loading…'))}</div>`;
@@ -267,13 +307,14 @@
         // Click on a download → shows the card WITHOUT altering the current search.
         const card = msg.card || {};
         if (!card.model) break;
+        if (typeof msg.hasKey === 'boolean') ollamaHasKey = msg.hasKey;
         selected = card.model.id;
         // Re-renders the list: clears the previous selection and highlights ONLY if the model is
         // in the current results (does not inject anything or alter the search).
         renderList();
         const sel = listEl.querySelector('.mb-row.sel');
         if (sel) sel.scrollIntoView({ block: 'center' });
-        renderDetail(card.model.id, card.files || [], card.readme || '', card.info || {}, card.model);
+        renderDetail(card.model.id, card.files || [], card.readme || '', card.info || {}, card.model, card.cloudTags || []);
         break;
       }
       case 'downloads':

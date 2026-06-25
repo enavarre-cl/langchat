@@ -123,20 +123,13 @@
       (m.domain ? `<span class="mb-meta"><b>${esc(t('Domain'))}</b> ${esc(m.domain)}</span>` : '') +
       `<span class="mb-meta"><b>${esc(t('Format'))}</b> GGUF</span>` +
       `</div>`;
-    let opts;
-    if (m.cloud) {
-      // Cloud models aren't downloaded; registering pulls a tiny manifest stub (`name:cloud`) so the
-      // model shows up locally and can be picked in chat — inference still runs on Ollama Cloud.
-      opts = `<div class="mb-opt-picker">
-        <button class="mb-dl" id="mb-cloud-reg">${esc(t('Register for cloud use'))}</button>
-      </div>
-      <div class="mb-reco">${esc(t('Runs on Ollama Cloud. Registering adds it to your model list (no weights downloaded); needs an Ollama API key — see Set API Key.'))}</div>`;
-    } else if (!files.length) {
-      opts = `<div class="mb-muted">${esc(t('No downloadable files found'))}</div>`;
-    } else {
+    // A model can offer local downloads AND a cloud variant (e.g. gemma4), or only one. Show every
+    // applicable option rather than gating one out.
+    let opts = '';
+    if (files.length) {
       const def = pickDefaultQuant(files);
       const anyRisky = files.some((f) => f.pullable === false);
-      opts = `<div class="mb-opt-picker">
+      opts += `<div class="mb-opt-picker">
         <select id="mb-quant-select" class="mb-select">
           ${files.map((f, i) =>
         `<option value="${i}"${i === def ? ' selected' : ''}>${f.pullable === false ? '⚠ ' : ''}${esc(f.quant)} · ${fmtBytes(f.size)}${f.shards && f.shards.length > 1 ? ` · ${f.shards.length} ${esc(t('parts'))}` : ''}${i === def ? '   ★' : ''}</option>`).join('')}
@@ -146,6 +139,17 @@
       </div>
       <div class="mb-reco">★ ${esc(t('Recommended'))}: <b>${esc(files[def].quant)}</b> · ${fmtBytes(files[def].size)}</div>`
         + (anyRisky ? `<div class="mb-warn">⚠ ${esc(t('Non-standard file names: it will be downloaded and imported into Ollama (no resume).'))}</div>` : '');
+    }
+    if (m.cloud) {
+      // The cloud variant isn't downloaded; registering pulls a tiny `name:cloud` manifest stub so it
+      // shows up locally and can be picked in chat — inference still runs on Ollama Cloud.
+      opts += `<div class="mb-opt-picker">
+        <button class="mb-dl" id="mb-cloud-reg">${esc(t('Register for cloud use'))}</button>
+      </div>
+      <div class="mb-reco">${esc(t('Runs on Ollama Cloud. Registering adds it to your model list (no weights downloaded); needs an Ollama API key — see Set API Key.'))}</div>`;
+    }
+    if (!opts) {
+      opts = `<div class="mb-muted">${esc(t('No downloadable files found'))}</div>`;
     }
     const ago = fmtAgo(m.updated);
     const stats =

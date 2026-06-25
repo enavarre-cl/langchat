@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as dns from 'dns';
 import type { Dispatcher } from 'undici';
-import { ipIsPrivate } from './net';
+import { safeLookupShape, ResolvedAddr } from './net';
 
 type FetchInput = Parameters<typeof globalThis.fetch>[0];
 type FetchInit = Parameters<typeof globalThis.fetch>[1];
@@ -54,16 +54,16 @@ function ssrfSafeDispatcher(): Dispatcher | null {
     const { Agent } = require('undici');
     _ssrfAgent = new Agent({
       connect: {
-        lookup(hostname: string, options: dns.LookupOptions, cb: (err: Error | null, address?: string, family?: number) => void) {
+        lookup(hostname: string, options: dns.LookupOptions, cb: (err: Error | null, address?: string | ResolvedAddr[], family?: number) => void) {
           dns.lookup(hostname, { ...(options || {}), all: true }, (err, addresses: dns.LookupAddress[]) => {
             if (err) return cb(err);
-            const list = Array.isArray(addresses) ? addresses : [addresses];
-            for (const a of list) {
-              const ip = typeof a === 'string' ? a : a.address;
-              if (ipIsPrivate(ip)) return cb(new Error('Internal/private host blocked (SSRF).'));
-            }
-            const first = list[0];
-            cb(null, typeof first === 'string' ? first : first.address, typeof first === 'string' ? 4 : first.family);
+            const list: ResolvedAddr[] = Array.isArray(addresses) ? addresses : [addresses];
+            const shaped = safeLookupShape(list, options?.all);
+            if (!shaped) return cb(new Error('Internal/private host blocked (SSRF).'));
+            // Array when Node asked for `all` (autoSelectFamily); a single address otherwise —
+            // returning a bare string under `all:true` throws ERR_INVALID_IP_ADDRESS.
+            if (Array.isArray(shaped)) return cb(null, shaped);
+            cb(null, shaped.address, shaped.family);
           });
         },
       },

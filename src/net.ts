@@ -19,3 +19,22 @@ export function ipIsPrivate(ip: string): boolean {
   if (x.startsWith('fc') || x.startsWith('fd')) return true; // ULA fc00::/7
   return false;
 }
+
+export interface ResolvedAddr { address: string; family: number }
+
+/**
+ * Shapes the result of a wildcard `dns.lookup` for a Node connect `lookup` callback. Drops
+ * private/internal/metadata IPs (SSRF) and returns the shape Node expects: an ARRAY when Node
+ * requested `all` (Node 20+ enables `autoSelectFamily`/happy-eyeballs, which calls the custom
+ * `lookup` with `all:true` and then reads `.address` off each returned entry — handing it a bare
+ * string there throws `ERR_INVALID_IP_ADDRESS: Invalid IP address: undefined`), otherwise a single
+ * `{address,family}`. Returns `null` when every resolved address is private (caller rejects as SSRF).
+ */
+export function safeLookupShape(
+  addresses: readonly ResolvedAddr[],
+  all: boolean | undefined,
+): ResolvedAddr[] | ResolvedAddr | null {
+  const safe = addresses.filter((a) => !ipIsPrivate(a.address));
+  if (!safe.length) return null;
+  return all ? safe : safe[0];
+}

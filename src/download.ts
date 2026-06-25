@@ -4,7 +4,7 @@ import * as https from 'https';
 import * as crypto from 'crypto';
 import * as dns from 'dns';
 import { isIP } from 'net';
-import { ipIsPrivate } from './net';
+import { ipIsPrivate, safeLookupShape, ResolvedAddr } from './net';
 
 /** SHA256 (hex) of a file. */
 export function sha256File(p: string): string {
@@ -20,14 +20,16 @@ export function sha256File(p: string): string {
 function safeLookup(
   hostname: string,
   options: dns.LookupOptions,
-  cb: (err: NodeJS.ErrnoException | null, address?: string, family?: number) => void,
+  cb: (err: NodeJS.ErrnoException | null, address?: string | ResolvedAddr[], family?: number) => void,
 ): void {
   dns.lookup(hostname, { ...(options || {}), all: true }, (err, addresses: dns.LookupAddress[]) => {
     if (err) return cb(err);
-    const list: { address: string; family: number }[] = Array.isArray(addresses) ? addresses : [addresses];
-    const safe = list.find((a) => !ipIsPrivate(a.address));
-    if (!safe) return cb(new Error('Internal/private host blocked (SSRF).') as NodeJS.ErrnoException);
-    cb(null, safe.address, safe.family);
+    const list: ResolvedAddr[] = Array.isArray(addresses) ? addresses : [addresses];
+    const shaped = safeLookupShape(list, options?.all);
+    if (!shaped) return cb(new Error('Internal/private host blocked (SSRF).') as NodeJS.ErrnoException);
+    // Array when Node asked for `all` (autoSelectFamily); a single address otherwise.
+    if (Array.isArray(shaped)) return cb(null, shaped);
+    cb(null, shaped.address, shaped.family);
   });
 }
 

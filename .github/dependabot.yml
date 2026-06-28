@@ -1,0 +1,23 @@
+# Dependabot — keeps dependencies current and patched.
+#   - Security updates (CVEs) are enabled in repo Settings and open PRs immediately, regardless of this file.
+#   - This file adds routine VERSION updates: one grouped PR/week per ecosystem, to keep noise low.
+# CI (.github/workflows/ci.yml) runs on every Dependabot PR, so a bump that breaks the gate is caught
+# before merge. Majors are listed separately so they don't ride in silently with the minor/patch group.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

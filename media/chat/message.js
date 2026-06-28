@@ -11,7 +11,7 @@ import { processMermaid } from '../render/mermaid.js';
 import { getDoc } from '../ui/store.js';
 import { clearNotices } from '../ui/notifications.js';
 import { tts } from '../features/tts.js';
-import { handleFileKeydown, handleSuggestKeydown, setupEmojiAutocomplete } from '../features/autocomplete.js';
+import { handleFileKeydown, handleSuggestKeydown, setupEmojiAutocomplete, setupFileAutocomplete } from '../features/autocomplete.js';
 import { scrollDown, resetTools } from './conversation.js';
 import { openThink, openTools, showThinking, showTools } from './panels.js';
 
@@ -280,7 +280,8 @@ export function startEditInline(el, index) {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commit(); }
       else if (e.key === 'Escape') { e.preventDefault(); close(); }
     });
-    setupEmojiAutocomplete(ta); // :name autocomplete also works when editing
+    setupEmojiAutocomplete(ta); // :name emoji autocomplete when editing
+    setupFileAutocomplete(ta);  // @file mention autocomplete when editing (keydown nav already wired)
 
     // Aligns the bottom edge of the editing bubble to the end of the visible area.
     const alignBottom = () => {

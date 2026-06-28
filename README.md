@@ -17,7 +17,8 @@ management and neural text‑to‑speech without leaving the editor.
 - 🦙 **Models, batteries included** — manage an embedded Ollama and browse/download models from the
   **Ollama library** (default) or **Hugging Face** GGUF repos, without installing anything.
 - 🔧 **Agentic tools** — workspace filesystem + MCP servers (function calling) on every backend.
-- 🗣️ **Read aloud** — system voices or self‑contained neural **Piper** TTS.
+- 🗣️ **Read aloud** — system voices, self‑contained neural **Piper**, or **Chatterbox** voice
+  cloning (clone a voice from a short clip and read messages in it).
 
 ## Features
 
@@ -36,12 +37,19 @@ management and neural text‑to‑speech without leaving the editor.
   via `jotflow.models.source`): capability badges, quantization options and **downloads with
   progress** (shows size and free disk space first; retry/cancel).
 - 🔧 **Tools (function calling)**: native **workspace filesystem** + **MCP servers** — agentic loop.
-- 🗣️ **Read aloud (TTS)**: system voices (Web Speech) or neural **Piper** (local, managed daemon).
+- 🗣️ **Read aloud (TTS)**: system voices (Web Speech), neural **Piper** (local, managed daemon), or
+  **Chatterbox (Resemble AI)** with **zero‑shot voice cloning** — create a voice from a **YouTube
+  fragment** (paste a URL + a `mm:ss` range) or a local audio clip, and read messages aloud in it.
+  Each cloned voice carries its language (multilingual). On **Apple Silicon** it runs a fast 4‑bit
+  model via MLX; other platforms use PyTorch.
+- 🎛️ **Engines panel**: install / start / stop / update / delete each local engine (Ollama · Piper ·
+  Chatterbox) from one view, with download sources, a live progress bar and the RAM each engine uses.
 - 🔎 **Find & replace in chat** (`Ctrl/Cmd+F` find · `Ctrl/Cmd+H` replace), 🔍 **zoom** (`Alt`/`Option` + wheel), 🌳 **fork**,
   🕓 **compare versions**, ♻️ **regenerate / continue / merge / edit / delete** messages.
 - 🖼️ **Attachments** (images & documents) and **image generation** — image‑output models like
   Gemini *flash‑image* ("nano‑banana") render their images inline (copy / save to disk).
-- 📎 **`@file` mentions** in the composer: type `@`, pick a workspace file, insert its full path.
+- 📎 **`@file` mentions** in the composer **and when editing a message**: type `@`, pick a workspace
+  file, insert its full path.
 - 🧾 **Export** to standalone HTML / PDF.
 - 🧮 **Context management**: auto‑summarize when context fills up, or send only the last *N*
   messages — both shown visually in the chat.
@@ -77,8 +85,10 @@ Configure any of these per conversation (in the ⚙ panel) or as the default in 
 
 Jotflow can manage its **own Ollama server** without you installing anything:
 
-- The **Jotflow** sidebar groups everything into sections: **Engines** (Ollama / Piper, with
-  run/stop/install), **Models** (local models + downloads), **Voices** and **Dictionary**.
+- The **Jotflow** sidebar groups everything into sections: **Engines** (Ollama / Piper / Chatterbox —
+  manage them from the **gear** (⚙) in the Engines view: install/start/stop/update/delete with a live
+  progress bar and RAM usage), **Models** (local models + downloads), **Voices** (grouped by engine ›
+  language › voice) and **Dictionary**.
 - The **＋** button opens an **LM Studio‑style explorer**. By default it browses the **Ollama
   library**; set `jotflow.models.source` to `huggingface` to search **GGUF** repos on Hugging Face
   instead. It shows capability badges, quantization options and **downloads with progress**, and
@@ -115,9 +125,11 @@ ending only when the model stops requesting tools or you press Stop).
 ## Privacy
 
 - Your **API keys** can be stored in VS Code **SecretStorage** (not plain settings).
-- The managed Ollama server and the Piper TTS daemon bind to **`127.0.0.1`** only.
+- The managed Ollama server and the Piper / Chatterbox TTS daemons bind to **`127.0.0.1`** only.
 - **No telemetry** — Jotflow does not phone home. Network traffic goes only to the LLM backend
-  you configure and, on demand, to Hugging Face / PyPI to download models and the TTS engine.
+  you configure and, on demand, to Hugging Face / PyPI to download models and the TTS engines, plus
+  **YouTube** if you create a Chatterbox voice from a YouTube fragment (host‑allowlisted; you supply
+  the URL and are responsible for the audio rights).
 
 ## Configuration
 
@@ -149,6 +161,11 @@ Settings under `Settings → Jotflow`:
 | `jotflow.maxTokens` | `2048` | Max tokens (`-1` = unlimited) |
 | `jotflow.tools.maxIterations` | `8` | Max agentic tool-loop rounds per turn (`0` = unlimited) |
 | `jotflow.tools.maxReadBytes` | `100000` | Max bytes returned by the native `fs_read` tool (`0` = unlimited) |
+| `jotflow.tts.chatterboxModel` | `multilingual` | Chatterbox model: `multilingual` (23 languages) or `english` (lighter). Ignored on Apple Silicon (always the MLX multilingual model) |
+| `jotflow.tts.chatterboxDevice` | `auto` | Compute device for the PyTorch Chatterbox backend: `auto` / `mps` / `cuda` / `cpu` |
+| `jotflow.tts.chatterboxExaggeration` | `0.5` | Chatterbox emotion/intensity (0–1) |
+| `jotflow.tts.youtubeMaxSeconds` | `30` | Max length of a reference clip extracted from YouTube/a file |
+| `jotflow.tts.youtubeAllowAnyUrl` | `false` | Allow voice‑sample URLs from any host (off = YouTube only) |
 
 ## Third‑party components & licenses
 
@@ -160,15 +177,19 @@ Jotflow is **MIT** licensed. It bundles or downloads third‑party components un
 | [`nspell`](https://github.com/wooorm/nspell) | bundled (spell engine) | MIT |
 | [Mermaid](https://github.com/mermaid-js/mermaid) (`media/mermaid.min.js`) | bundled (diagram rendering, lazy‑loaded) | MIT |
 | [Piper](https://github.com/OHF-Voice/piper1-gpl) (`piper-tts`) | **downloaded at runtime** for neural TTS | **GPL** |
+| [Chatterbox](https://github.com/resemble-ai/chatterbox) (`chatterbox-tts` / [`mlx-audio`](https://github.com/Blaizzy/mlx-audio) on Apple Silicon) | **downloaded at runtime** for voice‑cloning TTS | MIT |
+| [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) + ffmpeg ([`imageio-ffmpeg`](https://github.com/imageio/imageio-ffmpeg)) | downloaded at runtime (extract a YouTube fragment for a cloned voice) | Unlicense / LGPL |
 | [Ollama](https://ollama.com) | **downloaded at runtime** (managed server) | MIT |
-| Python (astral‑sh build‑standalone) | downloaded at runtime (for Piper) | PSF / per upstream |
+| Python (astral‑sh build‑standalone) | downloaded at runtime (for Piper / Chatterbox) | PSF / per upstream |
 
-> The neural TTS engine (Piper) is GPL and is fetched on demand from PyPI; it is **not** shipped
-> inside the extension package.
+> The neural TTS engines (Piper, Chatterbox) and their Python deps are fetched on demand from PyPI /
+> Hugging Face; they are **not** shipped inside the extension package. Piper is GPL.
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.1.2** bundles the extension host with
+See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.3.x** adds **Chatterbox** voice‑cloning
+TTS (clone a voice from a YouTube fragment; fast 4‑bit MLX on Apple Silicon), an **engines management
+panel** (progress + RAM), and `@file` mentions while editing a message. **2.1.2** bundles the extension host with
 esbuild for a smaller, faster package. **2.1.1** is a security hardening pass that clears all GitHub
 CodeQL alerts (DOM-allowlist HTML sanitizer, Blob-URL images, etc.). **2.1.0** makes
 the model explorer source configurable (Ollama library by default, Hugging Face optional), adds Ollama

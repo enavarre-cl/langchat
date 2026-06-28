@@ -5,6 +5,18 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-06-27
+
+### Fixed
+- **`@file` mentions now work when editing a message.** Inline message editing wired the popup
+  keydown navigation (`handleFileKeydown`) but never `setupFileAutocomplete`, so typing `@` opened
+  nothing. It now matches the composer — workspace files are resolved by the host and inserted on pick.
+
+### Docs
+- **README updated** for the Chatterbox voice‑cloning engine (incl. the Apple‑Silicon MLX fast path),
+  the engines management panel, the Voices tree grouping, the new `jotflow.tts.chatterbox*` /
+  `…youtube*` settings, and the third‑party components (chatterbox‑tts / mlx‑audio / yt‑dlp / ffmpeg).
+
 ## [2.3.0] - 2026-06-27
 
 ### Added

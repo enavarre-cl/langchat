@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ChatMessage, ChatResult, TokenUsage, Attachment } from './providers/types';
+import { ChatMessage, ChatResult, TokenUsage, Attachment, LLMProvider } from './providers/types';
 import { ChatDoc, repairTrailingToolChain, resolveGenerationParams } from './chatDocument';
-import { buildProvider } from './providers';
+import { buildProvider, ProviderId } from './providers';
 import { ToolHub } from './tools';
 import { estTokens, msgTokens, addUsage, errMsg } from './chatHelpers';
 import { tr } from './i18n';
@@ -18,6 +18,8 @@ export interface InferenceDeps {
   writeDoc: (doc: ChatDoc, opts?: { save?: boolean; prune?: boolean }) => Promise<void>;
   sendHistory: () => void;
   abortRef: { current: AbortController | undefined };
+  /** Provider factory — a seam for tests. Defaults to the real `buildProvider`. */
+  buildProvider?: (provider: ProviderId) => LLMProvider;
 }
 
 /** Runs one chat turn: context trimming, the wire build, and the agentic tool loop. */
@@ -25,6 +27,7 @@ export async function runInference(
   doc: ChatDoc, context: ChatMessage[], allowTools: boolean, deps: InferenceDeps
 ): Promise<{ answer: string; thinking: string; failed: boolean; usage?: TokenUsage; images: { mime: string; data: string }[]; usedTools: boolean }> {
   const { webview, toolHub, modelContexts, resolveSystemPrompt, ensureSummary, resolveAttachment, getDoc, writeDoc, sendHistory, abortRef } = deps;
+      const buildLLM = deps.buildProvider ?? buildProvider; // seam: tests inject a fake provider
       // Copy + drop any trailing unfinished tool exchange (crash/reload recovery) so we never replay
       // an assistant tool_call without its tool reply → provider 400. On a normal send this is a no-op.
       let history = context.slice();
@@ -158,7 +161,7 @@ export async function runInference(
         webview.postMessage({ type: 'streamStart', id });
         let res: ChatResult = { answer: '', thinking: '' };
         try {
-          res = await buildProvider(doc.provider).chat(doc.model, wire, params, {
+          res = await buildLLM(doc.provider).chat(doc.model, wire, params, {
             signal: ac.signal,
             onDelta: (delta) => { webview.postMessage({ type: 'streamDelta', id, delta }); },
             onReasoning: (delta) => { webview.postMessage({ type: 'streamReasoning', id, delta }); },

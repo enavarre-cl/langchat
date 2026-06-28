@@ -5,6 +5,30 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.1] - 2026-06-28
+
+Integration-test pass over the two layers that previously only `tsc` + manual F5 covered — the
+agentic turn and the webview↔host protocol. No behavior change for the user.
+
+### Tests
+- **`inference.test.ts` (8 cases): the agentic turn, driven by a scripted fake provider.** A new
+  `buildProvider` seam in `InferenceDeps` (default = the real one) lets a test stand in a fake
+  backend — no network, no host. Covers: streamed deltas accumulate into the answer (+ usage);
+  reasoning routes to `streamReasoning`; the **tool loop** round-trips (call → result fed back →
+  final answer) and **persists the exchange in order** with the call id linked; invalid tool-arg
+  JSON is reported to the model, **not executed**; the loop is **bounded** at the iteration cap (no
+  runaway); a provider error fails the turn while a **user Stop is not a failure**; and an empty
+  completion surfaces the "no content" error.
+- **`messageRouter.test.ts` (19 cases, landed with 2.6.0): the webview→host dispatch.** Asserts every
+  message `type` reaches the right handler (via a recording `RouterCtx` mock) — the regression net
+  for the "wiring" class where a renamed `case` label silently drops a message (the 1.5.2 bug). Plus
+  the validation guards (integer-index checks, the busy lock, confirm-before-delete). Suite: **127
+  tests, all passing**.
+
+### Internal
+- `runInference` gains an optional `buildProvider` dependency (a test seam); production wiring is
+  unchanged — `extension.ts` doesn't pass it, so it defaults to the real `buildProvider`.
+
 ## [2.6.0] - 2026-06-28
 
 ### Removed

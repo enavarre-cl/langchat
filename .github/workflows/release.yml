@@ -43,8 +43,8 @@ jobs:
     name: Build (lint · compile · test · package)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
           cache: npm
@@ -69,7 +69,7 @@ jobs:
     permissions:
       contents: write # required to push (and overwrite) the tag
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Create or move v<version> to this commit
         run: |
           set -euo pipefail
@@ -96,10 +96,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: marketplace # approval gate + VSCE_PAT
     steps:
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: vsix
           path: .
@@ -126,10 +126,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: open-vsx # approval gate + OVSX_PAT
     steps:
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: vsix
           path: .

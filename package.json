@@ -727,6 +727,6 @@
   },
   "homepage": "https://github.com/enavarre-cl/jotflow#readme",
   "dependencies": {
-    "undici": "^6.27.0"
+    "undici": "^8.5.0"
   }
 }

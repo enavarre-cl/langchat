@@ -1,0 +1,35 @@
+# Continuous integration — runs the full gate on every push to master and every PR, so a broken
+# commit is caught immediately instead of at release time (Release is manual / workflow_dispatch).
+# Mirrors the pre-commit checklist (BEST-PRACTICES §X): lint · host compile · webview type-gate ·
+# webview bundle · test suite. (CodeQL runs separately via GitHub's default setup.)
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Newer pushes to the same ref supersede in-flight runs (saves runner minutes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Gate (lint · compile · types · build · test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run compile
+      - run: npm run typecheck:webview
+      - run: npm run build:webview
+      - run: npm test

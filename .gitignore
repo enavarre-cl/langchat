@@ -1,6 +1,7 @@
 node_modules/
 out/
 dist/
+media/dist/
 *.vsix
 .vscode-test/
 .claude/

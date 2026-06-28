@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "types": []
   },
-  "include": ["globals.d.ts", "core/**/*.js", "render/**/*.js", "ui/**/*.js", "features/**/*.js", "chat/**/*.js", "panels/**/*.js", "app/**/*.js"],
-  "exclude": ["node_modules"]
+  "include": ["globals.d.ts", "core/**/*", "render/**/*", "ui/**/*", "features/**/*", "chat/**/*", "panels/**/*", "app/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

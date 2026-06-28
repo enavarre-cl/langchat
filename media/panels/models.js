@@ -65,7 +65,7 @@ const CTX_BUDGET_RATIO = 0.75; // auto context budget = this fraction of the mod
     // Tooltip on both the span (title) and inside the SVG (<title>), for maximum compatibility.
     modelCapsEl.innerHTML = caps.map((c) => {
       const label = escapeHtml(c[1]); // labels are translations, but escape before innerHTML anyway
-      const svg = ICONS[c[0]].replace('>', '><title>' + label + '</title>', 1);
+      const svg = ICONS[c[0]].replace('>', '><title>' + label + '</title>'); // string replace already hits only the first '>'
       return '<span class="cap" title="' + label + '">' + svg + '</span>';
     }).join('');
   }

@@ -2,7 +2,7 @@
   "name": "jotflow",
   "displayName": "Jotflow",
   "description": "%ext.description%",
-  "version": "2.6.1",
+  "version": "2.6.2",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {
@@ -668,10 +668,11 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run bundle",
+    "vscode:prepublish": "npm run bundle && npm run build:webview",
     "compile": "tsc -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --target=node18 --minify --sourcemap",
-    "dev": "npm run compile && npm run bundle",
+    "build:webview": "node scripts/build-webview.js",
+    "dev": "npm run compile && npm run bundle && npm run build:webview",
     "watch": "tsc -watch -p ./",
     "test": "npm run compile && node --test out/test/*.test.js",
     "lint": "eslint src",

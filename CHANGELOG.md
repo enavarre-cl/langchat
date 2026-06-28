@@ -5,6 +5,33 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.2] - 2026-06-28
+
+Start of the **webview TypeScript migration** (toward zero hand-written `.js` in the chat webview).
+Foundational + first slice; no behavior change.
+
+### Build
+- **The chat webview is now bundled by esbuild** (`scripts/build-webview.js` → `media/dist/app.js`),
+  wired into `npm run dev` and `vscode:prepublish`. esbuild resolves `.js` import specifiers to their
+  `.ts` sources, so the module graph can migrate `.js`→`.ts` **file-by-file without touching a single
+  import** and the bundle works on any mix. Vendored libs (mermaid, spell-engine) and the classic
+  globals (zoom/i18n/spell) stay external `<script>` tags — not bundled. This deliberately reverses
+  the prior "webview unbundled by design" stance to enable a `.ts` source tree with a real build.
+  `media/dist/` is git-ignored (built on dev/prepublish).
+
+### Internal
+- **`core/` migrated to TypeScript** (`dom`, `i18n`, `icons`, `vscode`) — the first slice. Typing
+  `core` surfaced two harmless latent issues, now fixed: a stray non-standard 3rd argument to
+  `String.replace(…, 1)` in `models.js` (ignored at runtime — string replace already hits only the
+  first match) and a `Blob`/`Uint8Array` lib-types cast in `setImageSrc`. `tsc -p media/jsconfig.json`
+  stays green; the esbuild bundle is valid JS.
+
+### Note
+- The migration is staged: the rest of the graph (render/ui/features/chat/panels/app + the classic
+  globals) follows in subsequent passes, with the type gate green at each step and `strict` flipped
+  on at the end. **Needs an F5 smoke test before the next publish** — the bundle changes how the chat
+  webview loads (one bundle vs. per-module).
+
 ## [2.6.1] - 2026-06-28
 
 Integration-test pass over the two layers that previously only `tsc` + manual F5 covered — the

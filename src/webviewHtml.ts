@@ -232,8 +232,9 @@ export function renderWebviewHtml(
   <script nonce="${nonce}" src="${uri('i18n.js')}"></script>
   <script nonce="${nonce}" src="${uri('spell-engine.js')}"></script>
   <script nonce="${nonce}" src="${uri('spell.js')}"></script>
-  <!-- ES module entry: imports the full webview module graph (deferred → runs after the classics). -->
-  <script type="module" nonce="${nonce}" src="${uri('app/main.js')}"></script>
+  <!-- ES module entry: the esbuild-bundled chat module graph (built from media/app/main + its
+       imports; runs after the classic globals above). Built by scripts/build-webview.js. -->
+  <script type="module" nonce="${nonce}" src="${uri('dist/app.js')}"></script>
 </body>
 </html>`;
 }

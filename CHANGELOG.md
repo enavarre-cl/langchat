@@ -5,6 +5,17 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.13] - 2026-06-28
+
+### Security
+- **API keys are now SecretStorage-only.** Removed the five `jotflow.<provider>.apiKey` settings (and
+  their nls strings) plus the settings fallback in `resolveApiKey`. A key in `settings.json` is
+  plaintext and **synced in the clear** by Settings Sync — exactly what SecretStorage exists to avoid.
+  Keys are now stored only encrypted in VS Code SecretStorage via the **Jotflow: Set API Key** command
+  (`password: true` input, `onDidChange` cache invalidation, webview never touches the credential).
+  No migration shim (small install base) — re-enter via the command any key you had kept in settings.
+  Docs (README · SECURITY · ARCHITECTURE · CONTRIBUTING) updated to match.
+
 ## [2.6.12] - 2026-06-28
 
 ### Internal

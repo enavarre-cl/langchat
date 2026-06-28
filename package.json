@@ -2,7 +2,7 @@
   "name": "jotflow",
   "displayName": "Jotflow",
   "description": "%ext.description%",
-  "version": "2.6.12",
+  "version": "2.6.13",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {
@@ -467,11 +467,6 @@
             "type": "string",
             "default": "http://localhost:1234/v1",
             "description": "%config.openai.baseUrl.desc%"
-          },
-          "jotflow.openai.apiKey": {
-            "type": "string",
-            "default": "",
-            "description": "%config.openai.apiKey.desc%"
           }
         }
       },
@@ -505,11 +500,6 @@
             "type": "string",
             "default": "http://localhost:11434",
             "markdownDescription": "%config.ollama.baseUrl.desc%"
-          },
-          "jotflow.ollama.apiKey": {
-            "type": "string",
-            "default": "",
-            "markdownDescription": "%config.ollama.apiKey.desc%"
           }
         }
       },
@@ -517,11 +507,6 @@
         "title": "Google Gemini",
         "order": 4,
         "properties": {
-          "jotflow.gemini.apiKey": {
-            "type": "string",
-            "default": "",
-            "description": "%config.gemini.apiKey.desc%"
-          },
           "jotflow.gemini.baseUrl": {
             "type": "string",
             "default": "https://generativelanguage.googleapis.com/v1beta",
@@ -533,11 +518,6 @@
         "title": "Anthropic",
         "order": 5,
         "properties": {
-          "jotflow.anthropic.apiKey": {
-            "type": "string",
-            "default": "",
-            "description": "%config.anthropic.apiKey.desc%"
-          },
           "jotflow.anthropic.baseUrl": {
             "type": "string",
             "default": "https://api.anthropic.com/v1",
@@ -549,11 +529,6 @@
         "title": "OpenRouter",
         "order": 6,
         "properties": {
-          "jotflow.openrouter.apiKey": {
-            "type": "string",
-            "default": "",
-            "description": "%config.openrouter.apiKey.desc%"
-          },
           "jotflow.openrouter.baseUrl": {
             "type": "string",
             "default": "https://openrouter.ai/api/v1",

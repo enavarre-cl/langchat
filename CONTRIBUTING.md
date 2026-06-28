@@ -97,8 +97,9 @@ factory. To add a provider `foo`:
    **`KEY_PROVIDERS`** (SecretStorage entry + load), and add `<option value="foo">Foo</option>`
    to `#providerSelect` in the chat HTML.
 
-4. **`package.json`** — add `foo` to the `jotflow.provider` enum and the
-   `jotflow.foo.baseUrl` / `jotflow.foo.apiKey` settings (with `%nls%` keys).
+4. **`package.json`** — add `foo` to the `jotflow.provider` enum and a `jotflow.foo.baseUrl` setting
+   (with `%nls%` keys). The API key is **not** a setting — step 3's `KEY_PROVIDERS` entry handles it
+   via SecretStorage (there is no plaintext-`settings.json` key path).
 
 5. **`package.nls.json`** (+ `es/pt/fr/de/it`) — the new setting/enum descriptions.
 

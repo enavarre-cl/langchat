@@ -27,16 +27,16 @@ export function validateProvider(v: unknown): ProviderId {
  * Builds the provider for a specific backend. The backend choice lives in each
  * `.chat` file; connection URLs/credentials are global settings.
  */
-// API keys loaded from SecretStorage (encrypted), populated by the extension on activation.
-// They take priority over the settings value (which remains as fallback / compat).
+// API keys live ONLY in SecretStorage (encrypted), loaded into these overrides on activation by
+// apiKeys.ts. There is no settings-based key path — plaintext keys in settings.json would sync in
+// the clear, so they were removed entirely.
 const keyOverrides: Partial<Record<ProviderId, string>> = {};
 export function setApiKeyOverride(id: ProviderId, key: string | undefined): void {
   if (key) keyOverrides[id] = key; else delete keyOverrides[id];
 }
-/** Resolves the API key for a backend: SecretStorage first, settings value as fallback. */
+/** Resolves the API key for a backend — SecretStorage only (via the overrides loaded on activation). */
 export function resolveApiKey(id: ProviderId): string {
-  const cfg = vscode.workspace.getConfiguration('jotflow');
-  return keyOverrides[id] || cfg.get<string>(`${id}.apiKey`, '') || '';
+  return keyOverrides[id] || '';
 }
 
 // baseUrl of the managed Ollama server (set by OllamaManager when ready).

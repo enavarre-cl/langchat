@@ -306,7 +306,7 @@ manifests to import automatically.
 catalog: downloadable quants, **cloud variants** (`name:cloud`, registered via a stub `pull`), and
 the model's README (converted to Markdown by `htmlMarkdown.ts`) + Context/Size. **Cloud models**
 run remotely; the managed server proxies them once authenticated — the Ollama API key
-(`jotflow.ollama.apiKey` / SecretStorage) is passed to `ollama serve` as `OLLAMA_API_KEY`.
+(from SecretStorage, via **Set API Key**) is passed to `ollama serve` as `OLLAMA_API_KEY`.
 
 ### Piper (neural TTS)
 

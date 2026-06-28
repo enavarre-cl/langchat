@@ -104,7 +104,7 @@ Jotflow can manage its **own Ollama server** without you installing anything:
   renders each model's README (with its benchmarks table) and headline **Context / Size**.
 - **Cloud models** (e.g. `gemma4:cloud`, `kimi-k2.7-code:cloud`) are flagged ☁ and offer **Register**
   (pulls a tiny stub, no weights) so you can pick them in chat — inference runs on Ollama Cloud.
-  Set an Ollama API key via **“Jotflow: Set API Key”** (or `jotflow.ollama.apiKey`).
+  Set an Ollama API key via **“Jotflow: Set API Key”** (stored encrypted in SecretStorage).
 - On first use it downloads the Ollama binary (SHA256‑verified, fail‑closed) into your global
   storage; the server runs only on `127.0.0.1`. Configure under *Settings → Jotflow → Ollama*.
 
@@ -147,27 +147,25 @@ ending only when the model stops requesting tools or you press Stop).
 
 Settings under `Settings → Jotflow`:
 
+> **API keys are not settings.** Set them with the **Jotflow: Set API Key** command — they are stored
+> encrypted in VS Code SecretStorage, never in `settings.json` (which would sync in plaintext).
+
 | Setting | Default | Description |
 | --- | --- | --- |
 | `jotflow.provider` | `openai` | Default backend: `openai`, `ollama`, `openrouter`, `gemini` or `anthropic` |
 | `jotflow.language` | `auto` | UI language: `auto`, `en`, `es`, `pt`, `fr`, `de`, `it` |
 | `jotflow.models.source` | `ollama` | Where the model explorer searches: `ollama` (library) or `huggingface` (GGUF) |
 | `jotflow.openai.baseUrl` | `http://localhost:1234/v1` | OpenAI‑compatible endpoint |
-| `jotflow.openai.apiKey` | _(empty)_ | Optional API key |
 | `jotflow.ollama.baseUrl` | `http://localhost:11434` | Ollama server URL (used when `managed` is off) |
 | `jotflow.ollama.managed` | `true` | Use the extension's own downloaded Ollama server |
 | `jotflow.ollama.port` | `0` | Managed server port (`0` = pick a free one) |
 | `jotflow.ollama.modelsPath` | _(empty)_ | Optional `OLLAMA_MODELS` path |
 | `jotflow.ollama.maxConcurrentDownloads` | `2` | Parallel model downloads |
-| `jotflow.ollama.apiKey` | _(empty)_ | Ollama API key for **cloud** models (prefer **Set API Key** → SecretStorage) |
 | `jotflow.openrouter.baseUrl` | `https://openrouter.ai/api/v1` | OpenRouter endpoint |
-| `jotflow.openrouter.apiKey` | _(empty)_ | OpenRouter API key |
 | `jotflow.openrouter.vendors` | _(empty)_ | Filter OpenRouter models by vendor (prefix before `/`) |
 | `jotflow.openrouter.customModels` | _(empty)_ | Extra model ids to add even if the API doesn't list them |
 | `jotflow.openrouter.sort` | _(default)_ | Provider routing preference (`throughput` / `latency` / `price`) |
-| `jotflow.gemini.apiKey` | _(empty)_ | Google Gemini API key (Google AI Studio) |
 | `jotflow.gemini.baseUrl` | `https://generativelanguage.googleapis.com/v1beta` | Generative Language API endpoint |
-| `jotflow.anthropic.apiKey` | _(empty)_ | Anthropic Claude API key (console.anthropic.com) |
 | `jotflow.anthropic.baseUrl` | `https://api.anthropic.com/v1` | Anthropic Messages API endpoint |
 | `jotflow.temperature` | `0.7` | Sampling temperature |
 | `jotflow.maxTokens` | `2048` | Max tokens (`-1` = unlimited) |

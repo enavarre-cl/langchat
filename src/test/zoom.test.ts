@@ -1,8 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-// Dual-mode webview module (no VS Code); loaded via require from Node.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { clampZoom, stepZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } = require('../../media/zoom.js');
+import { clampZoom, stepZoom, ZOOM_MIN, ZOOM_MAX, ZOOM_STEP } from '../zoomMath';
 
 test('clampZoom respects the limits', () => {
   assert.strictEqual(clampZoom(5), ZOOM_MAX);
@@ -18,8 +16,8 @@ test('clampZoom rounds to 2 decimals (no float drift)', () => {
 test('clampZoom returns 1 for non-numeric or non-finite values', () => {
   assert.strictEqual(clampZoom(NaN), 1);
   assert.strictEqual(clampZoom(Infinity), 1);
-  assert.strictEqual(clampZoom('x'), 1); // intentionally invalid input
-  assert.strictEqual(clampZoom(undefined), 1);
+  assert.strictEqual(clampZoom('x' as unknown as number), 1); // intentionally invalid input: exercises the runtime guard
+  assert.strictEqual(clampZoom(undefined as unknown as number), 1);
 });
 
 test('stepZoom zooms in with negative deltaY and out with positive', () => {

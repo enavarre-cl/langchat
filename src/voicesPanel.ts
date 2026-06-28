@@ -121,7 +121,7 @@ export function openVoicesPanel(
     badName: tr('Enter a voice name.'),
     badRange: tr('Enter a valid range in seconds, end after start, ≤ 30s.'),
   })};</script>
-  <script nonce="${nonce}" src="${media('voices.js')}"></script>
+  <script nonce="${nonce}" src="${media('dist/voices.js')}"></script>
 </body>
 </html>`;
 

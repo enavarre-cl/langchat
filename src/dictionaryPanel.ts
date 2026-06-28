@@ -43,7 +43,7 @@ export function openDictionaryPanel(context: vscode.ExtensionContext, store: Spe
   <table><tbody id="rows"></tbody></table>
   <div id="empty" class="empty hidden">${esc(tr('No words yet.'))}</div>
   <script nonce="${nonce}">window.DICT_T = ${JSON.stringify({ remove: tr('Remove') })};</script>
-  <script nonce="${nonce}" src="${media('dictionary.js')}"></script>
+  <script nonce="${nonce}" src="${media('dist/dictionary.js')}"></script>
 </body>
 </html>`;
 

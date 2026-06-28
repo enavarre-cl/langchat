@@ -4,6 +4,7 @@
  */
 import { t } from '../core/i18n.js';
 import { vscode } from '../core/vscode.js';
+import { clampZoom, stepZoom } from '../../src/zoomMath.js';
 import { $, setImageSrc } from '../core/dom.js';
 import { getDoc } from '../ui/store.js';
 import { notice, clearNotices } from '../ui/notifications.js';
@@ -131,7 +132,7 @@ function send() {
 // ---- Chat-local zoom (independent of VS Code global zoom) ----
   // Persisted per conversation in doc.ui.zoom (travels with the .chat). vscode.getState() is kept as a
   // fast local cache so the level is restored instantly on reload, before the doc message arrives.
-  let zoom = LangZoom.clampZoom((vscode.getState() && vscode.getState().zoom) || 1);
+  let zoom = clampZoom((vscode.getState() && vscode.getState().zoom) || 1);
   let zoomPersistTimer = 0;
   function applyZoom() {
     // Zoom ONLY the history (which has its own scroll), not the whole body: zooming the body
@@ -151,12 +152,12 @@ function send() {
     clearTimeout(zoomPersistTimer);
     zoomPersistTimer = setTimeout(() => vscode.postMessage({ type: 'setConfig', patch: { ui: { zoom } } }), 400);
   }
-  function setZoom(z) { zoom = LangZoom.clampZoom(z); applyZoom(); persistZoom(); }
+  function setZoom(z) { zoom = clampZoom(z); applyZoom(); persistZoom(); }
 
   // Applies the zoom persisted in the loaded conversation (no re-persist). Called when a doc arrives.
   export function applyDocZoom(doc) {
     const z = doc && doc.ui && doc.ui.zoom;
-    if (typeof z === 'number' && isFinite(z)) { zoom = LangZoom.clampZoom(z); applyZoom(); }
+    if (typeof z === 'number' && isFinite(z)) { zoom = clampZoom(z); applyZoom(); }
   }
 
 // Wires all composer DOM events. Called once at startup.
@@ -203,12 +204,12 @@ export function initComposer() {
   window.addEventListener('wheel', (e) => {
     if (!e.altKey) return;
     e.preventDefault();
-    zoom = LangZoom.stepZoom(zoom, e.deltaY);
+    zoom = stepZoom(zoom, e.deltaY);
     applyZoom();
     persistZoom();
   }, { passive: false });
-  $('zoomInBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, -1)));
-  $('zoomOutBtn').addEventListener('click', () => setZoom(LangZoom.stepZoom(zoom, 1)));
+  $('zoomInBtn').addEventListener('click', () => setZoom(stepZoom(zoom, -1)));
+  $('zoomOutBtn').addEventListener('click', () => setZoom(stepZoom(zoom, 1)));
   $('zoomResetBtn').addEventListener('click', () => setZoom(1));
   applyZoom();
 }

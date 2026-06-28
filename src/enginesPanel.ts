@@ -74,7 +74,7 @@ export function openEnginesPanel(
     install: tr('Install'), update: tr('Update'), start: tr('Start'), stop: tr('Stop'), remove: tr('Delete'),
     ram: tr('RAM'), sources: tr('Downloads'),
   })};</script>
-  <script nonce="${nonce}" src="${media('engines.js')}"></script>
+  <script nonce="${nonce}" src="${media('dist/engines.js')}"></script>
 </body>
 </html>`;
 

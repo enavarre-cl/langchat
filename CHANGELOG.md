@@ -5,6 +5,22 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.4] - 2026-06-28
+
+### Internal
+- **Zero hand-written `.js` left in the webview.** The remaining 9 source files migrated `.js`→`.ts`:
+  the classic globals (`i18n`, `spell`) and the standalone-panel webviews (`models`, `modelsFormat`,
+  `voices`, `compare`, `dictionary`, `engines`). Each is now bundled by esbuild into `media/dist/*.js`
+  (IIFE) and loaded from there; every panel's `<script src>` was rewired. `zoom.js` was **eliminated**
+  — its pure math moved to `src/zoomMath.ts` (one source of truth shared by the host unit test and the
+  webview, which imports it through the bundle), dropping the `window.LangZoom` global. Only the
+  vendored libs (`mermaid.min.js`, `spell-engine.js`) and the generated `media/dist/*` bundles remain
+  `.js`, by definition. `tsc` (host + `media/jsconfig.json`), eslint and 127 tests pass; all bundles
+  valid.
+- Still open (next pass): the standalone-panel `.ts` are bundled but not yet in the webview type gate
+  (only the chat graph is), and `strict` is not yet flipped on. **Needs an F5 smoke test of the chat
+  + each side panel before the next publish** (their script tags now load from `media/dist/`).
+
 ## [2.6.3] - 2026-06-28
 
 ### Internal

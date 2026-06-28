@@ -1,27 +1,32 @@
 /**
- * Webview build: bundles the chat module graph (entry `media/app/main`) into one ES module at
- * `media/dist/app.js`. esbuild resolves `.js` import specifiers to their `.ts` sources, so the graph
- * can migrate `.js`→`.ts` file-by-file without touching any import. Vendored libs (mermaid,
- * spell-engine) and the classic globals (zoom/i18n/spell) stay external `<script>` tags, not bundled.
- *
- * This is the BUILD only (transpile + bundle). Type-checking is a separate gate:
- * `tsc -p media/jsconfig.json`. The standalone panels (voices/models/compare/…) are their own webviews
- * and are not part of this bundle.
+ * Webview build. Two outputs into `media/dist/`:
+ *   1. `app.js` — the chat module graph (ESM, loaded as <script type="module">). esbuild resolves
+ *      `.js` import specifiers to their `.ts` sources, so the graph migrates `.js`→`.ts` freely.
+ *   2. one IIFE file per classic script / standalone-panel webview (each loaded as a plain <script>
+ *      that sets `window.*` or self-runs): i18n, spell, models, modelsFormat, voices, compare,
+ *      dictionary, engines.
+ * Vendored libs (mermaid.min.js, spell-engine.js) stay external and are not built here.
+ * Type-checking is a separate gate: `tsc -p media/jsconfig.json`.
  */
 const esbuild = require('esbuild');
 const fs = require('fs');
 
-// The entry may be .ts (migrated) or .js (not yet) — esbuild handles either.
-const entry = fs.existsSync('media/app/main.ts') ? 'media/app/main.ts' : 'media/app/main.js';
+// During the migration a source may be .ts (done) or .js (not yet) — esbuild handles either.
+const src = (p) => (fs.existsSync(p.replace(/\.js$/, '.ts')) ? p.replace(/\.js$/, '.ts') : p);
 
-esbuild
-  .build({
-    entryPoints: [entry],
+const CLASSIC = ['i18n', 'spell', 'models', 'modelsFormat', 'voices', 'compare', 'dictionary', 'engines'];
+
+async function build() {
+  await esbuild.build({
+    entryPoints: [src('media/app/main.js')],
     outfile: 'media/dist/app.js',
-    bundle: true,
-    format: 'esm',
-    target: 'es2020',
-    sourcemap: true,
-    logLevel: 'warning',
-  })
-  .catch(() => process.exit(1));
+    bundle: true, format: 'esm', target: 'es2020', sourcemap: true, logLevel: 'warning',
+  });
+  await esbuild.build({
+    entryPoints: Object.fromEntries(CLASSIC.map((n) => [n, src(`media/${n}.js`)])),
+    outdir: 'media/dist',
+    bundle: true, format: 'iife', target: 'es2020', sourcemap: true, logLevel: 'warning',
+  });
+}
+
+build().catch(() => process.exit(1));

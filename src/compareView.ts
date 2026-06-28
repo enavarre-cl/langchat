@@ -120,7 +120,7 @@ export function registerCompare(context: vscode.ExtensionContext): void {
     <section class="col"><header id="pastLabel"></header><div id="pastBody" class="msgs"></div></section>
     <section class="col"><header id="curLabel"></header><div id="curBody" class="msgs"></div></section>
   </div>
-  <script nonce="${nonce}" src="${media('compare.js')}"></script>
+  <script nonce="${nonce}" src="${media('dist/compare.js')}"></script>
 </body>
 </html>`;
 

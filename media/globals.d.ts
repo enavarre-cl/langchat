@@ -10,7 +10,6 @@ declare function acquireVsCodeApi(): VsCodeApi;
 interface Window {
   LangI18n: { t(s: string): string; get(): string; set(l: string): void; setBundle(b: any): void; applyStatic(d: Document): void; };
   LangSpell?: any;
-  LangZoom?: any;
   mermaid?: any;
   MERMAID_SRC?: string;
   JOTFLOW_NONCE?: string;
@@ -24,4 +23,3 @@ interface Window {
   PMd?: any; PMermaid?: any; PFind?: any;
 }
 declare var ClipboardItem: any;
-declare var LangZoom: any;

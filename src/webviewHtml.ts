@@ -227,11 +227,10 @@ export function renderWebviewHtml(
   window.I18N_BUNDLE = ${jsonForScript(bundle)};
   window.MERMAID_SRC = '${uri('mermaid.min.js')}'; // lazy-loaded on first Mermaid block
   window.JOTFLOW_NONCE = '${nonce}';                // so the lazy <script> passes the CSP</script>
-  <!-- Classic scripts set window globals (LangZoom / LangI18n / LangSpell) consumed by the modules. -->
-  <script nonce="${nonce}" src="${uri('zoom.js')}"></script>
-  <script nonce="${nonce}" src="${uri('i18n.js')}"></script>
+  <!-- Classic scripts set window globals (LangI18n / LangSpell) consumed by the modules. -->
+  <script nonce="${nonce}" src="${uri('dist/i18n.js')}"></script>
   <script nonce="${nonce}" src="${uri('spell-engine.js')}"></script>
-  <script nonce="${nonce}" src="${uri('spell.js')}"></script>
+  <script nonce="${nonce}" src="${uri('dist/spell.js')}"></script>
   <!-- ES module entry: the esbuild-bundled chat module graph (built from media/app/main + its
        imports; runs after the classic globals above). Built by scripts/build-webview.js. -->
   <script type="module" nonce="${nonce}" src="${uri('dist/app.js')}"></script>

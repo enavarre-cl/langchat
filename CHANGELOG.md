@@ -5,6 +5,10 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+### Docs
+- README: corrected post-2.6.13 phrasing (API keys are **SecretStorage-only**, no plain-settings
+  option) and extended the changelog summary through 2.6.14.
+
 ## [2.6.14] - 2026-06-28
 
 ### Added

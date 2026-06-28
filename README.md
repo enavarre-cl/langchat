@@ -87,8 +87,8 @@ Configure any of these per conversation (in the ⚙ panel) or as the default in 
 > Have **LM Studio** (local server enabled) or **Ollama** running first — or use a hosted backend
 > (OpenRouter / Gemini / Anthropic) with an API key.
 >
-> API keys are best stored securely: run **“Jotflow: Set API Key (secure)”** to keep them in VS
-> Code SecretStorage instead of plain settings.
+> Set an API key with **“Jotflow: Set API Key (secure)”** — it's stored encrypted in VS Code
+> SecretStorage (there is no plain-settings option).
 
 ## Local models (embedded Ollama)
 
@@ -137,7 +137,7 @@ ending only when the model stops requesting tools or you press Stop).
 
 ## Privacy
 
-- Your **API keys** can be stored in VS Code **SecretStorage** (not plain settings).
+- Your **API keys** are stored **only** in VS Code **SecretStorage** — never in plain settings.
 - The managed Ollama server and the Piper / Chatterbox TTS daemons bind to **`127.0.0.1`** only.
 - **No telemetry** — Jotflow does not phone home. Network traffic goes only to the LLM backend
   you configure and, on demand, to Hugging Face / PyPI to download models and the TTS engines.
@@ -195,10 +195,13 @@ Jotflow is **MIT** licensed. It bundles or downloads third‑party components un
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.6.1–2.6.7** migrate the **entire
-webview to TypeScript** with an esbuild build (zero hand-written `.js` in the repo — only vendored
-libs and generated bundles remain) and add integration tests for the webview↔host protocol and the
-agentic turn. **2.6.0** drops the YouTube path for
+See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.6.8–2.6.14** unify all source under
+`src/` (`host`/`webview`/`shared`), gate every push with **CI** + Dependabot, make the model catalog
+**degrade gracefully** (circuit breaker + contingency notice), vendor **Mermaid** from npm (so **no**
+`.js` is committed), and move **API keys to SecretStorage-only** (the plaintext-settings path was
+removed). **2.6.1–2.6.7** migrate the **entire webview to TypeScript** with an esbuild build (zero
+hand-written `.js` in the repo — only vendored libs and generated bundles remain) and add integration
+tests for the webview↔host protocol and the agentic turn. **2.6.0** drops the YouTube path for
 Chatterbox voice cloning (removing yt-dlp entirely): a reference voice is now cloned from a **local
 audio/video file** you pick (ogg/mp4/mp3/wav) with a start/end trim — no network fetch, no ToS gray
 area. **2.5.0** reorganises the ⚙ settings into

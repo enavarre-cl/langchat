@@ -696,7 +696,7 @@
     "jiti": "^2.7.0",
     "nspell": "^2.1.5",
     "tsx": "^4.22.4",
-    "typescript": "^5.4.0"
+    "typescript": "^6.0.3"
   },
   "icon": "media/icon.png",
   "galleryBanner": {

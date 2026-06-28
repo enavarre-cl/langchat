@@ -10,6 +10,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Majors are intentional, hands-on decisions (e.g. undici 6 / @types/node 20 are pinned to match
+    # VS Code's Node runtime), so Dependabot only proposes minor/patch — grouped into one quiet PR.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         update-types: ["minor", "patch"]

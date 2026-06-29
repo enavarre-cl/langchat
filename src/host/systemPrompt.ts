@@ -16,8 +16,10 @@ export function makeSystemPrompt(document: vscode.TextDocument) {
     let sysPromptWarned = ''; // debounce: warn once per failing-file set, not on every send
 
     // Assembles the EFFECTIVE system prompt: the inline base (if any) followed by every enabled .md
-    // layer, in order, joined by a blank line. No side effects. `failures` lists the layers that
-    // couldn't be read (missing, empty, or outside the workspace) so the caller can warn.
+    // layer, in order, separated by exactly one blank line. Each segment's trailing whitespace is
+    // trimmed first, so a file MISSING its final newline can't run into the next layer ("…rules.Next
+    // rule…") and one with EXTRA trailing newlines can't balloon the gap. No side effects. `failures`
+    // lists the layers that couldn't be read (missing, empty, or outside the workspace) so the caller can warn.
     const readSystemPrompt = (doc: ChatDoc): { text: string; failures: string[] } => {
       const dir = path.dirname(document.uri.fsPath);
       const segments: string[] = [];
@@ -34,7 +36,11 @@ export function makeSystemPrompt(document: vscode.TextDocument) {
           else failures.push(part.path);
         } catch { failures.push(part.path); }
       }
-      return { text: segments.join('\n\n'), failures };
+      const text = segments
+        .map((s) => s.replace(/\s+$/, '')) // drop each layer's trailing whitespace…
+        .filter((s) => s) // …(a now-empty layer adds no blank gap)
+        .join('\n\n'); // …then separate every layer by exactly one blank line
+      return { text, failures };
     };
 
     // Effective system prompt for sending; warns once (visibly) if any referenced layer couldn't be

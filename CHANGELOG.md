@@ -5,6 +5,15 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.8.1] - 2026-06-29
+
+### Fixed
+- **System-prompt layers can't run together.** When assembling the effective prompt (inline base +
+  each enabled `.md` layer), every segment's trailing whitespace is trimmed and segments are separated
+  by **exactly one blank line** — so a layer file **missing its final newline** no longer butts against
+  the next layer ("…rule A.Rule B…"), and one with **extra trailing newlines** no longer balloons the
+  gap. (`readSystemPrompt`; covered by a new `systemPrompt.test.ts` regression — 158 tests.)
+
 ## [2.8.0] - 2026-06-29
 
 ### Changed

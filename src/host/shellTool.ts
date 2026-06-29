@@ -4,7 +4,6 @@
  * code execution, so the host gates it hard: trusted workspace + the `jotflow.tools.shell` opt-in
  * (off by default) + a per-command modal confirmation unless `jotflow.tools.shellAutoApprove`.
  */
-import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 import { killProcessTree } from './procKill';
 
@@ -14,14 +13,6 @@ const MAX_OUTPUT = 100_000; // chars
 /** Pure: caps combined output with a clear truncation marker. */
 export function capOutput(out: string, max = MAX_OUTPUT): string {
   return out.length > max ? out.slice(0, max) + `\n… (output truncated at ${max} chars)` : out;
-}
-
-/** Modal approval for a command (human-in-the-loop). Returns true to run it. */
-export async function confirmCommand(command: string): Promise<boolean> {
-  const choice = await vscode.window.showWarningMessage(
-    `Run this shell command?\n\n${command}`, { modal: true }, 'Run',
-  );
-  return choice === 'Run';
 }
 
 /** Runs `command` via the shell in `cwd`, returning stdout+stderr plus the exit status. */

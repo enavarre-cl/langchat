@@ -12,6 +12,7 @@ import { AttachmentStore } from './attachmentStore';
 import { applyPatch, ChatPatch } from './applyPatch';
 import { runInference as runInferenceImpl } from './inference';
 import { routeMessage, WebviewMessage } from './messageRouter';
+import { setUiAsker, Asker, PromptResult } from './uiPrompt';
 import { makeChatOps } from './chatOps';
 import { makeTtsBackend } from './ttsBackend';
 import { makeSystemPrompt } from './systemPrompt';
@@ -293,22 +294,41 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       return pick === yes;
     };
 
-    const onMsg = webview.onDidReceiveMessage((msg: WebviewMessage) => void routeMessage(msg, {
-      webview, getDoc, writeDoc, pushDoc, pushLang, sendHistory, loadModels,
-      handleSend, handleGenerate, handleFork, handleContinue, handleRegenerate, setVariant, deleteVariant,
-      ensureSummary, synthPiper, synthChatterbox, killPiper, resolveSystemPrompt, tlog, applyPatch,
-      abortRef, busyRef, ttsTokenRef,
-      spellWords: this.spellWords, downloadedVoiceIds: () => this.downloadedVoiceIds(),
-      downloadedChatterboxVoices: () => this.downloadedChatterboxVoices(),
-      piper: this.piper, chatterbox: this.chatterbox,
-      globalStorageUri: this.context.globalStorageUri,
-      document, searchFiles, sysPromptPathAllowed, confirmDelete, resolveAttachment: attachStore.resolve,
-    }).catch((err) => {
-      // A throwing handler would otherwise be an unhandled rejection: no log, and the UI left
-      // hanging (e.g. a busy state never cleared). Log it and surface it to the webview.
-      console.error('[jotflow] message handler failed:', err);
-      webview.postMessage({ type: 'error', message: tr('Something went wrong handling that action.') + ' ' + ((err && err.message) || String(err)) });
-    }));
+    // In-webview prompts (tool confirmations / MCP elicitations): a card over the composer, not a
+    // native modal. This chat registers its asker on every inbound message; replies come back as
+    // { type: 'promptResult', id, ok, values } and resolve the matching pending promise.
+    let nextPromptId = 1;
+    const pendingPrompts = new Map<number, (r: PromptResult) => void>();
+    const askWebview: Asker = (req) => new Promise<PromptResult>((resolve) => {
+      const id = nextPromptId++;
+      pendingPrompts.set(id, resolve);
+      void webview.postMessage({ type: 'prompt', id, ...req });
+    });
+    const onMsg = webview.onDidReceiveMessage((msg: WebviewMessage) => {
+      setUiAsker(askWebview); // the active chat answers any confirm/elicit during its turn
+      const pm = msg as unknown as { type?: string; id?: number; ok?: boolean; values?: Record<string, unknown> };
+      if (pm.type === 'promptResult' && typeof pm.id === 'number') {
+        const fn = pendingPrompts.get(pm.id);
+        if (fn) { pendingPrompts.delete(pm.id); fn({ ok: !!pm.ok, values: pm.values }); }
+        return;
+      }
+      void routeMessage(msg, {
+        webview, getDoc, writeDoc, pushDoc, pushLang, sendHistory, loadModels,
+        handleSend, handleGenerate, handleFork, handleContinue, handleRegenerate, setVariant, deleteVariant,
+        ensureSummary, synthPiper, synthChatterbox, killPiper, resolveSystemPrompt, tlog, applyPatch,
+        abortRef, busyRef, ttsTokenRef,
+        spellWords: this.spellWords, downloadedVoiceIds: () => this.downloadedVoiceIds(),
+        downloadedChatterboxVoices: () => this.downloadedChatterboxVoices(),
+        piper: this.piper, chatterbox: this.chatterbox,
+        globalStorageUri: this.context.globalStorageUri,
+        document, searchFiles, sysPromptPathAllowed, confirmDelete, resolveAttachment: attachStore.resolve,
+      }).catch((err) => {
+        // A throwing handler would otherwise be an unhandled rejection: no log, and the UI left
+        // hanging (e.g. a busy state never cleared). Log it and surface it to the webview.
+        console.error('[jotflow] message handler failed:', err);
+        webview.postMessage({ type: 'error', message: tr('Something went wrong handling that action.') + ' ' + ((err && err.message) || String(err)) });
+      });
+    });
 
     // Syncs external document changes (manual JSON editing) without overwriting the in-progress
     // streaming (which we ourselves triggered).
@@ -369,6 +389,8 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     const onLang = this.onLangChanged(() => pushLang());
     panel.onDidDispose(() => {
       abortRef.current?.abort();
+      for (const r of pendingPrompts.values()) r({ ok: false }); // cancel any open card
+      pendingPrompts.clear();
       onMsg.dispose();
       onChange.dispose();
       onState.dispose();

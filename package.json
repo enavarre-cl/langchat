@@ -2,7 +2,7 @@
   "name": "jotflow",
   "displayName": "Jotflow",
   "description": "%ext.description%",
-  "version": "2.6.19",
+  "version": "2.6.20",
   "publisher": "enavarre",
   "license": "MIT",
   "engines": {

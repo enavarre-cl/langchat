@@ -9,7 +9,8 @@ import { ToolSchema } from './providers';
 import { ipIsPrivate } from './net';
 import { safeWebFetch } from './http';
 import { errMsg } from './chatHelpers';
-import { runShellCommand, confirmCommand } from './shellTool';
+import { runShellCommand } from './shellTool';
+import { uiPrompt } from './uiPrompt';
 
 /** Rejects a host that resolves to an internal/private IP (anti-SSRF). Checks ALL its IPs. */
 async function assertSafeHost(hostname: string): Promise<void> {
@@ -449,9 +450,10 @@ const BUILTIN: { schema: ToolSchema; enabled?: () => boolean; run: (args: Record
       if (!cfg.get<boolean>('tools.shell', false)) throw new Error('The run_command tool is disabled (enable jotflow.tools.shell).');
       const command = String(a?.command ?? '').trim();
       if (!command) throw new Error('No command provided.');
-      // Human-in-the-loop: confirm each command unless the user opted into auto-approve.
-      if (!cfg.get<boolean>('tools.shellAutoApprove', false) && !(await confirmCommand(command))) {
-        return 'Command denied by the user.';
+      // Human-in-the-loop: confirm each command (inline card over the composer) unless auto-approve.
+      if (!cfg.get<boolean>('tools.shellAutoApprove', false)) {
+        const ok = (await uiPrompt({ title: 'Run this shell command?', detail: command, danger: true, okLabel: 'Run' })).ok;
+        if (!ok) return 'Command denied by the user.';
       }
       return runShellCommand(command, workspaceRoot(), signal);
     },

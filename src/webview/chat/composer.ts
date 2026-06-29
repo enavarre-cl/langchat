@@ -8,6 +8,7 @@ import { clampZoom, stepZoom } from '../../shared/zoomMath.js';
 import { $, setImageSrc } from '../core/dom.js';
 import { getDoc } from '../ui/store.js';
 import { notice, clearNotices } from '../ui/notifications.js';
+import { cancelOpenPrompt } from '../ui/prompt.js';
 import { addMessage } from './message.js';
 import { resetScroll, resetTools } from './conversation.js';
 import { renderSpell, scheduleSpell } from '../features/spell.js';
@@ -115,6 +116,7 @@ function send() {
   const text = inputEl.value.trim();
   if (!text && pending.length === 0) return;
   clearNotices();
+  cancelOpenPrompt(); // a new turn: dismiss any stale confirm/elicit card from before
   resetTools(); // a new turn begins: drop the previous turn's live tool activity
   resetScroll(); // on send, stick to the bottom again
   const attachments = pending.slice();

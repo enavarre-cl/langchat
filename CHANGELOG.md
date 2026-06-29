@@ -5,6 +5,17 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.20] - 2026-06-28
+
+### Changed
+- **Tool confirmations & MCP elicitations now render as an inline card over the composer**, replacing
+  the native VS Code modal. `run_command`'s confirmation and every elicitation (a yes/no, or a small
+  form for text / number / enum / boolean fields) appear as a card in the chat; the answer flows back
+  over a host↔webview round-trip (`prompt` / `promptResult`). The card is **tied to the turn**: sending
+  a new message — or closing the chat — dismisses a stale card, fixing the "zombie dialog shows up
+  during the next turn" issue. As a bonus the shell/elicitation host code (`shellTool`, `mcpElicit`)
+  no longer imports `vscode` (the UI is the webview card via the pure `uiPrompt` bridge).
+
 ## [2.6.19] - 2026-06-28
 
 ### Fixed

@@ -16,6 +16,7 @@ import {
 import { setStreaming, setSummarizing, applyDocZoom } from '../chat/composer.js';
 import { applyPanelState } from '../chat/panels.js';
 import { notice, showSummarizing, hideSummarizing, showTtsProgress, hideTtsProgress } from '../ui/notifications.js';
+import { showPrompt } from '../ui/prompt.js';
 
 const providerSelect = $('providerSelect') as HTMLSelectElement;
 const spellSelect = $('spellSelect') as HTMLSelectElement;
@@ -36,6 +37,9 @@ export function handleMessage(msg) {
   switch (msg.type) {
     case 'lang':
       applyLanguage(msg.lang, msg.bundle);
+      break;
+    case 'prompt':
+      showPrompt(msg);
       break;
     case 'atFilesResult':
       onFileResults(msg.q, msg.files, msg.reqId);

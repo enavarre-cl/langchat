@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import { ToolSchema } from './providers';
 import { killProcessTree } from './procKill';
@@ -22,19 +24,27 @@ interface McpTool {
   inputSchema?: Record<string, unknown>;
 }
 
-/** A JSON-RPC 2.0 request/notification we write to the server's stdin. */
-interface JsonRpcRequest {
-  jsonrpc: '2.0';
+/** A JSON-RPC 2.0 message parsed off the server's stdout: a reply to us, or a server→client request. */
+interface JsonRpcMessage {
   id?: number;
-  method: string;
-  params: Record<string, unknown>;
-}
-
-/** A JSON-RPC 2.0 response line as parsed off the server's stdout. */
-interface JsonRpcResponse {
-  id?: number;
+  method?: string;          // present → a server-initiated request (with id) or notification (no id)
   result?: unknown;
   error?: { message?: string };
+}
+
+/** A filesystem root advertised to MCP servers (MCP `roots/list`) — a `file://` URI + display name. */
+export interface McpRoot { uri: string; name: string }
+
+/**
+ * Pure: the MCP roots from the workspace folders (the trusted "safe" folders — MCP only ever runs in
+ * a trusted workspace) plus an optional server working dir, as deduped `file://` URIs. Roots tell a
+ * server which directories it should operate within.
+ */
+export function computeRoots(folders: readonly { fsPath: string; name: string }[], cwd?: string): McpRoot[] {
+  const byPath = new Map<string, string>(); // absolute fsPath → display name (dedupe by path)
+  for (const f of folders) byPath.set(f.fsPath, f.name);
+  if (cwd) { const abs = path.resolve(cwd); if (!byPath.has(abs)) byPath.set(abs, path.basename(abs) || abs); }
+  return [...byPath].map(([fsPath, name]) => ({ uri: pathToFileURL(fsPath).toString(), name }));
 }
 
 /** Result of the MCP `tools/list` call. */
@@ -83,7 +93,7 @@ class McpClient {
 
     await this.request('initialize', {
       protocolVersion: '2024-11-05',
-      capabilities: {},
+      capabilities: { roots: { listChanged: true } }, // we answer roots/list and notify on changes
       clientInfo: { name: 'jotflow', version: '0.1.0' },
     });
     this.notify('notifications/initialized', {});
@@ -99,23 +109,39 @@ class McpClient {
       const line = this.buffer.slice(0, idx).trim();
       this.buffer = this.buffer.slice(idx + 1);
       if (!line) continue;
-      let msg: JsonRpcResponse;
+      let msg: JsonRpcMessage;
       try {
         msg = JSON.parse(line);
       } catch {
         continue;
       }
+      // Server-initiated request (method + id) → we must reply (e.g. roots/list).
+      if (typeof msg.method === 'string' && msg.id !== undefined) {
+        this.handleServerRequest(msg.id, msg.method);
+        continue;
+      }
+      // Server notification (method, no id) → nothing to do.
+      if (typeof msg.method === 'string') continue;
+      // A reply to one of our requests.
       if (msg.id !== undefined && this.pending.has(msg.id)) {
         const p = this.pending.get(msg.id)!;
         this.pending.delete(msg.id);
         if (msg.error) p.reject(new Error(msg.error.message ?? 'MCP error'));
         else p.resolve(msg.result);
       }
-      // Server-initiated requests/notifications are ignored in this MVP.
     }
   }
 
-  private send(obj: JsonRpcRequest): void {
+  /** Reply to a server→client request. We support `roots/list`; anything else → method-not-found. */
+  private handleServerRequest(id: number, method: string): void {
+    if (method === 'roots/list') {
+      this.send({ jsonrpc: '2.0', id, result: { roots: currentRoots(this.config) } });
+    } else {
+      this.send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } });
+    }
+  }
+
+  private send(obj: Record<string, unknown>): void {
     // The process may have died: avoids the TypeError on `stdin!` and degrades cleanly.
     try { this.proc?.stdin?.write(JSON.stringify(obj) + '\n'); } catch { /* process dead */ }
   }
@@ -152,6 +178,11 @@ class McpClient {
 
   private notify(method: string, params: Record<string, unknown>): void {
     this.send({ jsonrpc: '2.0', method, params });
+  }
+
+  /** Tell the server its roots changed (workspace folders added/removed). */
+  notifyRootsChanged(): void {
+    if (this.alive) this.notify('notifications/roots/list_changed', {});
   }
 
   async callTool(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
@@ -246,10 +277,17 @@ function loadServerConfigs(): ServerConfig[] {
   return out;
 }
 
+/** The roots to advertise to a server: the trusted workspace folders + the server's own `cwd`. */
+function currentRoots(cfg: ServerConfig): McpRoot[] {
+  const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => ({ fsPath: f.uri.fsPath, name: f.name }));
+  return computeRoots(folders, cfg.cwd);
+}
+
 /** Manages MCP servers and aggregates their tools (prefixed by server: `server__tool`). */
 export class McpManager {
   private clients: McpClient[] = [];
   private startPromise?: Promise<void>;
+  private rootsWatcher?: vscode.Disposable;
   errors: string[] = [];
 
   /** Starts the servers once (idempotent). */
@@ -271,6 +309,10 @@ export class McpManager {
             this.errors.push(`${cfg.name}: ${errMsg(e)}`);
           }
         }
+        // If the workspace folders change, re-advertise roots to every server.
+        this.rootsWatcher = vscode.workspace.onDidChangeWorkspaceFolders(() => {
+          for (const c of this.clients) c.notifyRootsChanged();
+        });
       })();
     }
     return this.startPromise;
@@ -300,6 +342,8 @@ export class McpManager {
   }
 
   dispose(): void {
+    this.rootsWatcher?.dispose();
+    this.rootsWatcher = undefined;
     this.clients.forEach((c) => c.dispose());
     this.clients = [];
     this.startPromise = undefined;

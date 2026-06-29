@@ -127,7 +127,9 @@ With **Tools** on (⚙, available on every backend), the model can call tools in
   `fs_glob`, `fs_search`, plus `editor_context`, `web_fetch` and `get_datetime`. File tools are
   **confined to the workspace folder** (resolved + `realpath`‑checked against symlink escape).
 - **MCP servers**: define them in a **`.mcp/`** folder (one `*.json` per server) or a **`.mcp.json`**
-  at the workspace root. Each server's tools are exposed as `server__tool`.
+  at the workspace root. Each server's tools are exposed as `server__tool`. Jotflow advertises your
+  **workspace folders as MCP roots** (plus a server's own `cwd`), so servers know which directories to
+  operate within — re-advertised if the folders change.
 
 The loop runs up to `jotflow.tools.maxIterations` rounds per turn (default **8**; **`0` = unlimited**,
 ending only when the model stops requesting tools or you press Stop).

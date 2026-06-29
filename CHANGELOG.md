@@ -5,6 +5,17 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.6.15] - 2026-06-28
+
+### Added
+- **MCP roots.** The client now advertises the `roots` capability and answers the server-initiated
+  `roots/list` request with the **trusted workspace folders** (the "safe" folders — MCP only runs in a
+  trusted workspace) plus each server's own `cwd`, as `file://` URIs. Servers can now learn which
+  directories they should operate within, and Jotflow re-advertises (`notifications/roots/list_changed`)
+  when the workspace folders change. This is the first server→client method handled — the client used to
+  ignore all server-initiated requests; unknown ones now get a proper JSON-RPC `method not found`.
+  The root computation is pure and unit-tested (`computeRoots`, 5 new tests; 136 total).
+
 ### Docs
 - **All docs/comments now in English** (the repo's source language, per BEST-PRACTICES A8).
   Translated `BEST-PRACTICES.md` (the only Spanish doc, ~140 rules) and the `media/conversation.css`

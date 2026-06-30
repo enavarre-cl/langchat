@@ -202,19 +202,22 @@ const SLIDER_STEP = 0.01; // decimal precision for fractional sliders/number inp
 
     const layers = Array.isArray(doc.systemPromptFiles) ? doc.systemPromptFiles : [];
     if (layers.length) {
+      // Per-layer existence from the host: a missing/out-of-workspace file is flagged in red so the
+      // user can tell whether a layer is actually being read (it's silently skipped at send time).
+      const missing = Array.isArray(doc.sysPromptMissing) ? doc.sysPromptMissing : [];
       const list = document.createElement('div');
       list.className = 'syslayers';
-      layers.forEach((layer, i) => list.appendChild(sysLayerRow(layer, i, layers.length)));
+      layers.forEach((layer, i) => list.appendChild(sysLayerRow(layer, i, layers.length, !!missing[i])));
       wrap.appendChild(list);
     }
     return wrap;
   }
 
-  // One .md layer row: [☑ enabled] 📄 name … [↑] [↓] [Open] [✕]
-  function sysLayerRow(layer, i, count) {
+  // One .md layer row: [☑ enabled] 📄 name … [↑] [↓] [Open] [✕] (red when the file can't be found)
+  function sysLayerRow(layer, i, count, missing) {
     const enabled = layer.enabled !== false;
     const row = document.createElement('div');
-    row.className = 'syslayer' + (enabled ? '' : ' disabled');
+    row.className = 'syslayer' + (enabled ? '' : ' disabled') + (missing ? ' missing' : '');
 
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.checked = enabled;
@@ -225,10 +228,10 @@ const SLIDER_STEP = 0.01; // decimal precision for fractional sliders/number inp
     // END — the part that actually differs between layers, plus the extension — is always visible.
     const name = document.createElement('span');
     name.className = 'syslayer-name';
-    name.title = layer.path;
+    name.title = missing ? t('File not found — it will be skipped') + ': ' + layer.path : layer.path;
     const ico = document.createElement('span');
     ico.className = 'syslayer-ico';
-    ico.textContent = '📄';
+    ico.textContent = missing ? '⚠️' : '📄';
     const pathEl = document.createElement('span');
     pathEl.className = 'syslayer-path';
     pathEl.textContent = layer.path;

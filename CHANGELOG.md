@@ -5,6 +5,22 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.8.3] - 2026-06-29
+
+### Fixed
+- **System-prompt path/glob now reaches sibling folders.** A pattern like `../systems/*.md` (a `.chat`
+  in `chats/` pointing at a `systems/` folder beside it) matched nothing, because VS Code globs don't
+  traverse `..`. Refresh now splits the **literal base** (including any `..`) from the glob remainder
+  and roots the search there (`splitGlobPattern`). The target must still live inside the workspace —
+  open the **common parent** folder so the layer allow-list covers it.
+- **Missing layers are flagged in red.** A layer whose file can't be found (absent, or outside the
+  workspace allow-list) now shows with a **⚠️** icon, a **red** border + name, and a "skipped" tooltip
+  in the ⚙ panel — so it's obvious which layers are actually read, instead of being silently dropped at
+  send time (the host sends a per-layer `sysPromptMissing` flag, recomputed on every refresh).
+
+### i18n
+- New **File not found — it will be skipped** string, translated across all 6 UI languages.
+
 ## [2.8.2] - 2026-06-29
 
 ### Changed

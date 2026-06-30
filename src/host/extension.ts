@@ -16,7 +16,7 @@ import { routeMessage, WebviewMessage } from './messageRouter';
 import { setUiAsker, Asker, PromptResult } from './uiPrompt';
 import { makeChatOps } from './chatOps';
 import { makeTtsBackend } from './ttsBackend';
-import { makeSystemPrompt } from './systemPrompt';
+import { makeSystemPrompt, splitGlobPattern } from './systemPrompt';
 import { makeLoadModels } from './loadModels';
 import { makeSummary } from './summary';
 import { registerLocalModels } from './localModels';
@@ -243,7 +243,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     // Roots a system-prompt layer may live in: the .chat's own folder + any workspace folder. Project
     // files are fine; a shared .chat still cannot pull arbitrary files (e.g. ../../etc/passwd) into
     // the prompt and exfiltrate them to the model.
-    const { resolveSystemPrompt, readSystemPrompt, sysPromptPathAllowed } = makeSystemPrompt(document);
+    const { resolveSystemPrompt, readSystemPrompt, sysPromptPathAllowed, sysPromptLayerMissing } = makeSystemPrompt(document);
 
     // Resolves a path/glob (relative to the .chat's folder) to .chat-relative file paths — the same
     // shape the layer list stores — within the layer allow-list. Powers the "refresh" button: a bare
@@ -253,7 +253,12 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
       const p = (pattern || '').trim();
       if (!p) return [];
       const dir = path.dirname(document.uri.fsPath);
-      const uris = await vscode.workspace.findFiles(new vscode.RelativePattern(dir, p));
+      // Root the search at the resolved literal base (handles a sibling folder via `../systems/*.md`,
+      // which VS Code globs can't traverse on their own — see splitGlobPattern).
+      const { baseRel, globRel } = splitGlobPattern(p);
+      if (!globRel) return [];
+      const baseAbs = path.resolve(dir, baseRel || '.');
+      const uris = await vscode.workspace.findFiles(new vscode.RelativePattern(baseAbs, globRel));
       const rel = uris
         .map((u) => u.fsPath)
         .filter((fsPath) => sysPromptPathAllowed(fsPath))
@@ -267,9 +272,11 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
     // Copy of the doc with resolved attachments (for the webview), without touching the persisted doc.
     // `sysPromptTokens` = tokens of the EFFECTIVE system prompt (base + all enabled layer contents):
     // the webview only has the layer paths, so without this its context bar undercounts when layers are used.
-    const resolveDocForView = (doc: ChatDoc): ChatDoc & { sysPromptTokens: number } => ({
+    const resolveDocForView = (doc: ChatDoc): ChatDoc & { sysPromptTokens: number; sysPromptMissing: boolean[] } => ({
       ...doc,
       sysPromptTokens: estTokens(readSystemPrompt(doc).text),
+      // Per-layer existence (aligned with systemPromptFiles) so the config UI can flag missing files in red.
+      sysPromptMissing: (doc.systemPromptFiles ?? []).map(sysPromptLayerMissing),
       messages: doc.messages.map((m) =>
         m.attachments ? { ...m, attachments: m.attachments.map(attachStore.resolve) } : m
       ),

@@ -1,8 +1,21 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ChatDoc } from './chatDocument';
+import { ChatDoc, SysPromptFile } from './chatDocument';
 import { tr } from './i18n';
+
+/** Splits a path/glob into a LITERAL base (leading non-wildcard segments — may include `..`) and the
+ *  glob remainder, so the caller can root a `findFiles` search at the resolved base. VS Code globs
+ *  don't traverse `..` themselves, so `../systems/*.md` → base `../systems`, glob `*.md`. A pattern
+ *  with no wildcard is a single literal file: base = its folder, glob = its basename. */
+export function splitGlobPattern(pattern: string): { baseRel: string; globRel: string } {
+  const segs = pattern.replace(/\\/g, '/').split('/');
+  const isGlob = (s: string): boolean => /[*?{}[\]]/.test(s);
+  const cut = segs.findIndex(isGlob);
+  const baseRel = (cut === -1 ? segs.slice(0, -1) : segs.slice(0, cut)).join('/');
+  const globRel = (cut === -1 ? segs.slice(-1) : segs.slice(cut)).join('/');
+  return { baseRel, globRel };
+}
 
 /** Resolves the effective system prompt (file or inline) with a path allow-list. One dep: the doc. */
 export function makeSystemPrompt(document: vscode.TextDocument) {
@@ -12,6 +25,16 @@ export function makeSystemPrompt(document: vscode.TextDocument) {
     ];
     const sysPromptPathAllowed = (resolved: string): boolean =>
       sysPromptRoots().some((root) => resolved === root || resolved.startsWith(root + path.sep));
+
+    // Per-layer "is this file actually reachable?" for the config UI (red marking). True = the path
+    // escapes the allow-list or no file is there, so it will be SKIPPED at send time. An existing but
+    // empty file is NOT flagged here (it still only warns at send time).
+    const sysPromptLayerMissing = (part: SysPromptFile): boolean => {
+      if (!part || typeof part.path !== 'string') return true;
+      const resolved = path.resolve(path.dirname(document.uri.fsPath), part.path);
+      if (!sysPromptPathAllowed(resolved)) return true;
+      try { return !fs.statSync(resolved).isFile(); } catch { return true; }
+    };
 
     let sysPromptWarned = ''; // debounce: warn once per failing-file set, not on every send
 
@@ -60,5 +83,5 @@ export function makeSystemPrompt(document: vscode.TextDocument) {
       }
       return text;
     };
-  return { resolveSystemPrompt, readSystemPrompt, sysPromptPathAllowed };
+  return { resolveSystemPrompt, readSystemPrompt, sysPromptPathAllowed, sysPromptLayerMissing };
 }

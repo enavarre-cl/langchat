@@ -212,7 +212,8 @@ Jotflow is **MIT** licensed. It bundles or downloads third‑party components un
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.8.2** polishes the side panels —
+See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.8.3** fixes cross-folder system-prompt
+globs (`../systems/*.md`) and flags missing layers in **red**. **2.8.2** polishes the side panels —
 **collapsible** tool activity with 256-char previews, and a tidier system-prompt layer list
 (start-truncated names, hover actions, no row jump). **2.8.0** drives the layered system prompt
 from a **path/glob + Refresh** (additive — keeps your order, re-adds removed-but-matching files, never

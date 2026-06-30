@@ -105,6 +105,14 @@
 .syslayer.disabled .syslayer-path {
   text-decoration: line-through;
 }
+/* A layer whose file can't be found (missing or outside the workspace): flagged red so the user knows
+ * it's being skipped, not silently ignored. */
+.syslayer.missing {
+  border-color: var(--vscode-inputValidation-errorBorder, var(--vscode-errorForeground));
+}
+.syslayer.missing .syslayer-path {
+  color: var(--vscode-errorForeground);
+}
 .syslayer-name {
   flex: 1;
   min-width: 0;

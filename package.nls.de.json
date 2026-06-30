@@ -253,6 +253,7 @@
   "Regenerate the response to this message": "Die Antwort auf diese Nachricht neu generieren",
   "registering in Ollama": "Registrierung in Ollama",
   "Reload models": "Modelle neu laden",
+  "File not found — it will be skipped": "Datei nicht gefunden — wird übersprungen",
   "Show more": "Mehr anzeigen",
   "Show less": "Weniger anzeigen",
   "Resolve the pattern and update the layer list": "Muster auflösen und die Ebenenliste aktualisieren",

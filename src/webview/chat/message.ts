@@ -14,6 +14,7 @@ import { tts } from '../features/tts.js';
 import { handleFileKeydown, handleSuggestKeydown, setupEmojiAutocomplete, setupFileAutocomplete } from '../features/autocomplete.js';
 import { scrollDown, resetTools } from './conversation.js';
 import { openThink, openTools, showThinking, showTools } from './panels.js';
+import { addFilesTo, renderAttachChips, filesFromClipboard } from './attachments.js';
 
 const messagesEl = $('messages');
 
@@ -254,21 +255,55 @@ export function startEditInline(el, index) {
     ta.spellcheck = true;
     ta.lang = window.LangI18n.get();
     ta.value = m.content;
+
+    // Attachments: start from the message's current ones (resolved to inline data in the view copy).
+    // They can be removed (× on the chip) and new files added via 📎 / paste / drop, then saved.
+    const editAtts = (Array.isArray(m.attachments) ? m.attachments : [])
+      .filter((a) => a && typeof a.data === 'string')
+      .map((a) => ({ kind: a.kind, name: a.name, mime: a.mime, data: a.data }));
+    const attachWrap = document.createElement('div');
+    attachWrap.className = 'edit-attachments';
+    const renderAtts = () => {
+      attachWrap.classList.toggle('hidden', editAtts.length === 0);
+      renderAttachChips(attachWrap, editAtts, renderAtts);
+    };
+    renderAtts();
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file'; fileInput.multiple = true; fileInput.style.display = 'none';
+    fileInput.addEventListener('change', async () => {
+      if (fileInput.files && fileInput.files.length) { await addFilesTo(editAtts, [...fileInput.files]); renderAtts(); }
+      fileInput.value = '';
+    });
+
     const bar = document.createElement('div');
     bar.className = 'edit-bar';
+    const attach = document.createElement('button');
+    attach.textContent = '📎'; attach.title = t('Attach image or file');
+    attach.className = 'btn-secondary';
+    attach.addEventListener('click', () => fileInput.click());
     const cancel = document.createElement('button');
     cancel.textContent = t('Cancel');
     cancel.className = 'btn-secondary';
     const save = document.createElement('button');
     save.textContent = t('Save');
     save.className = 'btn-primary';
-    bar.appendChild(cancel); // left
-    bar.appendChild(save);   // right
+    bar.appendChild(attach);  // left of the action buttons
+    bar.appendChild(cancel);
+    bar.appendChild(save);    // right
     wrap.appendChild(ta);
+    wrap.appendChild(attachWrap);
+    wrap.appendChild(fileInput);
     wrap.appendChild(bar);
     body.after(wrap);
 
-    const commit = () => vscode.postMessage({ type: 'editMessage', index, content: ta.value });
+    // Paste files straight into the edit area. (Drag-drop is intentionally not wired here: the
+    // composer owns a document-level drop handler, so a drop on this textarea would also land there.)
+    ta.addEventListener('paste', async (e) => {
+      const files = filesFromClipboard(e);
+      if (files.length) { e.preventDefault(); await addFilesTo(editAtts, files); renderAtts(); }
+    });
+
+    const commit = () => vscode.postMessage({ type: 'editMessage', index, content: ta.value, attachments: editAtts });
     const close = () => { body.style.display = ''; wrap.remove(); el.classList.remove('editing'); };
     save.addEventListener('click', commit);
     cancel.addEventListener('click', close);

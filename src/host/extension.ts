@@ -346,6 +346,7 @@ class ChatEditorProvider implements vscode.CustomTextEditorProvider {
         piper: this.piper, chatterbox: this.chatterbox,
         globalStorageUri: this.context.globalStorageUri,
         document, searchFiles, resolveSysPromptGlob, sysPromptPathAllowed, confirmDelete, resolveAttachment: attachStore.resolve,
+        storeAttachments: (atts) => attachStore.store(atts),
       }).catch((err) => {
         // A throwing handler would otherwise be an unhandled rejection: no log, and the UI left
         // hanging (e.g. a busy state never cleared). Log it and surface it to the webview.

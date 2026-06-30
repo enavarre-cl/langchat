@@ -1,6 +1,6 @@
 /** Message-editing + find/replace handlers (delete/merge/edit/replace), split from the router. */
 import { tr } from './i18n';
-import { isHiddenToolMsg } from './chatHelpers';
+import { isHiddenToolMsg, sanitizeAttachments } from './chatHelpers';
 import { replaceInString, FindOpts } from './findReplace';
 import { ChatMessage } from './providers/types';
 import type { RouterCtx, WebviewMessage } from './messageRouter';
@@ -81,6 +81,13 @@ export async function routeEdit(msg: WebviewMessage, ctx: RouterCtx): Promise<vo
         // If the message has variants, edit the active one.
         if (Array.isArray(m.variants) && typeof m.active === 'number' && m.variants[m.active]) {
           m.variants[m.active].content = msg.content;
+        }
+        // Attachments: when the edit UI sends an explicit list, re-store it (new blobs → .attach; the
+        // removed ones are pruned by writeDoc). Items arrive with inline `data`; an absent list (older
+        // clients / text-only edits) leaves the message's attachments untouched.
+        if (Array.isArray(msg.attachments)) {
+          const atts = sanitizeAttachments(msg.attachments);
+          m.attachments = atts.length ? await ctx.storeAttachments(atts) : undefined;
         }
         doc.summary = undefined; // content changed: invalidate the summary
         await ctx.writeDoc(doc);

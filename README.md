@@ -212,7 +212,8 @@ Jotflow is **MIT** licensed. It bundles or downloads third‑party components un
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.8.3** fixes cross-folder system-prompt
+See [CHANGELOG.md](CHANGELOG.md) for the release history. **2.8.4** lets you edit a message's
+**attachments** (remove/add photos), not just its text. **2.8.3** fixes cross-folder system-prompt
 globs (`../systems/*.md`) and flags missing layers in **red**. **2.8.2** polishes the side panels —
 **collapsible** tool activity with 256-char previews, and a tidier system-prompt layer list
 (start-truncated names, hover actions, no row jump). **2.8.0** drives the layered system prompt

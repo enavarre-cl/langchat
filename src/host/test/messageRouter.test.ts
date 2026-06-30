@@ -66,6 +66,10 @@ function makeCtx(opts: { doc?: ChatDoc | null; busy?: boolean; confirm?: boolean
     sysPromptPathAllowed: () => true,
     confirmDelete: async (...a: unknown[]): Promise<boolean> => { calls.push({ name: 'confirmDelete', args: a }); return opts.confirm !== false; },
     resolveAttachment: (a: unknown) => a,
+    storeAttachments: async (atts: { kind: string; name: string; mime: string }[]): Promise<unknown[]> => {
+      calls.push({ name: 'storeAttachments', args: [atts] });
+      return atts.map((a, i) => ({ kind: a.kind, name: a.name, mime: a.mime, ref: 'ref' + i }));
+    },
   };
   return { ctx: ctx as unknown as RouterCtx, calls };
 }
@@ -270,6 +274,29 @@ test('edit-family messages reach routeEdit and persist', async () => {
   const all = makeCtx({ doc: docWith([{ role: 'assistant', content: 'a a a' }]) });
   await route({ type: 'replaceAll', query: 'a', replacement: 'b' }, all.ctx);
   assert.ok(had(all.calls, 'writeDoc') && had(all.calls, 'sendHistory'), 'replaceAll');
+});
+
+test('editMessage re-stores a sent attachment list, and an empty list clears attachments', async () => {
+  const withOld = () => docWith([{ role: 'user', content: 'hi',
+    attachments: [{ kind: 'image', name: 'old.png', mime: 'image/png', ref: 'r0' }] }]);
+
+  // New inline-data attachment → stored via ctx.storeAttachments, message holds the returned refs.
+  const add = makeCtx({ doc: withOld() });
+  await route({ type: 'editMessage', index: 0, content: 'hi+', attachments: [
+    { kind: 'image', name: 'new.png', mime: 'image/png', data: 'AAAA' }] }, add.ctx);
+  assert.ok(had(add.calls, 'storeAttachments'), 'stored the new attachment');
+  assert.equal(add.ctx.getDoc()!.messages[0].content, 'hi+');
+  assert.deepEqual(add.ctx.getDoc()!.messages[0].attachments, [{ kind: 'image', name: 'new.png', mime: 'image/png', ref: 'ref0' }]);
+
+  // Empty list → attachments cleared (writeDoc then prunes the orphaned blob).
+  const clear = makeCtx({ doc: withOld() });
+  await route({ type: 'editMessage', index: 0, content: 'hi', attachments: [] }, clear.ctx);
+  assert.equal(clear.ctx.getDoc()!.messages[0].attachments, undefined);
+
+  // No attachments field (text-only edit) → existing attachments untouched.
+  const keep = makeCtx({ doc: withOld() });
+  await route({ type: 'editMessage', index: 0, content: 'hi' }, keep.ctx);
+  assert.equal(keep.ctx.getDoc()!.messages[0].attachments?.length, 1);
 });
 
 // ── System-prompt layers (delegated to routeSysPrompt) ──────────────────────────────────────────

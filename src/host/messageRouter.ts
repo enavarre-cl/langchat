@@ -91,6 +91,8 @@ export interface RouterCtx {
   sysPromptPathAllowed: (resolved: string) => boolean;
   confirmDelete: (msg: WebviewMessage, text: string) => Promise<boolean>;
   resolveAttachment: (a: Attachment) => Attachment;
+  /** Persists inline-data attachments to the `.attach` sidecar, returning their `{…,ref}` form. */
+  storeAttachments: (atts: Attachment[]) => Promise<Attachment[]>;
 }
 
 /** Routes one webview→host message. */

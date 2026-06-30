@@ -145,6 +145,12 @@
   gap: 6px;
   margin-top: 4px;
 }
+/* Attachment chips while editing a message (same chips as the composer; .hidden when there are none). */
+.edit-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 .edit-area {
   width: 100%;
   min-height: 60px;

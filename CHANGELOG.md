@@ -5,6 +5,20 @@ All notable changes to Jotflow. Format based on
 
 ## [Unreleased]
 
+## [2.8.4] - 2026-06-29
+
+### Added
+- **Edit a message's attachments, not just its text.** Inline editing now shows the message's current
+  attachments as removable chips and lets you add new ones (**📎** picker or **paste**) — previously
+  only the text was editable, so a photo on an old message couldn't be removed or replaced. On save the
+  new set is re-stored to the `.attach` sidecar and orphaned blobs are pruned. (Drag-drop stays
+  composer-only; paste/pick cover editing.)
+
+### Internal
+- The composer's file→attachment + chip-rendering logic moved to a shared `chat/attachments.ts`, used
+  by both the composer and inline editing (composer 219 → 155 lines). `editMessage` carries the
+  attachment list (`storeAttachments` on the router ctx); a unit test covers add/clear/leave-untouched.
+
 ## [2.8.3] - 2026-06-29
 
 ### Fixed

@@ -2,12 +2,12 @@
  * Composer: the input box, attachments (drag/drop, paste, file picker), send, streaming/
  * summarizing busy-state of the send button, and chat-local zoom.
  */
-import { t } from '../core/i18n.js';
 import { vscode } from '../core/vscode.js';
 import { clampZoom, stepZoom } from '../../shared/zoomMath.js';
-import { $, setImageSrc } from '../core/dom.js';
+import { $ } from '../core/dom.js';
+import { addFilesTo, renderAttachChips, filesFromClipboard } from './attachments.js';
 import { getDoc } from '../ui/store.js';
-import { notice, clearNotices } from '../ui/notifications.js';
+import { clearNotices } from '../ui/notifications.js';
 import { cancelOpenPrompt } from '../ui/prompt.js';
 import { addMessage } from './message.js';
 import { resetScroll, resetTools } from './conversation.js';
@@ -42,71 +42,11 @@ export function setSummarizing(on) {
   if (inputBox) inputBox.classList.toggle('busy', on);
 }
 
-// ---- Attachments ----
-  const IMG_RE = /^image\//;
-  const TEXT_EXT = /\.(txt|md|json|csv|js|ts|tsx|jsx|py|java|c|cpp|h|go|rs|rb|php|html|css|scss|xml|yaml|yml|toml|ini|sh|sql|log|env)$/i;
-  function isTextLike(file) {
-    if (/^text\//.test(file.type)) return true;
-    if (/(json|xml|javascript|yaml|csv|markdown|x-sh|x-python)/i.test(file.type)) return true;
-    if (!file.type) return TEXT_EXT.test(file.name || ''); // unknown mime: fall back to extension
-    return false;
-  }
-  function readBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => { const url = String(reader.result); resolve(url.slice(url.indexOf(',') + 1)); };
-      reader.onerror = () => reject(reader.error || new Error('read error'));
-      reader.readAsDataURL(file);
-    });
-  }
-  async function fileToAttachment(file) {
-    if (IMG_RE.test(file.type)) {
-      return { kind: 'image', name: file.name || 'image.png', mime: file.type || 'image/png', data: await readBase64(file) };
-    }
-    if (isTextLike(file)) {
-      const text = await new Promise((resolve, reject) => {
-        const rd = new FileReader();
-        rd.onload = () => resolve(String(rd.result));
-        rd.onerror = () => reject(rd.error || new Error('read error'));
-        rd.readAsText(file);
-      });
-      return { kind: 'text', name: file.name || 'file.txt', mime: file.type || 'text/plain', data: text };
-    }
-    // PDF, docx, binaries… → base64 document
-    return { kind: 'document', name: file.name || 'document', mime: file.type || 'application/octet-stream', data: await readBase64(file) };
-  }
-
-  async function addFiles(files) {
-    for (const file of files) {
-      if (file.size > 20 * 1024 * 1024) { notice(t('Attachment too large (max 20 MB): ') + file.name, true); continue; }
-      try {
-        pending.push(await fileToAttachment(file));
-      } catch (e) {
-        notice(t('Could not read the file: ') + (file.name || ''), true);
-      }
-    }
-    renderPending();
-  }
-
+// ---- Attachments (helpers shared with inline editing: ./attachments.js) ----
+  async function addFiles(files) { await addFilesTo(pending, files); renderPending(); }
   function renderPending() {
-    attachmentsEl.innerHTML = '';
     attachmentsEl.classList.toggle('hidden', pending.length === 0);
-    pending.forEach((a, i) => {
-      const chip = document.createElement('span');
-      chip.className = 'attach-chip';
-      if (a.kind === 'image') {
-        const img = document.createElement('img');
-        setImageSrc(img, a.mime, a.data);
-        chip.appendChild(img);
-      } else {
-        chip.appendChild(document.createTextNode('📄 ' + a.name));
-      }
-      const x = document.createElement('button');
-      x.textContent = '×'; x.title = t('Remove');
-      x.addEventListener('click', () => { pending.splice(i, 1); renderPending(); });
-      chip.appendChild(x);
-      attachmentsEl.appendChild(chip);
-    });
+    renderAttachChips(attachmentsEl, pending, renderPending);
   }
 
 // ---- Send ----
@@ -195,11 +135,7 @@ export function initComposer() {
     if (f && f.length) addFiles([...f]);
   });
   inputEl.addEventListener('paste', (e) => {
-    const items = (e.clipboardData && e.clipboardData.items) || [];
-    const files = [];
-    for (const it of items) {
-      if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
-    }
+    const files = filesFromClipboard(e);
     if (files.length) { e.preventDefault(); addFiles(files); }
   });
   // Zoom: Alt+wheel, Alt+0 handled in main; toolbar buttons here
